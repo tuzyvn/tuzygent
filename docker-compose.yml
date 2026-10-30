@@ -1,0 +1,18 @@
+services:
+  agent-core-daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-core-daemon
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info,agent_server=debug
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

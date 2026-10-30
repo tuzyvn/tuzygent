@@ -1,0 +1,22 @@
+[package]
+name = "agent-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+agent-domain.workspace = true
+agent-engine.workspace = true
+agent-memory.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+anyhow.workspace = true
+nix = { version = "0.29", features = ["signal", "process"] }
+libc = "0.2"
+sha2 = "0.10"

@@ -1,0 +1,44 @@
+[workspace]
+members = [
+    "crates/agent-domain",
+    "crates/agent-engine",
+    "crates/agent-memory",
+    "crates/agent-runtime",
+    "crates/agent-core",
+    "crates/agent-cli",
+    "crates/agent-server",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Enterprise Architect & Tech Lead <architect@enterprise.local>"]
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+tokio = { version = "1.54.1", features = ["full"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.149"
+thiserror = "2.0.21"
+anyhow = "1.0.103"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
+clap = { version = "4.6.7", features = ["derive", "env"] }
+async-trait = "0.1.92"
+uuid = { version = "1.29.0", features = ["v4", "serde"] }
+chrono = { version = "0.4.45", features = ["serde"] }
+reqwest = { version = "0.13.5", features = ["json"] }
+portable-pty = "0.9.0"
+serde_yaml_ng = "0.10"
+axum = { version = "0.8", features = ["ws"] }
+tower = { version = "0.5" }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+futures = "0.3"
+
+# Local crates
+agent-domain = { path = "crates/agent-domain" }
+agent-engine = { path = "crates/agent-engine" }
+agent-memory = { path = "crates/agent-memory" }
+agent-runtime = { path = "crates/agent-runtime" }
+agent-core = { path = "crates/agent-core" }
