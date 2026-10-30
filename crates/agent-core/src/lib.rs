@@ -42,15 +42,13 @@ pub mod prelude {
         RigSpec, SeatSnapshot, SubTask, Task, TaskId, TaskStatus, VoiceEngineType, VoiceProfile,
     };
     pub use agent_engine::{
-        api::OpenAiCompatibleEngine,
-        cli::AntigravityEngine,
-        ComputeEngine, EngineInput, EngineOutput,
+        api::OpenAiCompatibleEngine, cli::AntigravityEngine, cli::ClaudeCodeEngine,
+        cli::GenericCliEngine, config::EnginesConfig, config::SingleEngineConfig,
+        router::EngineRouter, ComputeEngine, EngineInput, EngineKind, EngineOutput,
     };
-    pub use agent_memory::{
-        DurableMemoryStore, PersonaLoader, ScratchpadManager, SkillRegistry,
-    };
+    pub use agent_memory::{DurableMemoryStore, PersonaLoader, ScratchpadManager, SkillRegistry};
     pub use agent_runtime::{
-        AgentSupervisor, AutonomousOodaLoop, InterAgentBus, KernelOperator,
-        WorkflowOrchestrator, WsRpcClient,
+        AgentSupervisor, AutonomousOodaLoop, InterAgentBus, IsolationMode, KernelOperator,
+        SandboxConfig, SandboxDriverKind, SandboxEnvironment, WorkflowOrchestrator, WsRpcClient,
     };
 }

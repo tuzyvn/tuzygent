@@ -1,8 +1,8 @@
+use crate::bus::InterAgentBus;
+use agent_domain::{AgentId, AgentIdentity};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use agent_domain::{AgentId, AgentIdentity};
-use crate::bus::InterAgentBus;
 
 #[derive(Debug, Clone)]
 pub enum AgentState {

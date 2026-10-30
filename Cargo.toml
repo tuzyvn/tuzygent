@@ -35,6 +35,7 @@ axum = { version = "0.8", features = ["ws"] }
 tower = { version = "0.5" }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 futures = "0.3"
+toml = "0.8"
 
 # Local crates
 agent-domain = { path = "crates/agent-domain" }

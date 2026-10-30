@@ -25,7 +25,9 @@ pub struct HarnessMemoryStore {
 
 impl HarnessMemoryStore {
     pub fn new(workspace_dir: &str) -> Self {
-        let memory_dir = Path::new(workspace_dir).join("storage").join("harness_memory");
+        let memory_dir = Path::new(workspace_dir)
+            .join("storage")
+            .join("harness_memory");
         let _ = std::fs::create_dir_all(&memory_dir);
         let memory_path = memory_dir.join("lessons.json");
         Self { memory_path }
@@ -57,7 +59,8 @@ impl HarnessMemoryStore {
         if let Some(existing) = lessons.iter_mut().find(|l| {
             l.node_type == node_type
                 && l.identifier == identifier
-                && (l.error_pattern.contains(error_pattern) || error_pattern.contains(&l.error_pattern))
+                && (l.error_pattern.contains(error_pattern)
+                    || error_pattern.contains(&l.error_pattern))
         }) {
             existing.success_count += 1;
             existing.last_applied_at = Some(now_str);
@@ -83,22 +86,30 @@ impl HarnessMemoryStore {
     }
 
     /// Tìm các bài học kinh nghiệm liên quan trước khi chạy Node
-    pub async fn find_relevant_lessons(&self, node_type: &str, identifier: &str) -> Vec<HarnessLesson> {
+    pub async fn find_relevant_lessons(
+        &self,
+        node_type: &str,
+        identifier: &str,
+    ) -> Vec<HarnessLesson> {
         let lessons = self.load_lessons().await;
         lessons
             .into_iter()
-            .filter(|l| l.node_type == node_type && (l.identifier == identifier || l.identifier == "*"))
+            .filter(|l| {
+                l.node_type == node_type && (l.identifier == identifier || l.identifier == "*")
+            })
             .collect()
     }
 
     async fn save_all(&self, lessons: &[HarnessLesson]) -> Result<()> {
         if let Some(parent) = self.memory_path.parent() {
-            tokio::fs::create_dir_all(parent).await
+            tokio::fs::create_dir_all(parent)
+                .await
                 .map_err(|e| anyhow!("Không tạo được thư mục harness_memory: {}", e))?;
         }
         let json_data = serde_json::to_string_pretty(lessons)
             .map_err(|e| anyhow!("Lỗi serialize harness lessons: {}", e))?;
-        tokio::fs::write(&self.memory_path, json_data).await
+        tokio::fs::write(&self.memory_path, json_data)
+            .await
             .map_err(|e| anyhow!("Không ghi được file harness lessons: {}", e))?;
         Ok(())
     }
@@ -118,7 +129,8 @@ impl HarnessSelfHealer {
     ) -> String {
         let mut lesson_prompt = String::new();
         if !lessons.is_empty() {
-            lesson_prompt.push_str("\n\n[Harness² Collective Memory - Bài học kinh nghiệm đã tích lũy]:\n");
+            lesson_prompt
+                .push_str("\n\n[Harness² Collective Memory - Bài học kinh nghiệm đã tích lũy]:\n");
             for (idx, les) in lessons.iter().enumerate() {
                 lesson_prompt.push_str(&format!(
                     " - #{}: Lỗi trước đó '{}' -> Khắc phục: '{}'\n",
@@ -149,11 +161,16 @@ impl HarnessSelfHealer {
     }
 
     /// Bước 1 (Propose) cho Tool Node: Đề xuất khắc phục lệnh shell hoặc cờ an toàn khi tool thất bại
-    pub fn propose_tool_refinement(original_cmd: &str, stderr: &str, exit_code: i32) -> Option<String> {
+    pub fn propose_tool_refinement(
+        original_cmd: &str,
+        stderr: &str,
+        exit_code: i32,
+    ) -> Option<String> {
         let stderr_lower = stderr.to_lowercase();
 
         // 1. Nếu thiếu thư mục tạo file output -> tự động chèn mkdir -p
-        if stderr_lower.contains("no such file or directory") || stderr_lower.contains("not found") {
+        if stderr_lower.contains("no such file or directory") || stderr_lower.contains("not found")
+        {
             if let Some(pos) = original_cmd.find("--output-dir ") {
                 let rest = &original_cmd[pos + 13..];
                 let out_dir = rest.split_whitespace().next().unwrap_or("storage");
@@ -163,7 +180,10 @@ impl HarnessSelfHealer {
 
         // 2. Nếu thiếu permission -> thử chạy với bash trực tiếp hoặc sanitize path
         if exit_code == 127 || stderr_lower.contains("permission denied") {
-            return Some(format!("chmod +x scripts/*.py 2>/dev/null; {}", original_cmd));
+            return Some(format!(
+                "chmod +x scripts/*.py 2>/dev/null; {}",
+                original_cmd
+            ));
         }
 
         None

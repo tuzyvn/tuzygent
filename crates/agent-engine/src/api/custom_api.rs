@@ -1,7 +1,7 @@
+use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use async_trait::async_trait;
 use serde_json::json;
 use std::time::Instant;
-use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 
 pub struct CustomAgentApiEngine {
     pub endpoint_url: String,
@@ -34,9 +34,10 @@ impl ComputeEngine for CustomAgentApiEngine {
             req = req.bearer_auth(key);
         }
 
-        let res = req.send().await.map_err(|e| {
-            EngineError::ApiRequestFailed(format!("HTTP request error: {}", e))
-        })?;
+        let res = req
+            .send()
+            .await
+            .map_err(|e| EngineError::ApiRequestFailed(format!("HTTP request error: {}", e)))?;
 
         let status = res.status().as_u16() as i32;
         let body = res.text().await.map_err(|e| {

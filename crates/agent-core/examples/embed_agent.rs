@@ -35,13 +35,7 @@ async fn main() -> anyhow::Result<()> {
     let engine = Arc::new(AntigravityEngine::new(None, None));
 
     // 5. Khởi tạo OODA Loop thực thi tự chủ
-    let _ooda = AutonomousOodaLoop::new(
-        engine,
-        guardrails,
-        scratchpad,
-        durable,
-        ".",
-    );
+    let _ooda = AutonomousOodaLoop::new(engine, guardrails, scratchpad, durable, ".");
 
     println!("🤖 Agent sẵn sàng nhận lệnh. Danh sách agent hiện hành trong Supervisor:");
     for (id, state) in supervisor.list_agents().await {

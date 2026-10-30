@@ -1,5 +1,5 @@
-use tokio::sync::broadcast;
 use agent_domain::InterAgentEvent;
+use tokio::sync::broadcast;
 
 #[derive(Clone)]
 pub struct InterAgentBus {

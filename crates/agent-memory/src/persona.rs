@@ -110,7 +110,10 @@ impl PersonaLoader {
             } else {
                 "Execute assigned goals with high fidelity and zero defect".to_string()
             },
-            kpis: vec!["100% test pass rate".to_string(), "Zero red line violation".to_string()],
+            kpis: vec![
+                "100% test pass rate".to_string(),
+                "Zero red line violation".to_string(),
+            ],
             constraints: vec![
                 "Never execute destructive irreversible operations without approval".to_string(),
                 "Strict verification after action".to_string(),

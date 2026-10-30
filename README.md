@@ -98,9 +98,10 @@ cargo run -p agent-server -- --host 0.0.0.0 --port 8080 --workspace .
 
 ### Các Endpoint chính:
 - **`GET /health`**: Kiểm tra trạng thái server.
+- **`GET /api/v1/engines`**: Xem cấu hình các AI CLI engine đã nạp và trạng thái sandbox OS.
 - **`GET /api/v1/agents`**: Lấy danh sách nhân viên số đang hoạt động.
 - **`POST /api/v1/agents`**: Đăng ký agent mới.
-- **`POST /api/v1/tasks/run`**: Giao mục tiêu cho Agent thực thi tự chủ OODA loop.
+- **`POST /api/v1/tasks/run`**: Giao mục tiêu cho Agent thực thi tự chủ OODA loop (chọn engine & sandbox).
 - **`GET /api/v1/ws`**: Kênh WebSocket stream thời gian thực toàn bộ sự kiện từ `InterAgentBus`.
 
 ---
@@ -113,22 +114,62 @@ cargo build --release -p agent-cli
 # Binary nằm tại: target/release/agent-ctl
 ```
 
-Các lệnh quản trị:
+Các lệnh quản trị và điều phối OS AI:
 ```bash
-# 1. Liệt kê danh sách agent
+# 1. Liệt kê và kiểm tra kết nối các AI CLI engine của hệ thống
+./target/release/agent-ctl engines --workspace .
+# Test nhanh kết nối engine:
+./target/release/agent-ctl engines --test fast_echo
+
+# 2. Liệt kê danh sách agent
 ./target/release/agent-ctl list
 
-# 2. Tạo agent mới
+# 3. Tạo agent mới
 ./target/release/agent-ctl create --id "sre-01" --name "SRE DevOps Lead" --autonomy "full"
 
-# 3. Giao task cho Agent
-./target/release/agent-ctl run --agent-id "sre-01" --goal "Tối ưu hóa Docker và kiểm tra bảo mật"
+# 4. Giao task cho Agent (kèm chỉ định engine và sandbox)
+./target/release/agent-ctl run --agent-id "sre-01" --goal "Tối ưu hóa Docker và kiểm tra bảo mật" --engine antigravity --sandbox bubblewrap
 
-# 4. Chạy mô phỏng phối hợp đa tác tử (Multi-agent collaboration qua Bus)
+# 5. Chạy mô phỏng phối hợp đa tác tử (Multi-agent collaboration qua Bus)
 ./target/release/agent-ctl demo-multi-agent
 
-# 5. Khởi động team đa tác tử theo OpenRig Spec
+# 6. Khởi động team đa tác tử theo OpenRig Spec
 ./target/release/agent-ctl rig up --spec rigs/software-dev.yaml
+```
+
+---
+
+## 5. CẤU HÌNH AI CLI ENGINE & SANDBOX (`tuzygent.toml`)
+
+Hệ thống hỗ trợ nạp cấu hình phân tầng từ `~/.tuzygent/engines.toml` (OS-wide) và `tuzygent.toml` (workspace local):
+
+```toml
+[defaults]
+engine = "antigravity"
+timeout_seconds = 180
+sandbox_driver = "bubblewrap" # "bubblewrap" (Linux native), "docker", "host"
+
+[security]
+allowed_env_vars = ["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTIGRAVITY_API_KEY"]
+mount_credentials = [
+    { source = "~/.gemini", target = "/root/.gemini", readonly = true },
+    { source = "~/.claude", target = "/root/.claude", readonly = true }
+]
+
+[engines.antigravity]
+kind = "antigravity"
+binary_path = "agy"
+args = ["--interactive=false", "--output-format", "stream-json", "--message", "{prompt}"]
+
+[engines.claude]
+kind = "claude_code"
+binary_path = "claude"
+args = ["-p", "{prompt}", "--output-format", "json"]
+
+[engines.generic_ollama]
+kind = "generic"
+binary_path = "ollama"
+args = ["run", "qwen2.5-coder:7b", "{prompt}"]
 ```
 
 ---

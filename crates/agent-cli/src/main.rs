@@ -1,16 +1,19 @@
+use agent_domain::{
+    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel,
+    GuardrailPolicy, Priority, RigSpec, Task, VoiceEngineType, VoiceProfile,
+};
+use agent_engine::api::OpenAiCompatibleEngine;
+use agent_engine::cli::{AntigravityEngine, ClaudeCodeEngine, GenericCliEngine};
+use agent_engine::config::EnginesConfig;
+use agent_engine::{ComputeEngine, EngineInput};
+use agent_memory::{DurableMemoryStore, PersonaLoader, ScratchpadManager};
+use agent_runtime::{
+    AgentSupervisor, AutonomousOodaLoop, InterAgentBus, KernelOperator, SandboxConfig,
+    SandboxDriverKind,
+};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::sync::Arc;
-use agent_domain::{
-    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel,
-    VoiceEngineType, VoiceProfile,
-    GuardrailPolicy, Priority, Task, RigSpec,
-};
-use agent_engine::api::OpenAiCompatibleEngine;
-use agent_engine::cli::AntigravityEngine;
-use agent_engine::{ComputeEngine, EngineInput};
-use agent_memory::{DurableMemoryStore, PersonaLoader, ScratchpadManager};
-use agent_runtime::{AgentSupervisor, AutonomousOodaLoop, InterAgentBus, KernelOperator};
 
 #[derive(Parser)]
 #[command(name = "agent-ctl")]
@@ -43,8 +46,17 @@ enum Commands {
         workspace: String,
         #[arg(short, long, default_value = "antigravity")]
         engine: String,
+        #[arg(long)]
+        sandbox: Option<String>,
         #[arg(short, long)]
         persona_path: Option<String>,
+    },
+    /// List, inspect or test configured AI CLI engines
+    Engines {
+        #[arg(short, long, default_value = ".")]
+        workspace: String,
+        #[arg(long)]
+        test: Option<String>,
     },
     /// Execute an entire multi-agent workflow DAG definition from catalog.json
     RunWorkflow {
@@ -164,29 +176,79 @@ async fn main() -> anyhow::Result<()> {
             println!("👥 Registered Autonomous Agents:");
             let agents = supervisor.list_agents().await;
             if agents.is_empty() {
-                println!("   (No agents found. Use `agent-ctl create` or try `agent-ctl multi-agent`)");
+                println!(
+                    "   (No agents found. Use `agent-ctl create` or try `agent-ctl multi-agent`)"
+                );
             } else {
                 for (id, state) in agents {
-                    println!("   • {} [{:?}] - State: {:?}", id.name, id.autonomy_level, state);
+                    println!(
+                        "   • {} [{:?}] - State: {:?}",
+                        id.name, id.autonomy_level, state
+                    );
                 }
             }
         }
-        Commands::Run { agent_id, goal, workspace, engine, persona_path } => {
+        Commands::Run {
+            agent_id,
+            goal,
+            workspace,
+            engine,
+            sandbox,
+            persona_path,
+        } => {
             println!("🚀 Dispatching goal to Agent [{}]: {}", agent_id, goal);
 
-            let compute_engine: Arc<dyn ComputeEngine> = if engine.to_lowercase() == "antigravity" || engine.to_lowercase() == "agy" {
-                println!("⚡ Using Antigravity Native Engine");
-                Arc::new(AntigravityEngine::new(None, None))
-            } else if engine.to_lowercase() == "omniroute" || engine.to_lowercase() == "local" {
-                println!("🌐 Using OmniRoute Local LLM Engine");
-                Arc::new(OpenAiCompatibleEngine::new(
-                    "http://127.0.0.1:20128/v1",
-                    "omniroute",
-                    "local",
-                ))
+            let ws_path = std::path::Path::new(&workspace);
+            let config = EnginesConfig::load_hierarchical(Some(ws_path));
+            let engine_name = if engine.is_empty() {
+                &config.defaults.engine
             } else {
-                println!("⚡ Defaulting to Antigravity Native Engine");
-                Arc::new(AntigravityEngine::new(None, None))
+                &engine
+            };
+
+            let compute_engine: Arc<dyn ComputeEngine> = match engine_name.to_lowercase().as_str() {
+                "claude" | "claude_code" => {
+                    println!("⚡ Using Claude Code CLI Engine");
+                    let single = config.engines.get("claude");
+                    Arc::new(ClaudeCodeEngine::new(
+                        single.and_then(|s| s.binary_path.clone()),
+                        single.and_then(|s| s.model.clone()),
+                    ))
+                }
+                "omniroute" | "local" => {
+                    println!("🌐 Using OmniRoute Local LLM Engine");
+                    Arc::new(OpenAiCompatibleEngine::new(
+                        "http://127.0.0.1:20128/v1",
+                        "omniroute",
+                        "local",
+                    ))
+                }
+                "antigravity" | "agy" => {
+                    println!("⚡ Using Antigravity Native Engine");
+                    let single = config.engines.get("antigravity");
+                    Arc::new(AntigravityEngine::new(
+                        single.and_then(|s| s.binary_path.clone()),
+                        single.and_then(|s| s.model.clone()),
+                    ))
+                }
+                other => {
+                    if let Some(single) = config.engines.get(other) {
+                        println!("⚡ Using Custom/Generic CLI Engine [{}]", other);
+                        Arc::new(GenericCliEngine::new(
+                            other.to_string(),
+                            single
+                                .binary_path
+                                .clone()
+                                .unwrap_or_else(|| other.to_string()),
+                            single.args.clone(),
+                            single.env.clone(),
+                            single.output_parser.clone(),
+                        ))
+                    } else {
+                        println!("⚡ Defaulting to Antigravity Native Engine (requested '{}' not in config)", other);
+                        Arc::new(AntigravityEngine::new(None, None))
+                    }
+                }
             };
 
             let guardrail = GuardrailPolicy::default_enterprise();
@@ -196,34 +258,177 @@ async fn main() -> anyhow::Result<()> {
             // Nạp Persona Profile nếu có
             if let Some(ref p_path) = persona_path {
                 if let Ok(profile) = PersonaLoader::load_from_dir(p_path).await {
-                    println!("👤 Active Persona: {} ({})", profile.identity.name, profile.role.title);
+                    println!(
+                        "👤 Active Persona: {} ({})",
+                        profile.identity.name, profile.role.title
+                    );
                 }
             }
 
-            let ooda = AutonomousOodaLoop::new(compute_engine, guardrail, scratchpad, durable, &workspace);
+            let mut sandbox_cfg = SandboxConfig::default();
+            if let Some(ref sb) = sandbox {
+                match sb.to_lowercase().as_str() {
+                    "docker" => sandbox_cfg.driver = SandboxDriverKind::Docker,
+                    "bubblewrap" | "bwrap" => sandbox_cfg.driver = SandboxDriverKind::Bubblewrap,
+                    "host" => sandbox_cfg.driver = SandboxDriverKind::Host,
+                    _ => {}
+                }
+            }
+
+            println!("🛡️  Active Sandbox Driver: {}", sandbox_cfg.driver);
+
+            let cli_bus = InterAgentBus::new(200);
+            let mut cli_rx = cli_bus.subscribe();
+
+            // Background streaming printer for live terminal updates
+            let stream_printer = tokio::spawn(async move {
+                use std::io::Write;
+                while let Ok(evt) = cli_rx.recv().await {
+                    match evt.event_type.as_str() {
+                        "task.subtask_executing" => {
+                            if let Some(title) = evt.payload.get("title").and_then(|t| t.as_str()) {
+                                println!("\n🔹 [Executing Step]: {}", title);
+                            }
+                        }
+                        "task.stream_delta" => {
+                            if let Some(delta) = evt.payload.get("delta").and_then(|d| d.as_str()) {
+                                print!("{}", delta);
+                                let _ = std::io::stdout().flush();
+                            }
+                        }
+                        "task.git_diff" => {
+                            if let Some(diff) = evt.payload.get("diff").and_then(|d| d.as_str()) {
+                                println!("\n📊 [Code Diff Detected]:\n{}", diff);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            });
+
+            let ooda =
+                AutonomousOodaLoop::new(compute_engine, guardrail, scratchpad, durable, &workspace)
+                    .with_sandbox_config(sandbox_cfg)
+                    .with_bus(cli_bus);
 
             let mut task = Task::new(&goal, &goal, Priority::High);
             task.assigned_agent = Some(AgentId::from_str(&agent_id));
 
-            let final_status = ooda.run_goal(&mut task).await.map_err(|e| anyhow::anyhow!(e))?;
-            println!("🏁 Mission Finished with Status: {:?}", final_status);
+            let final_status = ooda
+                .run_goal(&mut task)
+                .await
+                .map_err(|e| anyhow::anyhow!(e))?;
+
+            stream_printer.abort();
+            println!("\n🏁 Mission Finished with Status: {:?}", final_status);
         }
-        Commands::RunWorkflow { workflow_id, catalog_path, workspace } => {
-            println!("⚡ [Workflow Orchestrator] Nạp catalog từ: {}", catalog_path);
+        Commands::Engines { workspace, test } => {
+            let ws_path = std::path::Path::new(&workspace);
+            let config = EnginesConfig::load_hierarchical(Some(ws_path));
+            let detected_driver = SandboxConfig::detect_best_driver();
+
+            println!("============================================================");
+            println!("🛠️  TUZYGENT OS AI CORE ENGINES & SANDBOX CONFIGURATION");
+            println!("============================================================");
+            println!("📌 Default Engine:        {}", config.defaults.engine);
+            println!(
+                "⏱️  Default Timeout:       {}s",
+                config.defaults.timeout_seconds
+            );
+            println!(
+                "🛡️  Configured Sandbox:   {}",
+                config.defaults.sandbox_driver
+            );
+            println!("🔍 Detected OS Sandbox:   {}", detected_driver);
+            println!("\n📦 Registered Engines ({}):", config.engines.len());
+            for (id, eng) in &config.engines {
+                println!("  • [{}] (kind: {})", id, eng.kind);
+                if let Some(ref bin) = eng.binary_path {
+                    println!("      Binary: {}", bin);
+                }
+                println!("      Args:   {:?}", eng.args);
+                if let Some(ref m) = eng.model {
+                    println!("      Model:  {}", m);
+                }
+                if let Some(ref fb) = eng.interactive_fallback {
+                    println!("      Interactive Fallback: {}", fb);
+                }
+            }
+
+            println!("\n🔐 Allowed Credential Passthrough:");
+            for cred in &config.security.mount_credentials {
+                println!(
+                    "  • {} -> {} (ro: {})",
+                    cred.source, cred.target, cred.readonly
+                );
+            }
+            println!("  Env Whitelist: {:?}", config.security.allowed_env_vars);
+
+            if let Some(target_engine) = test {
+                println!("\n🧪 Testing execution on engine [{}]...", target_engine);
+                let test_input = EngineInput {
+                    prompt_or_command: "Respond with 'Hello from Tuzygent OS AI Core' in one line"
+                        .to_string(),
+                    system_context: String::new(),
+                    working_dir: workspace.clone(),
+                    timeout_seconds: 15,
+                    on_stream_chunk: None,
+                };
+
+                let router = agent_engine::EngineRouter::from_config(&config);
+                let start = std::time::Instant::now();
+                match router
+                    .dispatch_by_name(Some(&target_engine), &test_input)
+                    .await
+                {
+                    Ok(out) => {
+                        println!(
+                            "  ✅ Success in {}ms (exit code: {})",
+                            out.execution_duration_ms, out.exit_code
+                        );
+                        println!("  📄 Output:\n{}", out.stdout_content.trim());
+                    }
+                    Err(e) => {
+                        println!(
+                            "  ❌ Test failed in {}ms: {}",
+                            start.elapsed().as_millis(),
+                            e
+                        );
+                    }
+                }
+            }
+            println!("============================================================");
+        }
+        Commands::RunWorkflow {
+            workflow_id,
+            catalog_path,
+            workspace,
+        } => {
+            println!(
+                "⚡ [Workflow Orchestrator] Nạp catalog từ: {}",
+                catalog_path
+            );
             let catalog_data = tokio::fs::read(&catalog_path)
                 .await
                 .map_err(|e| anyhow::anyhow!("Không đọc được file catalog: {}", e))?;
-            let workflows: Vec<agent_runtime::WorkflowDefinition> = serde_json::from_slice(&catalog_data)
-                .map_err(|e| anyhow::anyhow!("Lỗi parse JSON catalog: {}", e))?;
+            let workflows: Vec<agent_runtime::WorkflowDefinition> =
+                serde_json::from_slice(&catalog_data)
+                    .map_err(|e| anyhow::anyhow!("Lỗi parse JSON catalog: {}", e))?;
 
             let wf = workflows
                 .into_iter()
                 .find(|w| w.id == workflow_id)
                 .ok_or_else(|| anyhow::anyhow!("Không tìm thấy workflow có ID: {}", workflow_id))?;
 
-            println!("🚀 Bắt đầu điều phối DAG: {} (v{})", wf.name, wf.version.as_deref().unwrap_or("1.0.0"));
+            println!(
+                "🚀 Bắt đầu điều phối DAG: {} (v{})",
+                wf.name,
+                wf.version.as_deref().unwrap_or("1.0.0")
+            );
             let orchestrator = agent_runtime::WorkflowOrchestrator::new(&workspace, "personas");
-            let report = orchestrator.execute_workflow(&wf, None, "agent-ctl CLI").await?;
+            let report = orchestrator
+                .execute_workflow(&wf, None, "agent-ctl CLI")
+                .await?;
 
             println!("\n📊 KẾT QUẢ ĐIỀU PHỐI WORKFLOW DAG:");
             println!("   • Run ID: {}", report.run_id);
@@ -231,7 +436,13 @@ async fn main() -> anyhow::Result<()> {
             println!("   • Trạng thái: {}", report.status);
             println!("   • Các Node đã hoàn tất:");
             for (_node_id, res) in &report.node_results {
-                println!("     - [{}] {} ({:?}ms, engine: {})", res.node_type, res.node_name, res.execution_ms, res.engine_used.as_deref().unwrap_or("none"));
+                println!(
+                    "     - [{}] {} ({:?}ms, engine: {})",
+                    res.node_type,
+                    res.node_name,
+                    res.execution_ms,
+                    res.engine_used.as_deref().unwrap_or("none")
+                );
             }
 
             // Ghi nhận trực tiếp vào runs/history.json để Dashboard hiển thị
@@ -240,7 +451,11 @@ async fn main() -> anyhow::Result<()> {
                 let _ = tokio::fs::create_dir_all(parent).await;
             }
             let mut all_runs: Vec<agent_runtime::WorkflowRunReport> = if runs_file.exists() {
-                tokio::fs::read(runs_file).await.ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+                tokio::fs::read(runs_file)
+                    .await
+                    .ok()
+                    .and_then(|b| serde_json::from_slice(&b).ok())
+                    .unwrap_or_default()
             } else {
                 Vec::new()
             };
@@ -253,26 +468,28 @@ async fn main() -> anyhow::Result<()> {
         Commands::DemoMultiAgent { engine, workspace } => {
             println!("🤖🤖 Khởi chạy hệ thống Hợp tác Đa tác tử Tự trị (Real Multi-Agent Collaboration)...");
 
-            let compute_engine: Arc<dyn ComputeEngine> = if engine.to_lowercase() == "antigravity" || engine.to_lowercase() == "agy" {
-                println!("⚡ Using Antigravity Native Engine");
-                Arc::new(AntigravityEngine::new(None, None))
-            } else if engine.to_lowercase() == "omniroute" || engine.to_lowercase() == "local" {
-                println!("🌐 Using OmniRoute Local LLM Engine");
-                Arc::new(OpenAiCompatibleEngine::new(
-                    "http://127.0.0.1:20128/v1",
-                    "omniroute",
-                    "local",
-                ))
-            } else {
-                println!("⚡ Defaulting to Antigravity Native Engine");
-                Arc::new(AntigravityEngine::new(None, None))
-            };
+            let compute_engine: Arc<dyn ComputeEngine> =
+                if engine.to_lowercase() == "antigravity" || engine.to_lowercase() == "agy" {
+                    println!("⚡ Using Antigravity Native Engine");
+                    Arc::new(AntigravityEngine::new(None, None))
+                } else if engine.to_lowercase() == "omniroute" || engine.to_lowercase() == "local" {
+                    println!("🌐 Using OmniRoute Local LLM Engine");
+                    Arc::new(OpenAiCompatibleEngine::new(
+                        "http://127.0.0.1:20128/v1",
+                        "omniroute",
+                        "local",
+                    ))
+                } else {
+                    println!("⚡ Defaulting to Antigravity Native Engine");
+                    Arc::new(AntigravityEngine::new(None, None))
+                };
 
             // 1. Create Agent 1 (DevOps/SRE) and Agent 2 (Core Developer)
             let agent1 = AgentIdentity {
                 id: AgentId::from_str("agent-sre-alex"),
                 name: "Alex - SRE Incident Commander".to_string(),
-                description: "Giám sát hệ thống, phân tích sự cố và điều phối giải pháp".to_string(),
+                description: "Giám sát hệ thống, phân tích sự cố và điều phối giải pháp"
+                    .to_string(),
                 autonomy_level: AutonomyLevel::Full,
                 created_at: chrono::Utc::now(),
             };
@@ -289,8 +506,14 @@ async fn main() -> anyhow::Result<()> {
             supervisor.register_agent(agent2.clone()).await;
 
             println!("   ✓ Đã đăng ký 2 Agent vào Central Supervisor:");
-            println!("     - {} [{}] ({})", agent1.name, agent1.id, agent1.description);
-            println!("     - {} [{}] ({})", agent2.name, agent2.id, agent2.description);
+            println!(
+                "     - {} [{}] ({})",
+                agent1.name, agent1.id, agent1.description
+            );
+            println!(
+                "     - {} [{}] ({})",
+                agent2.name, agent2.id, agent2.description
+            );
 
             // 2. Setup Bus Subscription
             let mut rx = bus.subscribe();
@@ -303,6 +526,7 @@ async fn main() -> anyhow::Result<()> {
                 system_context: "Bạn là SRE Incident Commander chuyên nghiệp.".to_string(),
                 working_dir: workspace.clone(),
                 timeout_seconds: 45,
+                on_stream_chunk: None,
             };
 
             let delegation_brief = match compute_engine.execute(&sre_input).await {
@@ -329,10 +553,19 @@ async fn main() -> anyhow::Result<()> {
 
             // 4. Agent 2 nhận sự kiện từ Bus và tự động kích hoạt vòng lặp OODA thật
             if let Ok(received) = rx.recv().await {
-                println!("\n📥 [Agent 2 - Brian] Nhận sự kiện từ Bus: [{}] từ {}", received.event_type, received.from_agent);
-                let instructions = received.payload.get("instructions").and_then(|v| v.as_str()).unwrap_or("Resolve Nginx 502 issue");
+                println!(
+                    "\n📥 [Agent 2 - Brian] Nhận sự kiện từ Bus: [{}] từ {}",
+                    received.event_type, received.from_agent
+                );
+                let instructions = received
+                    .payload
+                    .get("instructions")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Resolve Nginx 502 issue");
 
-                println!("⚙️ [Agent 2 - Brian] Tự động khởi chạy OODA Loop với ComputeEngine thực...");
+                println!(
+                    "⚙️ [Agent 2 - Brian] Tự động khởi chạy OODA Loop với ComputeEngine thực..."
+                );
                 let ooda = AutonomousOodaLoop::new(
                     compute_engine.clone(),
                     GuardrailPolicy::default_enterprise(),
@@ -341,14 +574,30 @@ async fn main() -> anyhow::Result<()> {
                     &workspace,
                 );
 
-                let mut task = Task::new("Khắc phục sự cố Nginx 502", instructions, Priority::Critical);
+                let mut task = Task::new(
+                    "Khắc phục sự cố Nginx 502",
+                    instructions,
+                    Priority::Critical,
+                );
                 task.assigned_agent = Some(agent2.id.clone());
 
-                let result = ooda.run_goal(&mut task).await.map_err(|e| anyhow::anyhow!(e))?;
-                println!("\n🏁 [Agent 2 - Brian] Chu trình OODA hoàn tất. Trạng thái: {:?}", result);
-                println!("   • Số lượng Subtasks đã tự phân rã & hoàn thành: {}", task.subtasks.len());
+                let result = ooda
+                    .run_goal(&mut task)
+                    .await
+                    .map_err(|e| anyhow::anyhow!(e))?;
+                println!(
+                    "\n🏁 [Agent 2 - Brian] Chu trình OODA hoàn tất. Trạng thái: {:?}",
+                    result
+                );
+                println!(
+                    "   • Số lượng Subtasks đã tự phân rã & hoàn thành: {}",
+                    task.subtasks.len()
+                );
                 for st in &task.subtasks {
-                    println!("     - [{:?}] {} (Retries: {})", st.status, st.title, st.retry_count);
+                    println!(
+                        "     - [{:?}] {} (Retries: {})",
+                        st.status, st.title, st.retry_count
+                    );
                 }
 
                 // Agent 2 gửi phản hồi hoàn tất về cho Agent 1
@@ -366,7 +615,9 @@ async fn main() -> anyhow::Result<()> {
                 println!("   ✓ [Agent 2 -> Bus] Đã gửi báo cáo nghiệm thu 'agent.task.resolved' về cho Agent 1.");
             }
 
-            println!("\n🎉 Quy trình Hợp tác Đa tác tử Tự trị hoàn tất 100% với ComputeEngine thực!");
+            println!(
+                "\n🎉 Quy trình Hợp tác Đa tác tử Tự trị hoàn tất 100% với ComputeEngine thực!"
+            );
         }
         Commands::ComedyShow { engine } => {
             println!("🎭 ==================================================================== 🎭");
@@ -374,19 +625,22 @@ async fn main() -> anyhow::Result<()> {
             println!("   Diễn viên 1: Agent DevOps Tèo (agent-devops-teo)");
             println!("   Diễn viên 2: Agent Backend Coder Tí (agent-backend-ti)");
             println!("   Engine lựa chọn: {}", engine.to_uppercase());
-            println!("🎭 ==================================================================== 🎭\n");
+            println!(
+                "🎭 ==================================================================== 🎭\n"
+            );
 
-            let compute_engine: Arc<dyn ComputeEngine> = if engine.to_lowercase() == "antigravity" || engine.to_lowercase() == "agy" {
-                println!("🚀 Khởi chạy Antigravity Native Engine...");
-                Arc::new(AntigravityEngine::new(None, None))
-            } else {
-                println!("🌐 Khởi chạy OmniRoute Local LLM Engine...");
-                Arc::new(OpenAiCompatibleEngine::new(
-                    "http://127.0.0.1:20128/v1",
-                    "omniroute",
-                    "local",
-                ))
-            };
+            let compute_engine: Arc<dyn ComputeEngine> =
+                if engine.to_lowercase() == "antigravity" || engine.to_lowercase() == "agy" {
+                    println!("🚀 Khởi chạy Antigravity Native Engine...");
+                    Arc::new(AntigravityEngine::new(None, None))
+                } else {
+                    println!("🌐 Khởi chạy OmniRoute Local LLM Engine...");
+                    Arc::new(OpenAiCompatibleEngine::new(
+                        "http://127.0.0.1:20128/v1",
+                        "omniroute",
+                        "local",
+                    ))
+                };
 
             let teo_system = "Bạn là Tèo, một kỹ sư DevOps kỳ cựu bị mất ngủ kinh niên, tính cách hài hước châm biếm, cọc cằn nhưng khẩu xà tâm phật. Bạn đang nửa đêm canh server Production thì bị lỗi do một lập trình viên Backend tên Tí gây ra. Hãy đối đáp kịch liệt, hài hước, dùng thuật ngữ IT thực tế (RAM, CPU, SQL, Nginx, Docker, rollback, sếp đuổi...). Trả lời ngắn gọn từ 1-3 câu mang tính chất tấu hài đối đáp.";
 
@@ -414,11 +668,13 @@ async fn main() -> anyhow::Result<()> {
                         system_context: ti_system.to_string(),
                         working_dir: ".".to_string(),
                         timeout_seconds: 30,
+                        on_stream_chunk: None,
                     };
 
                     match compute_engine.execute(&input).await {
                         Ok(output) => {
-                            let clean_text = output.stdout_content.trim().trim_matches('"').to_string();
+                            let clean_text =
+                                output.stdout_content.trim().trim_matches('"').to_string();
                             println!("🎤 [Tí Backend] 🗣️: \"{}\"\n", clean_text);
                             conversation_history.push_str(&format!("Tí: {}\n", clean_text));
                             last_message = clean_text;
@@ -441,11 +697,13 @@ async fn main() -> anyhow::Result<()> {
                         system_context: teo_system.to_string(),
                         working_dir: ".".to_string(),
                         timeout_seconds: 30,
+                        on_stream_chunk: None,
                     };
 
                     match compute_engine.execute(&input).await {
                         Ok(output) => {
-                            let clean_text = output.stdout_content.trim().trim_matches('"').to_string();
+                            let clean_text =
+                                output.stdout_content.trim().trim_matches('"').to_string();
                             println!("🎤 [Tèo DevOps] 🗣️: \"{}\"\n", clean_text);
                             conversation_history.push_str(&format!("Tèo: {}\n", clean_text));
                             last_message = clean_text;
@@ -475,7 +733,10 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Commands::InitSamplePersonas { output_dir } => {
-            println!("📁 Initializing sample enterprise agent personas into '{}'...", output_dir);
+            println!(
+                "📁 Initializing sample enterprise agent personas into '{}'...",
+                output_dir
+            );
             let base = std::path::Path::new(&output_dir);
 
             // 1. SRE DevOps Persona (Tèo)
@@ -582,21 +843,35 @@ async fn main() -> anyhow::Result<()> {
             PersonaLoader::export_to_dir(&auditor, base.join("financial-auditor")).await?;
 
             println!("✨ Successfully generated sample personas in:");
-            println!("   - {}/devops-sre (IDENTITY.md, SOUL.md, MISSION.md, profile.json)", output_dir);
-            println!("   - {}/financial-auditor (IDENTITY.md, SOUL.md, MISSION.md, profile.json)", output_dir);
+            println!(
+                "   - {}/devops-sre (IDENTITY.md, SOUL.md, MISSION.md, profile.json)",
+                output_dir
+            );
+            println!(
+                "   - {}/financial-auditor (IDENTITY.md, SOUL.md, MISSION.md, profile.json)",
+                output_dir
+            );
         }
         Commands::Rig { action } => match action {
             RigAction::Up { spec, workspace } => {
-                let yaml = tokio::fs::read_to_string(&spec)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e))?;
+                let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
+                    anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
+                })?;
                 let rig_spec = RigSpec::from_yaml_str(&yaml)
                     .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML RigSpec: {}", e))?;
 
-                println!("🏗️  Booting Rig: {} ({})", rig_spec.rig.name, rig_spec.rig.id);
-                println!("👑 Kernel Operator: {} (Role: {})",
+                println!(
+                    "🏗️  Booting Rig: {} ({})",
+                    rig_spec.rig.name, rig_spec.rig.id
+                );
+                println!(
+                    "👑 Kernel Operator: {} (Role: {})",
                     rig_spec.operator.agent_id,
-                    rig_spec.operator.role.as_deref().unwrap_or("Lead Coordinator")
+                    rig_spec
+                        .operator
+                        .role
+                        .as_deref()
+                        .unwrap_or("Lead Coordinator")
                 );
 
                 let op = KernelOperator::new(rig_spec, &workspace);
@@ -614,23 +889,28 @@ async fn main() -> anyhow::Result<()> {
                         seat.seat_id, seat.name, seat.role, seat.engine, harness_info
                     );
                 }
-                println!("\n✨ Rig is up and ready for dispatch. Use `agent-ctl rig run --goal \"...\"`");
+                println!(
+                    "\n✨ Rig is up and ready for dispatch. Use `agent-ctl rig run --goal \"...\"`"
+                );
             }
             RigAction::Down { spec } => {
-                let yaml = tokio::fs::read_to_string(&spec)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e))?;
+                let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
+                    anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
+                })?;
                 let rig_spec = RigSpec::from_yaml_str(&yaml)
                     .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML: {}", e))?;
 
                 let op = KernelOperator::new(rig_spec, ".");
                 op.shutdown_seats().map_err(|e| anyhow::anyhow!(e))?;
-                println!("🛑 Successfully shutdown all seats for Rig '{}'", spec.display());
+                println!(
+                    "🛑 Successfully shutdown all seats for Rig '{}'",
+                    spec.display()
+                );
             }
             RigAction::Status { spec } => {
-                let yaml = tokio::fs::read_to_string(&spec)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e))?;
+                let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
+                    anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
+                })?;
                 let rig_spec = RigSpec::from_yaml_str(&yaml)
                     .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML: {}", e))?;
 
@@ -641,34 +921,60 @@ async fn main() -> anyhow::Result<()> {
 
                 println!("\n🪑 Seat Roster ({} seats):", seats.len());
                 for seat in seats {
-                    let status_str = if seat.is_active { "ACTIVE 🟢" } else { "STOPPED ⚪" };
+                    let status_str = if seat.is_active {
+                        "ACTIVE 🟢"
+                    } else {
+                        "STOPPED ⚪"
+                    };
                     println!(
                         "   • [{}] {} ({}) - Engine: {} | Harness: {} -> {}",
                         seat.seat_id, seat.name, seat.role, seat.engine, seat.harness, status_str
                     );
                 }
             }
-            RigAction::Run { spec, goal, workspace, engine } => {
-                let yaml = tokio::fs::read_to_string(&spec)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e))?;
+            RigAction::Run {
+                spec,
+                goal,
+                workspace,
+                engine,
+            } => {
+                let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
+                    anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
+                })?;
                 let rig_spec = RigSpec::from_yaml_str(&yaml)
                     .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML: {}", e))?;
 
-                println!("🎯 Giao mục tiêu cho Rig '{}': \"{}\"", rig_spec.rig.name, goal);
+                println!(
+                    "🎯 Giao mục tiêu cho Rig '{}': \"{}\"",
+                    rig_spec.rig.name, goal
+                );
                 if let Some(ref eng) = engine {
                     println!("⚙️  Configured Engine Override: {}", eng);
                 }
 
                 let op = KernelOperator::new(rig_spec, &workspace);
-                let summary = op.execute_goal(&goal, engine.as_deref()).await.map_err(|e| anyhow::anyhow!(e))?;
+                let summary = op
+                    .execute_goal(&goal, engine.as_deref())
+                    .await
+                    .map_err(|e| anyhow::anyhow!(e))?;
 
                 println!("\n📋 Báo Cáo Thực Thi Đội Ngũ (Execution Summary):");
-                println!("   • Rig: {} | Status: {}", summary.rig_name, summary.status);
-                println!("   • Bắt đầu: {} | Hoàn thành: {}", summary.started_at, summary.completed_at);
+                println!(
+                    "   • Rig: {} | Status: {}",
+                    summary.rig_name, summary.status
+                );
+                println!(
+                    "   • Bắt đầu: {} | Hoàn thành: {}",
+                    summary.started_at, summary.completed_at
+                );
                 println!("\n🧩 Phân Bổ Tác Vụ Cho Các Seats:");
                 for (idx, assign) in summary.assignments.iter().enumerate() {
-                    println!("   [Tác vụ #{}] Seat: {} -> Trạng thái: {}", idx + 1, assign.seat_id, assign.status);
+                    println!(
+                        "   [Tác vụ #{}] Seat: {} -> Trạng thái: {}",
+                        idx + 1,
+                        assign.seat_id,
+                        assign.status
+                    );
                     if let Some(ref out) = assign.output {
                         let preview: String = out.lines().take(3).collect::<Vec<_>>().join(" ");
                         println!("      Kết quả: {}", preview);
@@ -677,7 +983,12 @@ async fn main() -> anyhow::Result<()> {
                 if !summary.channel_dispatches.is_empty() {
                     println!("\n🔀 Điều Phối Kênh Nội Bộ (Rig Channels Pipeline):");
                     for (idx, ch) in summary.channel_dispatches.iter().enumerate() {
-                        println!("   [Chuyển tiếp #{}] Đích: {} -> Trạng thái: {}", idx + 1, ch.seat_id, ch.status);
+                        println!(
+                            "   [Chuyển tiếp #{}] Đích: {} -> Trạng thái: {}",
+                            idx + 1,
+                            ch.seat_id,
+                            ch.status
+                        );
                         if let Some(ref out) = ch.output {
                             println!("      Nội dung: {}", out);
                         }
@@ -686,37 +997,62 @@ async fn main() -> anyhow::Result<()> {
                 println!("\n📢 Tổng kết từ Kernel Operator:");
                 println!("   {}", summary.operator_synthesis);
             }
-            RigAction::Snapshot { spec, workspace, out } => {
-                let yaml = tokio::fs::read_to_string(&spec)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e))?;
+            RigAction::Snapshot {
+                spec,
+                workspace,
+                out,
+            } => {
+                let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
+                    anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
+                })?;
                 let rig_spec = RigSpec::from_yaml_str(&yaml)
                     .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML RigSpec: {}", e))?;
 
-                println!("📸 Tạo Snapshot cho Rig: {} ({})", rig_spec.rig.name, rig_spec.rig.id);
+                println!(
+                    "📸 Tạo Snapshot cho Rig: {} ({})",
+                    rig_spec.rig.name, rig_spec.rig.id
+                );
                 let op = KernelOperator::new(rig_spec, &workspace);
                 let snapshot = op.create_snapshot().map_err(|e| anyhow::anyhow!(e))?;
-                let saved_path = op.save_snapshot(&snapshot, out.as_deref()).map_err(|e| anyhow::anyhow!(e))?;
+                let saved_path = op
+                    .save_snapshot(&snapshot, out.as_deref())
+                    .map_err(|e| anyhow::anyhow!(e))?;
 
                 println!("✅ Snapshot đã được lưu thành công tại: {}", saved_path);
                 println!("   • Snapshot ID: {}", snapshot.snapshot_id);
                 println!("   • Số lượng seats: {}", snapshot.seats.len());
                 for seat in &snapshot.seats {
-                    let active_str = if seat.is_active { "Đang hoạt động" } else { "Đã dừng" };
-                    println!("     - Seat: {} (Harness: {}, {})", seat.seat_id, seat.harness, active_str);
+                    let active_str = if seat.is_active {
+                        "Đang hoạt động"
+                    } else {
+                        "Đã dừng"
+                    };
+                    println!(
+                        "     - Seat: {} (Harness: {}, {})",
+                        seat.seat_id, seat.harness, active_str
+                    );
                 }
             }
-            RigAction::Restore { snapshot, workspace } => {
+            RigAction::Restore {
+                snapshot,
+                workspace,
+            } => {
                 let snap = KernelOperator::load_snapshot(&snapshot.to_string_lossy())
                     .map_err(|e| anyhow::anyhow!(e))?;
                 let rig_spec = RigSpec::from_yaml_str(&snap.spec_yaml)
                     .map_err(|e| anyhow::anyhow!("Lỗi cú pháp RigSpec trong snapshot: {}", e))?;
 
-                println!("🔄 Khôi phục Rig '{}' từ snapshot: {}", snap.rig_name, snap.snapshot_id);
+                println!(
+                    "🔄 Khôi phục Rig '{}' từ snapshot: {}",
+                    snap.rig_name, snap.snapshot_id
+                );
                 let op = KernelOperator::new(rig_spec, &workspace);
                 op.restore_snapshot(&snap).map_err(|e| anyhow::anyhow!(e))?;
 
-                println!("✅ Đã khôi phục thành công các seats của Rig: {}", snap.rig_id);
+                println!(
+                    "✅ Đã khôi phục thành công các seats của Rig: {}",
+                    snap.rig_id
+                );
             }
         },
     }

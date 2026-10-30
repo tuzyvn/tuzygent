@@ -1,6 +1,6 @@
+use crate::identity::AgentId;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::identity::AgentId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InterAgentEvent {

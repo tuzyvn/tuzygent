@@ -52,6 +52,7 @@ struct RunTaskReq {
     agent_id: String,
     goal: String,
     engine: Option<String>,
+    sandbox: Option<String>,
     persona_path: Option<String>,
 }
 
@@ -89,7 +90,11 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/health", get(health_handler))
-        .route("/api/v1/agents", get(list_agents_handler).post(create_agent_handler))
+        .route("/api/v1/engines", get(list_engines_handler))
+        .route(
+            "/api/v1/agents",
+            get(list_agents_handler).post(create_agent_handler),
+        )
         .route("/api/v1/tasks/run", post(run_task_handler))
         .route("/api/v1/ws", get(ws_handler))
         .layer(cors)
@@ -146,7 +151,9 @@ async fn create_agent_handler(
     let identity = AgentIdentity {
         id: AgentId::from_str(&payload.id),
         name: payload.name,
-        description: payload.description.unwrap_or_else(|| "Autonomous Digital Employee".to_string()),
+        description: payload
+            .description
+            .unwrap_or_else(|| "Autonomous Digital Employee".to_string()),
         autonomy_level: level,
         created_at: chrono::Utc::now(),
     };
@@ -164,24 +171,83 @@ async fn create_agent_handler(
     )
 }
 
+async fn list_engines_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let ws_path = std::path::Path::new(&state.workspace);
+    let config = EnginesConfig::load_hierarchical(Some(ws_path));
+    let detected_driver = SandboxConfig::detect_best_driver();
+
+    Json(serde_json::json!({
+        "default_engine": config.defaults.engine,
+        "default_timeout_seconds": config.defaults.timeout_seconds,
+        "sandbox_driver_configured": config.defaults.sandbox_driver,
+        "sandbox_driver_detected": detected_driver.to_string(),
+        "engines": config.engines,
+        "security": {
+            "allowed_env_vars": config.security.allowed_env_vars,
+            "mount_credentials": config.security.mount_credentials,
+        }
+    }))
+}
+
 async fn run_task_handler(
     State(state): State<AppState>,
     Json(payload): Json<RunTaskReq>,
 ) -> impl IntoResponse {
-    let engine_choice = payload.engine.as_deref().unwrap_or("antigravity");
-    let compute_engine: Arc<dyn ComputeEngine> = if engine_choice == "omniroute" || engine_choice == "local" {
-        Arc::new(OpenAiCompatibleEngine::new(
+    let ws_path = std::path::Path::new(&state.workspace);
+    let config = EnginesConfig::load_hierarchical(Some(ws_path));
+    let engine_name = payload.engine.as_deref().unwrap_or(&config.defaults.engine);
+
+    let compute_engine: Arc<dyn ComputeEngine> = match engine_name {
+        "claude" | "claude_code" => {
+            let single = config.engines.get("claude");
+            Arc::new(ClaudeCodeEngine::new(
+                single.and_then(|s| s.binary_path.clone()),
+                single.and_then(|s| s.model.clone()),
+            ))
+        }
+        "omniroute" | "local" => Arc::new(OpenAiCompatibleEngine::new(
             "http://127.0.0.1:20128/v1",
             "omniroute",
             "local",
-        ))
-    } else {
-        Arc::new(AntigravityEngine::new(None, None))
+        )),
+        "antigravity" | "agy" => {
+            let single = config.engines.get("antigravity");
+            Arc::new(AntigravityEngine::new(
+                single.and_then(|s| s.binary_path.clone()),
+                single.and_then(|s| s.model.clone()),
+            ))
+        }
+        other => {
+            if let Some(single) = config.engines.get(other) {
+                Arc::new(GenericCliEngine::new(
+                    other.to_string(),
+                    single
+                        .binary_path
+                        .clone()
+                        .unwrap_or_else(|| other.to_string()),
+                    single.args.clone(),
+                    single.env.clone(),
+                    single.output_parser.clone(),
+                ))
+            } else {
+                Arc::new(AntigravityEngine::new(None, None))
+            }
+        }
     };
 
     let scratchpad = ScratchpadManager::new(&state.workspace);
     let durable = DurableMemoryStore::new(&state.workspace);
     let guardrails = GuardrailPolicy::default_enterprise();
+
+    let mut sandbox_cfg = SandboxConfig::default();
+    if let Some(ref sb) = payload.sandbox {
+        match sb.to_lowercase().as_str() {
+            "docker" => sandbox_cfg.driver = SandboxDriverKind::Docker,
+            "bubblewrap" | "bwrap" => sandbox_cfg.driver = SandboxDriverKind::Bubblewrap,
+            "host" => sandbox_cfg.driver = SandboxDriverKind::Host,
+            _ => {}
+        }
+    }
 
     let ooda = AutonomousOodaLoop::new(
         compute_engine,
@@ -189,7 +255,9 @@ async fn run_task_handler(
         scratchpad,
         durable,
         &state.workspace,
-    );
+    )
+    .with_sandbox_config(sandbox_cfg)
+    .with_bus(state.bus.clone());
 
     let mut task = Task::new(&payload.goal, &payload.goal, Priority::High);
     task.assigned_agent = Some(AgentId::from_str(&payload.agent_id));
@@ -202,6 +270,7 @@ async fn run_task_handler(
                 "task_id": task.id.to_string(),
                 "goal": payload.goal,
                 "agent_id": payload.agent_id,
+                "engine_used": engine_name,
                 "subtasks_count": task.subtasks.len(),
             })),
         ),
@@ -215,10 +284,7 @@ async fn run_task_handler(
     }
 }
 
-async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 

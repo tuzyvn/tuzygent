@@ -107,7 +107,11 @@ impl RigSpec {
         let cap_lower = capability.to_lowercase();
         self.seats
             .iter()
-            .filter(|s| s.capabilities.iter().any(|c| c.to_lowercase().contains(&cap_lower)))
+            .filter(|s| {
+                s.capabilities
+                    .iter()
+                    .any(|c| c.to_lowercase().contains(&cap_lower))
+            })
             .collect()
     }
 }

@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+use async_trait::async_trait;
 
 pub struct MockEngine {
     pub response_template: String,

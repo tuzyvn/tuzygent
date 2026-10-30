@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
-use tokio::fs;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use tokio::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillMetadata {
@@ -32,12 +32,14 @@ impl SkillRegistry {
         if let Some(caps) = re.captures(content) {
             let yaml_block = &caps[1];
             if let Ok(yaml_map) = serde_yaml_ng::from_str::<serde_json::Value>(yaml_block) {
-                let name = yaml_map.get("name")
+                let name = yaml_map
+                    .get("name")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .trim()
                     .to_string();
-                let desc = yaml_map.get("description")
+                let desc = yaml_map
+                    .get("description")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .trim()
@@ -70,7 +72,11 @@ impl SkillRegistry {
                     let final_desc = if !desc.is_empty() {
                         desc
                     } else {
-                        content.lines().next().unwrap_or("No description").to_string()
+                        content
+                            .lines()
+                            .next()
+                            .unwrap_or("No description")
+                            .to_string()
                     };
 
                     skills.push(SkillMetadata {

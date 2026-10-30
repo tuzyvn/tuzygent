@@ -45,7 +45,10 @@ impl TmuxSessionManager {
         let session_name = Self::format_session_name(rig_id, seat_id);
 
         if Self::has_session(&session_name) {
-            info!("📌 [TmuxSeat] Session '{}' already exists. Reusing seat.", session_name);
+            info!(
+                "📌 [TmuxSeat] Session '{}' already exists. Reusing seat.",
+                session_name
+            );
             return Ok(session_name);
         }
 
@@ -56,13 +59,21 @@ impl TmuxSessionManager {
             cmd.args(["-c", dir]);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to execute tmux: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to execute tmux: {}", e))?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Failed to create tmux session '{}': {}", session_name, stderr));
+            return Err(format!(
+                "Failed to create tmux session '{}': {}",
+                session_name, stderr
+            ));
         }
 
-        info!("🚀 [TmuxSeat] Created persistent seat session: '{}'", session_name);
+        info!(
+            "🚀 [TmuxSeat] Created persistent seat session: '{}'",
+            session_name
+        );
         Ok(session_name)
     }
 
@@ -79,7 +90,10 @@ impl TmuxSessionManager {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Error sending keys to '{}': {}", session_name, stderr));
+            return Err(format!(
+                "Error sending keys to '{}': {}",
+                session_name, stderr
+            ));
         }
 
         Ok(())
@@ -99,7 +113,10 @@ impl TmuxSessionManager {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Error capturing pane for '{}': {}", session_name, stderr));
+            return Err(format!(
+                "Error capturing pane for '{}': {}",
+                session_name, stderr
+            ));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -192,7 +209,8 @@ mod tests {
         let _ = TmuxSessionManager::send_command(&session_name, "echo 'AGENT_ALIVE_TEST'");
         std::thread::sleep(std::time::Duration::from_millis(150));
 
-        let buffer = TmuxSessionManager::capture_pane(&session_name, 50).expect("Must capture pane");
+        let buffer =
+            TmuxSessionManager::capture_pane(&session_name, 50).expect("Must capture pane");
         assert!(buffer.contains("AGENT_ALIVE_TEST") || buffer.len() > 0);
 
         // Test cleanup

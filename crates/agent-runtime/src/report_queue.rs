@@ -1,8 +1,8 @@
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
@@ -38,7 +38,10 @@ pub struct TerminalReportStore {
 
 impl TerminalReportStore {
     pub fn new<P: AsRef<Path>>(workspaces_root: P) -> Self {
-        let base = workspaces_root.as_ref().join(".pending-terminal-reports").join("v1");
+        let base = workspaces_root
+            .as_ref()
+            .join(".pending-terminal-reports")
+            .join("v1");
         let failed = base.join("quarantined");
         Self {
             queue_dir: base,
@@ -77,7 +80,10 @@ impl TerminalReportStore {
         fs::write(&temp_path, &data).await?;
         fs::rename(&temp_path, &target_path).await?;
 
-        info!("💾 [ReportStore] Enqueued terminal report for task '{}' at {:?}", report.task_id, target_path);
+        info!(
+            "💾 [ReportStore] Enqueued terminal report for task '{}' at {:?}",
+            report.task_id, target_path
+        );
         Ok(target_path)
     }
 
@@ -88,7 +94,10 @@ impl TerminalReportStore {
         let path = self.queue_dir.join(file_name);
         if path.exists() {
             fs::remove_file(&path).await?;
-            info!("✅ [ReportStore] Acknowledged and removed terminal report for task '{}'", task_id);
+            info!(
+                "✅ [ReportStore] Acknowledged and removed terminal report for task '{}'",
+                task_id
+            );
         }
         Ok(())
     }
@@ -123,7 +132,10 @@ impl TerminalReportStore {
         let target_path = self.failed_dir.join(&file_name);
         if source_path.exists() {
             fs::rename(&source_path, &target_path).await?;
-            warn!("☣️ [ReportStore] Quarantined rejected report for task '{}' to {:?}", task_id, target_path);
+            warn!(
+                "☣️ [ReportStore] Quarantined rejected report for task '{}' to {:?}",
+                task_id, target_path
+            );
         }
         Ok(())
     }

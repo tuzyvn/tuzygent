@@ -148,13 +148,19 @@ impl AgentPersonaProfile {
         prompt.push_str(&format!("- ID: {}\n", self.identity.id));
         prompt.push_str(&format!("- Title: {}\n", self.role.title));
         prompt.push_str(&format!("- Domain: {}\n", self.role.primary_domain));
-        prompt.push_str(&format!("- Autonomy: {:?}\n\n", self.identity.autonomy_level));
+        prompt.push_str(&format!(
+            "- Autonomy: {:?}\n\n",
+            self.identity.autonomy_level
+        ));
 
         prompt.push_str("# PERSONA & SOUL (TÍNH CÁCH & PHONG THÁI)\n");
         prompt.push_str(&format!("- Persona: {}\n", self.soul.persona));
         prompt.push_str(&format!("- Tone of Voice: {}\n", self.soul.tone_of_voice));
         if let Some(ref vp) = self.soul.voice_profile {
-            prompt.push_str(&format!("- Physical Voice Identity: {:?} (ID: {})\n", vp.engine, vp.voice_id));
+            prompt.push_str(&format!(
+                "- Physical Voice Identity: {:?} (ID: {})\n",
+                vp.engine, vp.voice_id
+            ));
             if let Some(ref timbre) = vp.voice_name {
                 prompt.push_str(&format!("- Acoustic Timbre: {}\n", timbre));
             }
@@ -169,7 +175,10 @@ impl AgentPersonaProfile {
         prompt.push_str("\n");
 
         prompt.push_str("# MISSION & OBJECTIVES (MỤC TIÊU & NHIỆM VỤ)\n");
-        prompt.push_str(&format!("- Objective: {}\n", self.mission.high_level_objective));
+        prompt.push_str(&format!(
+            "- Objective: {}\n",
+            self.mission.high_level_objective
+        ));
         prompt.push_str("- Capabilities:\n");
         for cap in &self.role.capabilities {
             prompt.push_str(&format!("  * {}\n", cap));
@@ -194,7 +203,8 @@ mod tests {
             "core_values": ["Reliability"]
         }"#;
 
-        let soul: AgentSoul = serde_json::from_str(legacy_json).expect("Should deserialize legacy JSON without voice_profile");
+        let soul: AgentSoul = serde_json::from_str(legacy_json)
+            .expect("Should deserialize legacy JSON without voice_profile");
         assert_eq!(soul.persona, "Nghiêm túc, kỷ luật");
         assert_eq!(soul.voice_profile, None);
     }
@@ -247,7 +257,11 @@ mod tests {
 
         // Roundtrip JSON
         let serialized = serde_json::to_string(&profile).expect("Must serialize");
-        let deserialized: AgentPersonaProfile = serde_json::from_str(&serialized).expect("Must deserialize");
-        assert_eq!(deserialized.soul.voice_profile.unwrap().voice_id, "vp_miku_01");
+        let deserialized: AgentPersonaProfile =
+            serde_json::from_str(&serialized).expect("Must deserialize");
+        assert_eq!(
+            deserialized.soul.voice_profile.unwrap().voice_id,
+            "vp_miku_01"
+        );
     }
 }

@@ -32,14 +32,29 @@ async fn test_durable_memory_semantic_filter() {
     let temp_dir = std::env::temp_dir().join(format!("test_mem_{}", uuid::Uuid::new_v4().simple()));
     let store = DurableMemoryStore::new(&temp_dir);
 
-    store.save_lesson("Nginx port 8085 requires proxy_pass header configuration").await.unwrap();
-    store.save_lesson("Rust async tokio channels should specify bounded capacity").await.unwrap();
-    store.save_lesson("Database migrations must run before web server startup").await.unwrap();
+    store
+        .save_lesson("Nginx port 8085 requires proxy_pass header configuration")
+        .await
+        .unwrap();
+    store
+        .save_lesson("Rust async tokio channels should specify bounded capacity")
+        .await
+        .unwrap();
+    store
+        .save_lesson("Database migrations must run before web server startup")
+        .await
+        .unwrap();
 
-    let nginx_context = store.load_relevant_context("Nginx proxy error 502").await.unwrap();
+    let nginx_context = store
+        .load_relevant_context("Nginx proxy error 502")
+        .await
+        .unwrap();
     assert!(nginx_context.contains("Nginx port 8085"));
 
-    let rust_context = store.load_relevant_context("Rust async worker pool").await.unwrap();
+    let rust_context = store
+        .load_relevant_context("Rust async worker pool")
+        .await
+        .unwrap();
     assert!(rust_context.contains("Rust async tokio"));
 
     let _ = tokio::fs::remove_dir_all(&temp_dir).await;
@@ -47,18 +62,28 @@ async fn test_durable_memory_semantic_filter() {
 
 #[test]
 fn test_task_status_lifecycle() {
-    let mut task = Task::new("Deploy Microservice", "Deploy service to k8s cluster", Priority::High);
+    let mut task = Task::new(
+        "Deploy Microservice",
+        "Deploy service to k8s cluster",
+        Priority::High,
+    );
     assert_eq!(task.status, TaskStatus::Queued);
     assert!(task.subtasks.is_empty());
 
-    let st1 = SubTask::new("ST-1", "Lint configs", "kustomize build", "Zero lint errors");
+    let st1 = SubTask::new(
+        "ST-1",
+        "Lint configs",
+        "kustomize build",
+        "Zero lint errors",
+    );
     task.subtasks.push(st1);
     assert_eq!(task.subtasks.len(), 1);
 }
 
 #[tokio::test]
 async fn test_structured_lesson_persistence() {
-    let temp_dir = std::env::temp_dir().join(format!("test_struct_mem_{}", uuid::Uuid::new_v4().simple()));
+    let temp_dir =
+        std::env::temp_dir().join(format!("test_struct_mem_{}", uuid::Uuid::new_v4().simple()));
     let store = DurableMemoryStore::new(&temp_dir);
 
     let lesson = agent_memory::StructuredLesson {

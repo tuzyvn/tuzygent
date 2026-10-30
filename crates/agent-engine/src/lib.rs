@@ -1,11 +1,13 @@
-pub mod traits;
-pub mod cli;
 pub mod api;
+pub mod cli;
+pub mod config;
 pub mod router;
 pub mod tmux;
+pub mod traits;
 
-pub use traits::*;
-pub use cli::*;
 pub use api::*;
+pub use cli::*;
+pub use config::*;
 pub use router::*;
 pub use tmux::*;
+pub use traits::*;

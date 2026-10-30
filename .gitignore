@@ -3,3 +3,7 @@
 *.log
 .DS_Store
 .env
+/storage
+/memory
+.worktrees/
+

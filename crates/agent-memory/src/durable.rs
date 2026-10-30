@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tokio::fs;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructuredLesson {
@@ -112,7 +112,10 @@ impl DurableMemoryStore {
         Ok(lessons)
     }
 
-    pub async fn save_structured_lesson(&self, lesson: &StructuredLesson) -> Result<(), std::io::Error> {
+    pub async fn save_structured_lesson(
+        &self,
+        lesson: &StructuredLesson,
+    ) -> Result<(), std::io::Error> {
         // 1. Lưu vào storage/harness_memory/lessons.json (cho Dashboard & UI hiển thị)
         if let Some(parent) = self.lessons_json_file.parent() {
             fs::create_dir_all(parent).await?;
@@ -124,9 +127,8 @@ impl DurableMemoryStore {
         if lessons.len() > 100 {
             lessons.truncate(100);
         }
-        let json_data = serde_json::to_string_pretty(&lessons).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-        })?;
+        let json_data = serde_json::to_string_pretty(&lessons)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         fs::write(&self.lessons_json_file, json_data).await?;
 
         // 2. Đồng bộ tóm tắt có gắn nhãn ngữ nghĩa vào memory/MEMORY.md (cho Prompt Context)
@@ -158,7 +160,10 @@ impl DurableMemoryStore {
         } else {
             "# USER DIRECTIVES\n\nStable user preferences and operational directives:\n".to_string()
         };
-        current.push_str(&format!("\n<!-- observed: {} | status: active -->\n{}\n", date_str, directive));
+        current.push_str(&format!(
+            "\n<!-- observed: {} | status: active -->\n{}\n",
+            date_str, directive
+        ));
         fs::write(&self.user_file, current).await
     }
 }

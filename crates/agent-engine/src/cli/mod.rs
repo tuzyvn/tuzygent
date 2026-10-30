@@ -1,7 +1,9 @@
-pub mod claude_code;
 pub mod antigravity;
+pub mod claude_code;
+pub mod generic;
 pub mod mock;
 
-pub use claude_code::*;
 pub use antigravity::*;
+pub use claude_code::*;
+pub use generic::*;
 pub use mock::*;

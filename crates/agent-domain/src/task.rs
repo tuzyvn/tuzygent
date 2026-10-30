@@ -34,15 +34,26 @@ pub enum Priority {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskStatus {
     Queued,
-    Dispatched { runtime_id: String, lease_until: chrono::DateTime<chrono::Utc> },
+    Dispatched {
+        runtime_id: String,
+        lease_until: chrono::DateTime<chrono::Utc>,
+    },
     PreparingSandbox,
     Executing,
-    Supplementing { instruction: String },
-    WaitingApproval { reason: String },
+    Supplementing {
+        instruction: String,
+    },
+    WaitingApproval {
+        reason: String,
+    },
     SelfChecking,
     Completed,
-    Failed { error: String },
-    Canceled { reason: String },
+    Failed {
+        error: String,
+    },
+    Canceled {
+        reason: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,7 +72,12 @@ pub struct SubTask {
 }
 
 impl SubTask {
-    pub fn new(id: &str, title: &str, command_or_prompt: &str, expected_verification: &str) -> Self {
+    pub fn new(
+        id: &str,
+        title: &str,
+        command_or_prompt: &str,
+        expected_verification: &str,
+    ) -> Self {
         Self {
             id: id.to_string(),
             title: title.to_string(),

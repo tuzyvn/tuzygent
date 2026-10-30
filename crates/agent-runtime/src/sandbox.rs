@@ -1,9 +1,10 @@
+use agent_engine::config::{CredentialMount, SecurityConfig};
+use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::process::Command;
+use tracing::{info, warn};
 use uuid::Uuid;
-use anyhow::{Context, Result};
-use tracing::info;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IsolationMode {
@@ -12,18 +13,100 @@ pub enum IsolationMode {
     Ephemeral,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SandboxDriverKind {
+    Docker,
+    Bubblewrap,
+    Host,
+}
+
+impl std::fmt::Display for SandboxDriverKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SandboxDriverKind::Docker => write!(f, "docker"),
+            SandboxDriverKind::Bubblewrap => write!(f, "bubblewrap"),
+            SandboxDriverKind::Host => write!(f, "host"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SandboxConfig {
+    pub mode: IsolationMode,
+    pub driver: SandboxDriverKind,
+    pub docker_image: String,
+    pub ro_credentials: Vec<CredentialMount>,
+    pub env_whitelist: Vec<String>,
+    pub memory_limit_mb: Option<u64>,
+}
+
+impl Default for SandboxConfig {
+    fn default() -> Self {
+        let sec = SecurityConfig::default();
+        Self {
+            mode: IsolationMode::LocalDirectory,
+            driver: SandboxConfig::detect_best_driver(),
+            docker_image: "alpine:latest".to_string(),
+            ro_credentials: sec.mount_credentials,
+            env_whitelist: sec.allowed_env_vars,
+            memory_limit_mb: Some(4096),
+        }
+    }
+}
+
+impl SandboxConfig {
+    /// Detect best available sandbox driver:
+    /// 1. Docker (if daemon is responding)
+    /// 2. Bubblewrap (bwrap on Linux)
+    /// 3. Host process fallback
+    pub fn detect_best_driver() -> SandboxDriverKind {
+        // 1. Check Docker daemon responsiveness
+        if let Ok(output) = std::process::Command::new("docker").arg("info").output() {
+            if output.status.success() {
+                info!("🐳 Docker daemon detected and responsive.");
+                return SandboxDriverKind::Docker;
+            }
+        }
+
+        // 2. Check Bubblewrap
+        if let Ok(output) = std::process::Command::new("bwrap")
+            .arg("--version")
+            .output()
+        {
+            if output.status.success() {
+                info!("🛡️ Bubblewrap (bwrap) detected for rootless Linux sandboxing.");
+                return SandboxDriverKind::Bubblewrap;
+            }
+        }
+
+        warn!("⚠️ No container or namespace sandbox available; falling back to Host driver.");
+        SandboxDriverKind::Host
+    }
+}
+
 pub struct SandboxEnvironment {
     pub base_repo_path: PathBuf,
-    pub mode: IsolationMode,
+    pub config: SandboxConfig,
     pub worktree_path: Option<PathBuf>,
     pub branch_name: Option<String>,
 }
 
 impl SandboxEnvironment {
     pub fn new<P: AsRef<Path>>(base_repo_path: P, mode: IsolationMode) -> Self {
+        let mut config = SandboxConfig::default();
+        config.mode = mode;
         Self {
             base_repo_path: base_repo_path.as_ref().to_path_buf(),
-            mode,
+            config,
+            worktree_path: None,
+            branch_name: None,
+        }
+    }
+
+    pub fn with_config<P: AsRef<Path>>(base_repo_path: P, config: SandboxConfig) -> Self {
+        Self {
+            base_repo_path: base_repo_path.as_ref().to_path_buf(),
+            config,
             worktree_path: None,
             branch_name: None,
         }
@@ -31,9 +114,12 @@ impl SandboxEnvironment {
 
     /// Khởi tạo môi trường sandbox cô lập theo kiến trúc Multica
     pub async fn prepare(&mut self, task_id: &str) -> Result<PathBuf> {
-        match self.mode {
+        match self.config.mode {
             IsolationMode::LocalDirectory => {
-                info!("📂 Using local directory sandbox: {:?}", self.base_repo_path);
+                info!(
+                    "📂 Using local directory sandbox: {:?}",
+                    self.base_repo_path
+                );
                 Ok(self.base_repo_path.clone())
             }
             IsolationMode::Worktree => {
@@ -44,9 +130,11 @@ impl SandboxEnvironment {
                     .unwrap_or(&self.base_repo_path)
                     .join(format!(".worktrees/{}", Uuid::new_v4().simple()));
 
-                info!("🌿 Creating Git Worktree at {:?} on branch {}", worktree_dir, branch);
+                info!(
+                    "🌿 Creating Git Worktree at {:?} on branch {}",
+                    worktree_dir, branch
+                );
 
-                // git worktree add -b <branch> <path> HEAD
                 let status = Command::new("git")
                     .current_dir(&self.base_repo_path)
                     .args(["worktree", "add", "-b", &branch])
@@ -57,7 +145,10 @@ impl SandboxEnvironment {
                     .context("Failed to execute git worktree add")?;
 
                 if !status.success() {
-                    anyhow::bail!("git worktree add exited with error code: {:?}", status.code());
+                    anyhow::bail!(
+                        "git worktree add exited with error code: {:?}",
+                        status.code()
+                    );
                 }
 
                 self.worktree_path = Some(worktree_dir.clone());
@@ -66,11 +157,114 @@ impl SandboxEnvironment {
                 Ok(worktree_dir)
             }
             IsolationMode::Ephemeral => {
-                let temp_dir = std::env::temp_dir().join(format!("agent-sandbox-{}", Uuid::new_v4().simple()));
+                let temp_dir =
+                    std::env::temp_dir().join(format!("agent-sandbox-{}", Uuid::new_v4().simple()));
                 fs::create_dir_all(&temp_dir).await?;
                 self.worktree_path = Some(temp_dir.clone());
                 Ok(temp_dir)
             }
+        }
+    }
+
+    /// Wrap an OS command with the configured Sandbox driver (Docker or Bubblewrap)
+    pub fn wrap_command(
+        &self,
+        original_bin: &str,
+        original_args: &[String],
+        run_dir: &Path,
+    ) -> (String, Vec<String>) {
+        match self.config.driver {
+            SandboxDriverKind::Bubblewrap => {
+                let mut bwrap_args = vec![
+                    "--ro-bind".to_string(),
+                    "/".to_string(),
+                    "/".to_string(),
+                    "--dev".to_string(),
+                    "/dev".to_string(),
+                    "--proc".to_string(),
+                    "/proc".to_string(),
+                    "--tmpfs".to_string(),
+                    "/tmp".to_string(),
+                ];
+
+                // Mount target working directory read-write
+                let dir_str = run_dir.to_string_lossy().to_string();
+                bwrap_args.push("--bind".to_string());
+                bwrap_args.push(dir_str.clone());
+                bwrap_args.push(dir_str.clone());
+
+                bwrap_args.push("--chdir".to_string());
+                bwrap_args.push(dir_str);
+
+                // Mount read-only credentials if they exist
+                for mount in &self.config.ro_credentials {
+                    let expanded_source = expand_home(&mount.source);
+                    if expanded_source.exists() {
+                        bwrap_args.push("--ro-bind".to_string());
+                        bwrap_args.push(expanded_source.to_string_lossy().to_string());
+                        bwrap_args.push(expanded_source.to_string_lossy().to_string());
+                    }
+                }
+
+                // Inject allowed environment variables
+                for env_key in &self.config.env_whitelist {
+                    if let Ok(val) = std::env::var(env_key) {
+                        bwrap_args.push("--setenv".to_string());
+                        bwrap_args.push(env_key.clone());
+                        bwrap_args.push(val);
+                    }
+                }
+
+                // Append original command and arguments
+                bwrap_args.push(original_bin.to_string());
+                bwrap_args.extend_from_slice(original_args);
+
+                ("bwrap".to_string(), bwrap_args)
+            }
+
+            SandboxDriverKind::Docker => {
+                let mut docker_args = vec![
+                    "run".to_string(),
+                    "--rm".to_string(),
+                    "-i".to_string(),
+                    "-v".to_string(),
+                    format!("{}:/workspace", run_dir.to_string_lossy()),
+                    "-w".to_string(),
+                    "/workspace".to_string(),
+                ];
+
+                if let Some(mem) = self.config.memory_limit_mb {
+                    docker_args.push("--memory".to_string());
+                    docker_args.push(format!("{}m", mem));
+                }
+
+                for mount in &self.config.ro_credentials {
+                    let expanded_source = expand_home(&mount.source);
+                    if expanded_source.exists() {
+                        docker_args.push("-v".to_string());
+                        docker_args.push(format!(
+                            "{}:{}:ro",
+                            expanded_source.to_string_lossy(),
+                            mount.target
+                        ));
+                    }
+                }
+
+                for env_key in &self.config.env_whitelist {
+                    if let Ok(val) = std::env::var(env_key) {
+                        docker_args.push("-e".to_string());
+                        docker_args.push(format!("{}={}", env_key, val));
+                    }
+                }
+
+                docker_args.push(self.config.docker_image.clone());
+                docker_args.push(original_bin.to_string());
+                docker_args.extend_from_slice(original_args);
+
+                ("docker".to_string(), docker_args)
+            }
+
+            SandboxDriverKind::Host => (original_bin.to_string(), original_args.to_vec()),
         }
     }
 
@@ -101,7 +295,7 @@ impl SandboxEnvironment {
     /// Dọn dẹp worktree sau khi hoàn tất lượt chạy
     pub async fn teardown(&mut self) -> Result<()> {
         if let Some(worktree_dir) = &self.worktree_path {
-            if self.mode == IsolationMode::Worktree {
+            if self.config.mode == IsolationMode::Worktree {
                 info!("🧹 Cleaning up Git Worktree at {:?}", worktree_dir);
                 let _ = Command::new("git")
                     .current_dir(&self.base_repo_path)
@@ -109,11 +303,49 @@ impl SandboxEnvironment {
                     .arg(worktree_dir)
                     .status()
                     .await;
-            } else if self.mode == IsolationMode::Ephemeral {
+            } else if self.config.mode == IsolationMode::Ephemeral {
                 let _ = fs::remove_dir_all(worktree_dir).await;
             }
             self.worktree_path = None;
         }
         Ok(())
+    }
+}
+
+fn expand_home(path_str: &str) -> PathBuf {
+    if path_str.starts_with("~/") || path_str == "~" {
+        if let Ok(home) = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")) {
+            return PathBuf::from(path_str.replacen('~', &home, 1));
+        }
+    }
+    PathBuf::from(path_str)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_driver_detection() {
+        let driver = SandboxConfig::detect_best_driver();
+        // On this linux machine, bubblewrap is installed and should be detected
+        assert!(
+            driver == SandboxDriverKind::Bubblewrap
+                || driver == SandboxDriverKind::Docker
+                || driver == SandboxDriverKind::Host
+        );
+    }
+
+    #[test]
+    fn test_bwrap_wrap_command() {
+        let mut config = SandboxConfig::default();
+        config.driver = SandboxDriverKind::Bubblewrap;
+        let env = SandboxEnvironment::with_config(".", config);
+
+        let (bin, args) = env.wrap_command("ls", &["-la".to_string()], Path::new("/tmp"));
+        assert_eq!(bin, "bwrap");
+        assert!(args.contains(&"--ro-bind".to_string()));
+        assert!(args.contains(&"ls".to_string()));
+        assert!(args.contains(&"-la".to_string()));
     }
 }

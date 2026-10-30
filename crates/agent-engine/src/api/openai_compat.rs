@@ -1,7 +1,7 @@
+use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use async_trait::async_trait;
 use serde_json::json;
 use std::time::Instant;
-use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 
 pub struct OpenAiCompatibleEngine {
     pub base_url: String,

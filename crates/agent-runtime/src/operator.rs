@@ -1,5 +1,4 @@
-use std::path::Path;
-use std::sync::Arc;
+use crate::bus::InterAgentBus;
 use agent_domain::{AgentId, InterAgentEvent, RigSnapshot, RigSpec, SeatSnapshot};
 use agent_engine::cli::{AntigravityEngine, ClaudeCodeEngine};
 use agent_engine::tmux::TmuxSessionManager;
@@ -7,8 +6,9 @@ use agent_engine::{ComputeEngine, EngineInput};
 use anyhow::Result;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::sync::Arc;
 use tracing::{info, warn};
-use crate::bus::InterAgentBus;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeatStatusReport {
@@ -76,7 +76,10 @@ impl KernelOperator {
                     }
                 }
             } else {
-                info!("🚀 Seat '{}' configured as in-memory / process harness", seat.seat_id);
+                info!(
+                    "🚀 Seat '{}' configured as in-memory / process harness",
+                    seat.seat_id
+                );
                 booted.push(format!("process_{}", seat.seat_id));
             }
         }
@@ -87,11 +90,15 @@ impl KernelOperator {
     pub fn shutdown_seats(&self) -> Result<(), String> {
         for seat in &self.spec.seats {
             if seat.harness == "tmux" && TmuxSessionManager::is_available() {
-                let session_name = TmuxSessionManager::format_session_name(&self.spec.rig.id, &seat.seat_id);
+                let session_name =
+                    TmuxSessionManager::format_session_name(&self.spec.rig.id, &seat.seat_id);
                 let _ = TmuxSessionManager::kill_seat_session(&session_name);
             }
         }
-        info!("🛑 All seats for rig '{}' have been stopped", self.spec.rig.id);
+        info!(
+            "🛑 All seats for rig '{}' have been stopped",
+            self.spec.rig.id
+        );
         Ok(())
     }
 
@@ -100,7 +107,10 @@ impl KernelOperator {
         let mut reports = Vec::new();
         for seat in &self.spec.seats {
             let session_name = if seat.harness == "tmux" {
-                Some(TmuxSessionManager::format_session_name(&self.spec.rig.id, &seat.seat_id))
+                Some(TmuxSessionManager::format_session_name(
+                    &self.spec.rig.id,
+                    &seat.seat_id,
+                ))
             } else {
                 None
             };
@@ -127,18 +137,20 @@ impl KernelOperator {
     pub fn create_snapshot(&self) -> Result<RigSnapshot, String> {
         let mut seat_snapshots = Vec::new();
         for seat in &self.spec.seats {
-            let (is_active, terminal_buffer) = if seat.harness == "tmux" && TmuxSessionManager::is_available() {
-                let sess = TmuxSessionManager::format_session_name(&self.spec.rig.id, &seat.seat_id);
-                let active = TmuxSessionManager::has_session(&sess);
-                let buffer = if active {
-                    TmuxSessionManager::capture_pane(&sess, 50).ok()
+            let (is_active, terminal_buffer) =
+                if seat.harness == "tmux" && TmuxSessionManager::is_available() {
+                    let sess =
+                        TmuxSessionManager::format_session_name(&self.spec.rig.id, &seat.seat_id);
+                    let active = TmuxSessionManager::has_session(&sess);
+                    let buffer = if active {
+                        TmuxSessionManager::capture_pane(&sess, 50).ok()
+                    } else {
+                        None
+                    };
+                    (active, buffer)
                 } else {
-                    None
+                    (true, None)
                 };
-                (active, buffer)
-            } else {
-                (true, None)
-            };
 
             seat_snapshots.push(SeatSnapshot {
                 seat_id: seat.seat_id.clone(),
@@ -151,7 +163,11 @@ impl KernelOperator {
         }
 
         let spec_yaml = self.spec.to_yaml_str().map_err(|e| e.to_string())?;
-        let snapshot_id = format!("snap_{}_{}", self.spec.rig.id, Utc::now().format("%Y%m%d_%H%M%S"));
+        let snapshot_id = format!(
+            "snap_{}_{}",
+            self.spec.rig.id,
+            Utc::now().format("%Y%m%d_%H%M%S")
+        );
 
         Ok(RigSnapshot {
             snapshot_id,
@@ -164,7 +180,11 @@ impl KernelOperator {
     }
 
     /// Lưu snapshot ra đĩa (mặc định tại storage/rigs/snapshots/)
-    pub fn save_snapshot(&self, snapshot: &RigSnapshot, custom_path: Option<&str>) -> Result<String, String> {
+    pub fn save_snapshot(
+        &self,
+        snapshot: &RigSnapshot,
+        custom_path: Option<&str>,
+    ) -> Result<String, String> {
         let target_path = match custom_path {
             Some(p) => p.to_string(),
             None => {
@@ -174,8 +194,11 @@ impl KernelOperator {
             }
         };
 
-        let json = snapshot.to_json().map_err(|e| format!("Serialization error: {}", e))?;
-        std::fs::write(&target_path, json).map_err(|e| format!("Failed to write snapshot to {}: {}", target_path, e))?;
+        let json = snapshot
+            .to_json()
+            .map_err(|e| format!("Serialization error: {}", e))?;
+        std::fs::write(&target_path, json)
+            .map_err(|e| format!("Failed to write snapshot to {}: {}", target_path, e))?;
         info!("📸 Rig snapshot saved successfully to '{}'", target_path);
         Ok(target_path)
     }
@@ -189,14 +212,18 @@ impl KernelOperator {
 
     /// Khôi phục trạng thái Rig từ snapshot
     pub fn restore_snapshot(&self, snapshot: &RigSnapshot) -> Result<(), String> {
-        info!("🔄 Restoring Rig '{}' from snapshot '{}'...", self.spec.rig.id, snapshot.snapshot_id);
+        info!(
+            "🔄 Restoring Rig '{}' from snapshot '{}'...",
+            self.spec.rig.id, snapshot.snapshot_id
+        );
         // 1. Boot lại các seats nếu chưa chạy
         self.boot_seats()?;
 
         // 2. Với các tmux seat, gửi thông điệp thông báo khôi phục
         for seat_snap in &snapshot.seats {
             if seat_snap.harness == "tmux" && TmuxSessionManager::is_available() {
-                let sess = TmuxSessionManager::format_session_name(&self.spec.rig.id, &seat_snap.seat_id);
+                let sess =
+                    TmuxSessionManager::format_session_name(&self.spec.rig.id, &seat_snap.seat_id);
                 if TmuxSessionManager::has_session(&sess) {
                     let restore_msg = format!(
                         "echo '>>> [Rig Restored] Seat: {} | Restored at: {} | Snapshot: {}'",
@@ -208,7 +235,10 @@ impl KernelOperator {
                 }
             }
         }
-        info!("✅ Rig restored successfully from snapshot '{}'", snapshot.snapshot_id);
+        info!(
+            "✅ Rig restored successfully from snapshot '{}'",
+            snapshot.snapshot_id
+        );
         Ok(())
     }
 
@@ -216,7 +246,11 @@ impl KernelOperator {
     /// 1. engine_override từ CLI
     /// 2. engine trong cấu hình YAML
     /// 3. Fallback
-    pub fn resolve_engine(&self, configured: Option<&str>, cli_override: Option<&str>) -> Arc<dyn ComputeEngine> {
+    pub fn resolve_engine(
+        &self,
+        configured: Option<&str>,
+        cli_override: Option<&str>,
+    ) -> Arc<dyn ComputeEngine> {
         let chosen = cli_override
             .or(configured)
             .unwrap_or("antigravity")
@@ -236,7 +270,10 @@ impl KernelOperator {
         engine_override: Option<&str>,
     ) -> Result<RigExecutionSummary, String> {
         let started_at = Utc::now();
-        info!("🎯 [KernelOperator] Received goal for Rig '{}': {}", self.spec.rig.name, goal);
+        info!(
+            "🎯 [KernelOperator] Received goal for Rig '{}': {}",
+            self.spec.rig.name, goal
+        );
 
         // Khởi tạo Bus giao tiếp liên agent
         let bus = InterAgentBus::new(128);
@@ -249,13 +286,19 @@ impl KernelOperator {
         let goal_lower = goal.to_lowercase();
 
         for seat in &self.spec.seats {
-            let matched = seat.capabilities.iter().any(|c| goal_lower.contains(&c.to_lowercase()));
+            let matched = seat
+                .capabilities
+                .iter()
+                .any(|c| goal_lower.contains(&c.to_lowercase()));
             let is_assigned = matched || self.spec.seats.len() == 1;
 
             if is_assigned {
                 assignments.push(RigSeatAssignment {
                     seat_id: seat.seat_id.clone(),
-                    task: format!("Thực thi nhiệm vụ '{}' phù hợp năng lực: {:?}", goal, seat.capabilities),
+                    task: format!(
+                        "Thực thi nhiệm vụ '{}' phù hợp năng lực: {:?}",
+                        goal, seat.capabilities
+                    ),
                     status: "Pending".to_string(),
                     output: None,
                 });
@@ -293,12 +336,17 @@ impl KernelOperator {
 
             if let Some(s) = seat {
                 if s.harness == "tmux" && TmuxSessionManager::is_available() {
-                    let sess = TmuxSessionManager::format_session_name(&self.spec.rig.id, &s.seat_id);
-                    let cmd = format!("echo '>>> [Seat: {}] Started task: {}'", s.seat_id, assignment.task);
+                    let sess =
+                        TmuxSessionManager::format_session_name(&self.spec.rig.id, &s.seat_id);
+                    let cmd = format!(
+                        "echo '>>> [Seat: {}] Started task: {}'",
+                        s.seat_id, assignment.task
+                    );
                     let _ = TmuxSessionManager::send_command(&sess, &cmd);
                     std::thread::sleep(std::time::Duration::from_millis(100));
 
-                    let out = TmuxSessionManager::capture_pane(&sess, 20).unwrap_or_else(|_| "Executed in tmux".to_string());
+                    let out = TmuxSessionManager::capture_pane(&sess, 20)
+                        .unwrap_or_else(|_| "Executed in tmux".to_string());
                     assignment.output = Some(out);
                     assignment.status = "Completed".to_string();
                 } else {
@@ -313,6 +361,7 @@ impl KernelOperator {
                         system_context: format!("Rig Operator Dispatch for {}", s.seat_id),
                         working_dir: self.workspace_dir.clone(),
                         timeout_seconds: 60,
+                        on_stream_chunk: None,
                     };
                     match engine.execute(&input).await {
                         Ok(res) => {
@@ -344,7 +393,10 @@ impl KernelOperator {
         // 3. Định tuyến kênh liên lạc nội bộ (Rig Channels Pipeline - OpenRig Chaining)
         let mut channel_dispatches = Vec::new();
         for channel in &self.spec.channels {
-            if let Some(src_assignment) = assignments.iter().find(|a| a.seat_id == channel.from_seat && a.status == "Completed") {
+            if let Some(src_assignment) = assignments
+                .iter()
+                .find(|a| a.seat_id == channel.from_seat && a.status == "Completed")
+            {
                 if let Some(target_seat) = self.spec.find_seat(&channel.to_seat) {
                     let mode = channel.mode.as_deref().unwrap_or("direct");
                     let channel_task = format!(
@@ -352,7 +404,10 @@ impl KernelOperator {
                         channel.from_seat, mode
                     );
 
-                    info!("🔀 [Rig Channel] Forwarding output from '{}' to '{}' (Mode: {})", channel.from_seat, channel.to_seat, mode);
+                    info!(
+                        "🔀 [Rig Channel] Forwarding output from '{}' to '{}' (Mode: {})",
+                        channel.from_seat, channel.to_seat, mode
+                    );
 
                     let mut ch_assign = RigSeatAssignment {
                         seat_id: channel.to_seat.clone(),
@@ -362,13 +417,25 @@ impl KernelOperator {
                     };
 
                     if target_seat.harness == "tmux" && TmuxSessionManager::is_available() {
-                        let sess = TmuxSessionManager::format_session_name(&self.spec.rig.id, &target_seat.seat_id);
-                        let cmd = format!("echo '>>> [Channel Handshake] From: {} (Mode: {}) - Handled'", channel.from_seat, mode);
+                        let sess = TmuxSessionManager::format_session_name(
+                            &self.spec.rig.id,
+                            &target_seat.seat_id,
+                        );
+                        let cmd = format!(
+                            "echo '>>> [Channel Handshake] From: {} (Mode: {}) - Handled'",
+                            channel.from_seat, mode
+                        );
                         let _ = TmuxSessionManager::send_command(&sess, &cmd);
-                        ch_assign.output = Some(format!("Channel handoff received in tmux session '{}'", sess));
+                        ch_assign.output = Some(format!(
+                            "Channel handoff received in tmux session '{}'",
+                            sess
+                        ));
                         ch_assign.status = "Completed".to_string();
                     } else {
-                        ch_assign.output = Some(format!("Channel handoff processed for seat '{}' (mode: {})", target_seat.seat_id, mode));
+                        ch_assign.output = Some(format!(
+                            "Channel handoff processed for seat '{}' (mode: {})",
+                            target_seat.seat_id, mode
+                        ));
                         ch_assign.status = "Completed".to_string();
                     }
 
@@ -463,13 +530,11 @@ mod tests {
                     autonomy: "full".to_string(),
                 },
             ],
-            channels: vec![
-                RigChannelConfig {
-                    from_seat: "dev-01".to_string(),
-                    to_seat: "qa-01".to_string(),
-                    mode: Some("review".to_string()),
-                }
-            ],
+            channels: vec![RigChannelConfig {
+                from_seat: "dev-01".to_string(),
+                to_seat: "qa-01".to_string(),
+                mode: Some("review".to_string()),
+            }],
         };
 
         let op = KernelOperator::new(spec, ".");
@@ -487,7 +552,10 @@ mod tests {
         assert!(restore_res.is_ok());
 
         // Test Goal Execution with Channel Forwarding
-        let summary = op.execute_goal("Viết code Rust", Some("mock")).await.expect("Must execute");
+        let summary = op
+            .execute_goal("Viết code Rust", Some("mock"))
+            .await
+            .expect("Must execute");
         assert_eq!(summary.status, "Completed");
         assert_eq!(summary.assignments.len(), 1);
         assert_eq!(summary.assignments[0].seat_id, "dev-01");

@@ -71,7 +71,10 @@ impl ProcessTreeController {
             Ok(output_res) => output_res.map_err(|e| format!("Process execution failed: {}", e)),
             Err(_) => {
                 // Hết hạn timeout: Tiến hành quy trình ngắt 2 pha chuẩn Multica
-                warn!("⏳ [ProcessTree] Command timed out after {:?}. Initiating graceful kill...", timeout);
+                warn!(
+                    "⏳ [ProcessTree] Command timed out after {:?}. Initiating graceful kill...",
+                    timeout
+                );
                 if let Some(p) = pid {
                     Self::interrupt_group(p);
 
@@ -79,7 +82,10 @@ impl ProcessTreeController {
                     tokio::time::sleep(graceful_stop_timeout).await;
 
                     // Nếu vẫn còn sống, ép dừng bằng SIGKILL
-                    warn!("💀 [ProcessTree] Graceful timeout elapsed for PID {}. Forcing SIGKILL...", p);
+                    warn!(
+                        "💀 [ProcessTree] Graceful timeout elapsed for PID {}. Forcing SIGKILL...",
+                        p
+                    );
                     Self::kill_group(p);
                 }
 

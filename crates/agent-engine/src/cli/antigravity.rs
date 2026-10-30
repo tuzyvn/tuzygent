@@ -1,11 +1,11 @@
+use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use async_trait::async_trait;
-use tokio::process::Command;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use serde::{Deserialize, Serialize};
 use std::process::Stdio;
 use std::time::Instant;
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn, debug};
-use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command;
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AntigravityUsage {
@@ -72,9 +72,14 @@ fn resolve_agy_binary(binary_path: Option<String>) -> String {
             return env_bin;
         }
     }
-    let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_default();
     if !home.is_empty() {
-        let candidate = std::path::Path::new(&home).join(".local").join("bin").join("agy");
+        let candidate = std::path::Path::new(&home)
+            .join(".local")
+            .join("bin")
+            .join("agy");
         if candidate.exists() {
             return candidate.to_string_lossy().to_string();
         }
@@ -98,7 +103,10 @@ impl ComputeEngine for AntigravityEngine {
 
         // Ghép instruction và prompt
         let full_prompt = if !input.system_context.is_empty() {
-            format!("[INSTRUCTION]\n{}\n\n[USER INPUT]\n{}", input.system_context, input.prompt_or_command)
+            format!(
+                "[INSTRUCTION]\n{}\n\n[USER INPUT]\n{}",
+                input.system_context, input.prompt_or_command
+            )
         } else {
             input.prompt_or_command.clone()
         };
@@ -106,11 +114,11 @@ impl ComputeEngine for AntigravityEngine {
         // Tham khảo Multica: cấu hình stream-json và output-format
         let mut cmd = Command::new(&self.binary_path);
         cmd.arg("-p")
-           .arg(&full_prompt)
-           .arg("--output-format")
-           .arg("stream-json")
-           .stdout(Stdio::piped())
-           .stderr(Stdio::piped());
+            .arg(&full_prompt)
+            .arg("--output-format")
+            .arg("stream-json")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
 
         if let Some(m) = &self.model {
             cmd.arg("--model").arg(m);
@@ -149,6 +157,9 @@ impl ComputeEngine for AntigravityEngine {
                     "step_update" => {
                         if let Some(step) = event.step_update {
                             if !step.text_delta.is_empty() {
+                                if let Some(ref cb) = input.on_stream_chunk {
+                                    cb(&step.text_delta);
+                                }
                                 accumulated_text.push_str(&step.text_delta);
                                 debug!("agy text delta: {}", step.text_delta);
                             }
@@ -203,7 +214,10 @@ impl ComputeEngine for AntigravityEngine {
         if total_usage.total_tokens > 0 {
             info!(
                 "📊 [Antigravity Usage] In: {}, Out: {}, Think: {}, Total: {}",
-                total_usage.input_tokens, total_usage.output_tokens, total_usage.thinking_tokens, total_usage.total_tokens
+                total_usage.input_tokens,
+                total_usage.output_tokens,
+                total_usage.thinking_tokens,
+                total_usage.total_tokens
             );
         }
 

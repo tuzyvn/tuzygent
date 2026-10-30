@@ -130,7 +130,11 @@ impl WorkflowOrchestrator {
         }
     }
 
-    fn resolve_engine(&self, engine_name: Option<&str>, model: Option<&str>) -> Arc<dyn ComputeEngine> {
+    fn resolve_engine(
+        &self,
+        engine_name: Option<&str>,
+        model: Option<&str>,
+    ) -> Arc<dyn ComputeEngine> {
         let name = engine_name.unwrap_or("agy").to_lowercase();
         // Giá trị default cho model nếu không được chỉ định
         let resolved_model = match model {
@@ -156,16 +160,27 @@ impl WorkflowOrchestrator {
         }
     }
 
-    pub async fn load_workflow_from_catalog(&self, workflow_id: &str) -> Result<WorkflowDefinition> {
-        let catalog_path = std::path::Path::new(&self.workspace_dir).join("workflows").join("catalog.json");
-        let data = tokio::fs::read(&catalog_path).await
+    pub async fn load_workflow_from_catalog(
+        &self,
+        workflow_id: &str,
+    ) -> Result<WorkflowDefinition> {
+        let catalog_path = std::path::Path::new(&self.workspace_dir)
+            .join("workflows")
+            .join("catalog.json");
+        let data = tokio::fs::read(&catalog_path)
+            .await
             .map_err(|e| anyhow!("Không đọc được file catalog tại {:?}: {}", catalog_path, e))?;
-        let workflows: Vec<WorkflowDefinition> = serde_json::from_slice(&data)
-            .map_err(|e| anyhow!("Lỗi parse JSON catalog: {}", e))?;
+        let workflows: Vec<WorkflowDefinition> =
+            serde_json::from_slice(&data).map_err(|e| anyhow!("Lỗi parse JSON catalog: {}", e))?;
         workflows
             .into_iter()
             .find(|w| w.id == workflow_id)
-            .ok_or_else(|| anyhow!("Không tìm thấy Sub-Workflow có ID '{}' trong catalog", workflow_id))
+            .ok_or_else(|| {
+                anyhow!(
+                    "Không tìm thấy Sub-Workflow có ID '{}' trong catalog",
+                    workflow_id
+                )
+            })
     }
 
     pub async fn execute_workflow(
@@ -174,7 +189,8 @@ impl WorkflowOrchestrator {
         trigger_payload: Option<serde_json::Value>,
         triggered_by: &str,
     ) -> Result<WorkflowRunReport> {
-        self.execute_workflow_internal(workflow, trigger_payload, triggered_by, 0).await
+        self.execute_workflow_internal(workflow, trigger_payload, triggered_by, 0)
+            .await
     }
 
     pub fn execute_workflow_internal<'a>(
@@ -183,10 +199,13 @@ impl WorkflowOrchestrator {
         trigger_payload: Option<serde_json::Value>,
         triggered_by: &'a str,
         depth: usize,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<WorkflowRunReport>> + Send + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<WorkflowRunReport>> + Send + 'a>>
+    {
         Box::pin(async move {
             if depth > 5 {
-                return Err(anyhow!("Vượt quá độ sâu tối đa (5) của Sub-Workflow lồng nhau"));
+                return Err(anyhow!(
+                    "Vượt quá độ sâu tối đa (5) của Sub-Workflow lồng nhau"
+                ));
             }
 
             let run_id = format!("run-{}", Utc::now().format("%Y%m%d%H%M%S"));
@@ -202,7 +221,10 @@ impl WorkflowOrchestrator {
             timeline.push(WorkflowTimelineEvent {
                 timestamp: Utc::now().format("%H:%M:%S").to_string(),
                 level: "info".to_string(),
-                message: format!("Khởi chạy Workflow '{}' (ID: {}, Depth: {})", workflow.name, workflow.id, depth),
+                message: format!(
+                    "Khởi chạy Workflow '{}' (ID: {}, Depth: {})",
+                    workflow.name, workflow.id, depth
+                ),
             });
 
             // Xây dựng DAG (In-degree & Adjacency)
@@ -240,7 +262,11 @@ impl WorkflowOrchestrator {
                     None => continue,
                 };
 
-                let node_label = node.data.label.clone().unwrap_or_else(|| current_id.clone());
+                let node_label = node
+                    .data
+                    .label
+                    .clone()
+                    .unwrap_or_else(|| current_id.clone());
                 let node_start = Utc::now();
 
                 timeline.push(WorkflowTimelineEvent {
@@ -267,17 +293,23 @@ impl WorkflowOrchestrator {
                     }
                     "agentNode" => {
                         let engine_name = node.data.engine.as_deref().unwrap_or("agy");
-                        let model_name = node.data.model.as_deref().filter(|m| !m.trim().is_empty());
+                        let model_name =
+                            node.data.model.as_deref().filter(|m| !m.trim().is_empty());
                         let engine = self.resolve_engine(Some(engine_name), model_name);
                         engine_used = Some(match model_name {
                             Some(m) => format!("{} ({})", engine_name, m),
                             None => engine_name.to_string(),
                         });
 
-                        let persona_identifier = node.data.persona_id.as_deref().unwrap_or("agent-worker");
-                        let relevant_lessons = self.harness_memory.find_relevant_lessons("agentNode", persona_identifier).await;
+                        let persona_identifier =
+                            node.data.persona_id.as_deref().unwrap_or("agent-worker");
+                        let relevant_lessons = self
+                            .harness_memory
+                            .find_relevant_lessons("agentNode", persona_identifier)
+                            .await;
 
-                        let context_json = serde_json::to_string_pretty(&context_state).unwrap_or_default();
+                        let context_json =
+                            serde_json::to_string_pretty(&context_state).unwrap_or_default();
                         let base_prompt = if let Some(tmpl) = &node.data.prompt_template {
                             if !tmpl.trim().is_empty() {
                                 if tmpl.contains("{{input}}") {
@@ -309,7 +341,9 @@ impl WorkflowOrchestrator {
                         let max_healing_attempts = node.data.max_healing_attempts.unwrap_or(2);
 
                         // Cầu nối Cross-Engine Handoff Memory (Cindy-style)
-                        let handoff_bridge = if let Some((prev_engine, prev_summary)) = &last_agent_execution {
+                        let handoff_bridge = if let Some((prev_engine, prev_summary)) =
+                            &last_agent_execution
+                        {
                             if prev_engine != engine_name {
                                 timeline.push(WorkflowTimelineEvent {
                                     timestamp: Utc::now().format("%H:%M:%S").to_string(),
@@ -341,6 +375,7 @@ impl WorkflowOrchestrator {
                                 system_context: system_context.clone(),
                                 working_dir: self.workspace_dir.clone(),
                                 timeout_seconds: 60,
+                                on_stream_chunk: None,
                             };
 
                             let timeout_dur = std::time::Duration::from_secs(input.timeout_seconds);
@@ -357,12 +392,17 @@ impl WorkflowOrchestrator {
                                             healed = Some(true);
                                             healing_attempts = Some(attempt);
                                             let remediation = "Điều chỉnh prompt theo phản hồi lỗi và tuân thủ định dạng output".to_string();
-                                            let _ = self.harness_memory.record_lesson(
-                                                "agentNode",
-                                                persona_identifier,
-                                                &node_error.clone().unwrap_or_else(|| "Exit failure".to_string()),
-                                                &remediation,
-                                            ).await;
+                                            let _ = self
+                                                .harness_memory
+                                                .record_lesson(
+                                                    "agentNode",
+                                                    persona_identifier,
+                                                    &node_error.clone().unwrap_or_else(|| {
+                                                        "Exit failure".to_string()
+                                                    }),
+                                                    &remediation,
+                                                )
+                                                .await;
                                             lesson_learned = Some(remediation);
                                             timeline.push(WorkflowTimelineEvent {
                                                 timestamp: Utc::now().format("%H:%M:%S").to_string(),
@@ -372,13 +412,18 @@ impl WorkflowOrchestrator {
                                         }
                                         node_error = None;
                                         status = "completed".to_string();
-                                        last_agent_execution = Some((engine_name.to_string(), stdout_trimmed.clone()));
+                                        last_agent_execution =
+                                            Some((engine_name.to_string(), stdout_trimmed.clone()));
                                         break;
                                     } else {
                                         let err_desc = if out.exit_code != 0 {
-                                            format!("Agent engine kết thúc với exit_code {}", out.exit_code)
+                                            format!(
+                                                "Agent engine kết thúc với exit_code {}",
+                                                out.exit_code
+                                            )
                                         } else {
-                                            "Agent output rỗng hoặc không có dữ liệu trả về".to_string()
+                                            "Agent output rỗng hoặc không có dữ liệu trả về"
+                                                .to_string()
                                         };
                                         node_error = Some(err_desc.clone());
                                     }
@@ -387,7 +432,10 @@ impl WorkflowOrchestrator {
                                     node_error = Some(e.to_string());
                                 }
                                 Err(_) => {
-                                    node_error = Some(format!("Engine execution timed out after {}s", input.timeout_seconds));
+                                    node_error = Some(format!(
+                                        "Engine execution timed out after {}s",
+                                        input.timeout_seconds
+                                    ));
                                 }
                             }
 
@@ -417,7 +465,8 @@ impl WorkflowOrchestrator {
                     }
                     "toolNode" => {
                         if let Some(cmd_str) = &node.data.command {
-                            let self_healing_enabled = node.data.enable_self_healing.unwrap_or(true);
+                            let self_healing_enabled =
+                                node.data.enable_self_healing.unwrap_or(true);
                             let mut current_cmd = cmd_str.clone();
                             let mut tool_attempt = 0;
                             let max_tool_attempts = 1;
@@ -428,12 +477,18 @@ impl WorkflowOrchestrator {
                                 cmd.current_dir(&self.workspace_dir);
                                 match cmd.output().await {
                                     Ok(output) => {
-                                        let stdout_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                                        let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                                        let stdout_str = String::from_utf8_lossy(&output.stdout)
+                                            .trim()
+                                            .to_string();
+                                        let stderr_str = String::from_utf8_lossy(&output.stderr)
+                                            .trim()
+                                            .to_string();
                                         let exit_code = output.status.code().unwrap_or(-1);
 
-                                        let parsed_json: serde_json::Value = serde_json::from_str(&stdout_str)
-                                            .unwrap_or_else(|_| serde_json::json!({ "raw": stdout_str }));
+                                        let parsed_json: serde_json::Value =
+                                            serde_json::from_str(&stdout_str).unwrap_or_else(
+                                                |_| serde_json::json!({ "raw": stdout_str }),
+                                            );
 
                                         node_output = serde_json::json!({
                                             "status": exit_code,
@@ -448,13 +503,19 @@ impl WorkflowOrchestrator {
                                             if tool_attempt > 0 {
                                                 healed = Some(true);
                                                 healing_attempts = Some(tool_attempt);
-                                                let remediation = format!("Điều chỉnh lệnh thực thi sang: {}", current_cmd);
-                                                let _ = self.harness_memory.record_lesson(
-                                                    "toolNode",
-                                                    &current_id,
-                                                    "Command execution failure",
-                                                    &remediation,
-                                                ).await;
+                                                let remediation = format!(
+                                                    "Điều chỉnh lệnh thực thi sang: {}",
+                                                    current_cmd
+                                                );
+                                                let _ = self
+                                                    .harness_memory
+                                                    .record_lesson(
+                                                        "toolNode",
+                                                        &current_id,
+                                                        "Command execution failure",
+                                                        &remediation,
+                                                    )
+                                                    .await;
                                                 lesson_learned = Some(remediation);
                                                 timeline.push(WorkflowTimelineEvent {
                                                     timestamp: Utc::now().format("%H:%M:%S").to_string(),
@@ -464,11 +525,20 @@ impl WorkflowOrchestrator {
                                             }
                                             break;
                                         } else {
-                                            let err_msg = format!("Exit code {}: {}", exit_code, stderr_str);
+                                            let err_msg =
+                                                format!("Exit code {}: {}", exit_code, stderr_str);
                                             node_error = Some(err_msg.clone());
 
-                                            if tool_attempt < max_tool_attempts && self_healing_enabled {
-                                                if let Some(refined_cmd) = HarnessSelfHealer::propose_tool_refinement(&current_cmd, &stderr_str, exit_code) {
+                                            if tool_attempt < max_tool_attempts
+                                                && self_healing_enabled
+                                            {
+                                                if let Some(refined_cmd) =
+                                                    HarnessSelfHealer::propose_tool_refinement(
+                                                        &current_cmd,
+                                                        &stderr_str,
+                                                        exit_code,
+                                                    )
+                                                {
                                                     timeline.push(WorkflowTimelineEvent {
                                                         timestamp: Utc::now().format("%H:%M:%S").to_string(),
                                                         level: "warn".to_string(),
@@ -506,18 +576,27 @@ impl WorkflowOrchestrator {
                         });
                     }
                     "subWorkflowNode" | "workflowNode" => {
-                        let sub_id = node.data.sub_workflow_id.as_deref()
+                        let sub_id = node
+                            .data
+                            .sub_workflow_id
+                            .as_deref()
                             .or_else(|| node.data.endpoint.as_deref())
                             .unwrap_or("");
 
                         if sub_id.is_empty() {
                             status = "failed".to_string();
-                            node_error = Some("Node Sub-Workflow chưa được gán subWorkflowId hợp lệ".to_string());
+                            node_error = Some(
+                                "Node Sub-Workflow chưa được gán subWorkflowId hợp lệ".to_string(),
+                            );
                         } else {
                             timeline.push(WorkflowTimelineEvent {
                                 timestamp: Utc::now().format("%H:%M:%S").to_string(),
                                 level: "info".to_string(),
-                                message: format!("🔀 Đang lồng ghép Sub-Workflow: '{}' (Độ sâu: {})", sub_id, depth + 1),
+                                message: format!(
+                                    "🔀 Đang lồng ghép Sub-Workflow: '{}' (Độ sâu: {})",
+                                    sub_id,
+                                    depth + 1
+                                ),
                             });
 
                             match self.load_workflow_from_catalog(sub_id).await {
@@ -528,21 +607,44 @@ impl WorkflowOrchestrator {
                                         "parent_node_id": current_id.clone()
                                     }));
 
-                                    let caller_desc = format!("Parent Workflow '{}' (Node: {})", workflow.name, node_label);
-                                    match self.execute_workflow_internal(&child_wf, child_payload, &caller_desc, depth + 1).await {
+                                    let caller_desc = format!(
+                                        "Parent Workflow '{}' (Node: {})",
+                                        workflow.name, node_label
+                                    );
+                                    match self
+                                        .execute_workflow_internal(
+                                            &child_wf,
+                                            child_payload,
+                                            &caller_desc,
+                                            depth + 1,
+                                        )
+                                        .await
+                                    {
                                         Ok(child_report) => {
                                             for event in &child_report.timeline {
                                                 timeline.push(WorkflowTimelineEvent {
                                                     timestamp: event.timestamp.clone(),
                                                     level: event.level.clone(),
-                                                    message: format!("[SubWF: {}] {}", child_wf.name, event.message),
+                                                    message: format!(
+                                                        "[SubWF: {}] {}",
+                                                        child_wf.name, event.message
+                                                    ),
                                                 });
                                             }
 
-                                            let is_success = child_report.status.eq_ignore_ascii_case("completed");
-                                            status = if is_success { "completed".to_string() } else { "failed".to_string() };
+                                            let is_success = child_report
+                                                .status
+                                                .eq_ignore_ascii_case("completed");
+                                            status = if is_success {
+                                                "completed".to_string()
+                                            } else {
+                                                "failed".to_string()
+                                            };
                                             if !is_success {
-                                                node_error = Some(format!("Sub-Workflow '{}' kết thúc với trạng thái: {}", child_wf.name, child_report.status));
+                                                node_error = Some(format!(
+                                                    "Sub-Workflow '{}' kết thúc với trạng thái: {}",
+                                                    child_wf.name, child_report.status
+                                                ));
                                             }
 
                                             node_output = serde_json::json!({
@@ -557,13 +659,19 @@ impl WorkflowOrchestrator {
                                         }
                                         Err(e) => {
                                             status = "failed".to_string();
-                                            node_error = Some(format!("Lỗi thực thi Sub-Workflow '{}': {}", sub_id, e));
+                                            node_error = Some(format!(
+                                                "Lỗi thực thi Sub-Workflow '{}': {}",
+                                                sub_id, e
+                                            ));
                                         }
                                     }
                                 }
                                 Err(e) => {
                                     status = "failed".to_string();
-                                    node_error = Some(format!("Không thể nạp Sub-Workflow '{}': {}", sub_id, e));
+                                    node_error = Some(format!(
+                                        "Không thể nạp Sub-Workflow '{}': {}",
+                                        sub_id, e
+                                    ));
                                 }
                             }
                         }
@@ -618,14 +726,20 @@ impl WorkflowOrchestrator {
             timeline.push(WorkflowTimelineEvent {
                 timestamp: finish_time.format("%H:%M:%S").to_string(),
                 level: "info".to_string(),
-                message: format!("Workflow '{}' hoàn tất trong {}ms", workflow.name, total_duration),
+                message: format!(
+                    "Workflow '{}' hoàn tất trong {}ms",
+                    workflow.name, total_duration
+                ),
             });
 
             Ok(WorkflowRunReport {
                 run_id,
                 workflow_id: workflow.id.clone(),
                 workflow_name: workflow.name.clone(),
-                workflow_version: workflow.version.clone().unwrap_or_else(|| "1.0.0".to_string()),
+                workflow_version: workflow
+                    .version
+                    .clone()
+                    .unwrap_or_else(|| "1.0.0".to_string()),
                 triggered_by: triggered_by.to_string(),
                 trigger_type: "DAG_Orchestrator".to_string(),
                 status: "Completed".to_string(),

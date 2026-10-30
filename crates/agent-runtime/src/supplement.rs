@@ -59,7 +59,10 @@ impl InFlightSupplementController {
 
     /// Người dùng hoặc hệ thống gửi chỉ thị can thiệp vào giữa chừng
     pub async fn inject(&self, supplement: InFlightSupplement) -> Result<(), String> {
-        info!("📢 [Supplement Controller] Injected guidance from '{}'", supplement.author_name);
+        info!(
+            "📢 [Supplement Controller] Injected guidance from '{}'",
+            supplement.author_name
+        );
         self.tx
             .send(supplement)
             .await

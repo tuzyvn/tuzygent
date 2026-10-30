@@ -69,9 +69,11 @@ impl IdleWatchdog {
 
     /// Ghi nhận công cụ (tool) kết thúc
     pub fn exit_tool(&self) {
-        let _ = self.in_flight_tools.try_update(Ordering::SeqCst, Ordering::SeqCst, |val| {
-            Some(val.saturating_sub(1))
-        });
+        let _ = self
+            .in_flight_tools
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |val| {
+                Some(val.saturating_sub(1))
+            });
         self.mark_activity();
     }
 

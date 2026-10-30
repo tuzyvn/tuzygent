@@ -1,0 +1,35 @@
+[defaults]
+engine = "antigravity"
+timeout_seconds = 180
+sandbox_driver = "bubblewrap"
+
+[security]
+allowed_env_vars = [
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTIGRAVITY_API_KEY",
+    "AGY_BIN"
+]
+mount_credentials = [
+    { source = "~/.gemini", target = "/root/.gemini", readonly = true },
+    { source = "~/.claude", target = "/root/.claude", readonly = true }
+]
+
+[engines.antigravity]
+kind = "antigravity"
+binary_path = "agy"
+args = ["--interactive=false", "--output-format", "stream-json", "--message", "{prompt}"]
+interactive_fallback = "tmux"
+
+[engines.claude]
+kind = "claude_code"
+binary_path = "claude"
+args = ["-p", "{prompt}", "--output-format", "json"]
+interactive_fallback = "tmux"
+
+[engines.fast_echo]
+kind = "generic"
+binary_path = "bash"
+args = ["-c", "echo '[FastEcho Engine]:' {prompt}"]
+output_parser = "raw"

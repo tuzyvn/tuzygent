@@ -1,10 +1,10 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tracing::{debug, info, warn};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WsRpcRequest {
@@ -56,7 +56,10 @@ impl WsRpcClient {
         let mut pending = self.pending.lock().await;
         pending.clear();
 
-        info!("🔌 [WsRpcClient] Attached new connection (generation={})", gen);
+        info!(
+            "🔌 [WsRpcClient] Attached new connection (generation={})",
+            gen
+        );
         gen
     }
 
@@ -107,7 +110,9 @@ impl WsRpcClient {
                 if response.status >= 200 && response.status < 300 {
                     Ok(response)
                 } else {
-                    Err(response.error.unwrap_or_else(|| format!("RPC status {}", response.status)))
+                    Err(response
+                        .error
+                        .unwrap_or_else(|| format!("RPC status {}", response.status)))
                 }
             }
             Ok(Err(_)) => {
@@ -131,7 +136,10 @@ impl WsRpcClient {
         if let Some(tx) = pending.remove(&response.request_id) {
             let _ = tx.send(response);
         } else {
-            debug!("Discarded WS RPC response for unknown/expired request_id: {}", response.request_id);
+            debug!(
+                "Discarded WS RPC response for unknown/expired request_id: {}",
+                response.request_id
+            );
         }
     }
 }

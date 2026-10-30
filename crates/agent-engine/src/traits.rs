@@ -23,14 +23,86 @@ pub enum EngineKind {
     Codex,
     CustomAgentApi,
     Mock,
+    Generic(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl std::fmt::Display for EngineKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EngineKind::ClaudeCode => write!(f, "claude"),
+            EngineKind::Antigravity => write!(f, "antigravity"),
+            EngineKind::Codex => write!(f, "codex"),
+            EngineKind::CustomAgentApi => write!(f, "custom_api"),
+            EngineKind::Mock => write!(f, "mock"),
+            EngineKind::Generic(name) => write!(f, "generic:{}", name),
+        }
+    }
+}
+
+impl EngineKind {
+    pub fn from_name(name: &str) -> Self {
+        match name.to_lowercase().as_str() {
+            "claude" | "claude_code" | "claudecode" => EngineKind::ClaudeCode,
+            "antigravity" | "agy" => EngineKind::Antigravity,
+            "codex" => EngineKind::Codex,
+            "custom" | "custom_api" => EngineKind::CustomAgentApi,
+            "mock" => EngineKind::Mock,
+            other => EngineKind::Generic(other.to_string()),
+        }
+    }
+}
+
+pub type StreamCallback = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct EngineInput {
     pub prompt_or_command: String,
     pub system_context: String,
     pub working_dir: String,
     pub timeout_seconds: u64,
+    #[serde(skip)]
+    pub on_stream_chunk: Option<StreamCallback>,
+}
+
+impl std::fmt::Debug for EngineInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EngineInput")
+            .field("prompt_or_command", &self.prompt_or_command)
+            .field("system_context", &self.system_context)
+            .field("working_dir", &self.working_dir)
+            .field("timeout_seconds", &self.timeout_seconds)
+            .field("has_stream_callback", &self.on_stream_chunk.is_some())
+            .finish()
+    }
+}
+
+impl EngineInput {
+    pub fn new(prompt: impl Into<String>, working_dir: impl Into<String>) -> Self {
+        Self {
+            prompt_or_command: prompt.into(),
+            system_context: String::new(),
+            working_dir: working_dir.into(),
+            timeout_seconds: 300,
+            on_stream_chunk: None,
+        }
+    }
+
+    pub fn with_stream_callback(mut self, cb: StreamCallback) -> Self {
+        self.on_stream_chunk = Some(cb);
+        self
+    }
+}
+
+impl Default for EngineInput {
+    fn default() -> Self {
+        Self {
+            prompt_or_command: String::new(),
+            system_context: String::new(),
+            working_dir: ".".to_string(),
+            timeout_seconds: 300,
+            on_stream_chunk: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
