@@ -20,3 +20,6 @@ anyhow.workspace = true
 nix = { version = "0.29", features = ["signal", "process"] }
 libc = "0.2"
 sha2 = "0.10"
+
+[dev-dependencies]
+async-trait.workspace = true

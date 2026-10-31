@@ -35,6 +35,7 @@ impl ComputeEngine for CustomAgentApiEngine {
         }
 
         let res = req
+            .timeout(crate::process::timeout(input))
             .send()
             .await
             .map_err(|e| EngineError::ApiRequestFailed(format!("HTTP request error: {}", e)))?;
@@ -51,6 +52,7 @@ impl ComputeEngine for CustomAgentApiEngine {
             exit_code: if status == 200 { 0 } else { status },
             execution_duration_ms: duration,
             engine_used: EngineKind::CustomAgentApi,
+            session_id: None,
         })
     }
 

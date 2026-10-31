@@ -21,6 +21,7 @@ impl ComputeEngine for MockEngine {
             exit_code: 0,
             execution_duration_ms: 10,
             engine_used: EngineKind::Mock,
+            session_id: None,
         })
     }
 

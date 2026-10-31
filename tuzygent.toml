@@ -5,6 +5,8 @@ sandbox_driver = "bubblewrap"
 
 [security]
 allowed_env_vars = [
+    "CODEX_API_KEY",
+    "CODEX_BIN",
     "ANTHROPIC_API_KEY",
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
@@ -12,6 +14,7 @@ allowed_env_vars = [
     "AGY_BIN"
 ]
 mount_credentials = [
+    { source = "~/.codex/auth.json", target = "/root/.codex/auth.json", readonly = true },
     { source = "~/.gemini", target = "/root/.gemini", readonly = true },
     { source = "~/.claude", target = "/root/.claude", readonly = true }
 ]
@@ -31,5 +34,11 @@ interactive_fallback = "tmux"
 [engines.fast_echo]
 kind = "generic"
 binary_path = "bash"
-args = ["-c", "echo '[FastEcho Engine]:' {prompt}"]
+args = ["-c", 'printf "%s\n" "[FastEcho Engine]:" "$1"', "fast_echo", "{prompt}"]
 output_parser = "raw"
+
+[engines.codex]
+kind = "codex"
+output_parser = "codex_jsonl"
+# Set binary_path to an installed executable, or set CODEX_BIN.
+# Omit model to use the Codex CLI configured model.

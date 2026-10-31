@@ -93,7 +93,8 @@ cargo run -p agent-core --example embed_agent
 
 Khởi động server API:
 ```bash
-cargo run -p agent-server -- --host 0.0.0.0 --port 8080 --workspace .
+# Set TUZYGENT_API_TOKEN before starting the daemon.
+cargo run -p agent-server -- --host 127.0.0.1 --port 8080 --workspace .
 ```
 
 ### Các Endpoint chính:
@@ -178,5 +179,123 @@ args = ["run", "qwen2.5-coder:7b", "{prompt}"]
 
 ```bash
 docker build -t agent-core:latest .
-docker run -d -p 8080:8080 --name agent-core-daemon agent-core:latest
+docker run -d -p 127.0.0.1:8080:8080 -e TUZYGENT_API_TOKEN --name agent-core-daemon agent-core:latest
 ```
+
+## Vận hành an toàn
+
+Server yêu cầu `TUZYGENT_API_TOKEN` hoặc `--api-token` và mặc định chỉ lắng nghe
+`127.0.0.1`. `/health` công khai; mọi REST API và WebSocket còn lại đều cần token.
+Ví dụ khởi động:
+
+```bash
+export TUZYGENT_API_TOKEN="$(openssl rand -hex 32)"
+cargo run -p agent-server -- --workspace .
+curl -H "Authorization: Bearer $TUZYGENT_API_TOKEN" http://127.0.0.1:8080/api/v1/agents
+```
+
+Đặt `TUZYGENT_ALLOWED_ORIGINS=https://dashboard.example` nếu trình duyệt cần truy
+cập API. Nhiều origin phân cách bằng dấu phẩy; không dùng wildcard. WebSocket
+trong trình duyệt truyền token qua subprotocol (không đặt token trong URL):
+
+```javascript
+const socket = new WebSocket("wss://api.example/api/v1/ws", ["tuzygent", apiToken]);
+```
+
+Khi truy cập qua mạng, đặt server sau reverse proxy có HTTPS/WSS. Docker Compose
+cũng yêu cầu biến `TUZYGENT_API_TOKEN` trước khi khởi động.
+
+`defaults.sandbox_driver` và lựa chọn `--sandbox` thực sự bọc mọi lần chạy CLI
+trong OODA, bao gồm planner và remediation. Driver lỗi sẽ trả lỗi, không chuyển
+sang host. Chỉ chọn `host` khi chủ động muốn chạy trực tiếp. Bubblewrap chỉ mount
+workspace, runtime hệ thống và các credential đã khai báo; không mount toàn bộ
+home của host. Các executable ngoài đường dẫn hệ thống có thể cần runtime được
+cài trong `/usr` hoặc một Docker image chứa đầy đủ CLI và dependency.
+
+Với Docker sandbox, cung cấp image có các AI CLI cần dùng:
+
+```toml
+[defaults]
+sandbox_driver = "docker"
+sandbox_image = "your-registry/agent-engines:your-tag"
+timeout_seconds = 180
+```
+
+Image sandbox mặc định là `tuzygent-engine:latest`, cần được chuẩn bị riêng.
+Image daemon trong `Dockerfile` chứa server/CLI quản trị, không chứa sẵn AI CLI.
+Container sandbox được đặt tên riêng và dọn khi hoàn thành, timeout hoặc hủy task.
+
+Workflow có node lỗi sẽ báo `Failed`; node phụ thuộc sẽ không chạy. Graph có
+chu trình, ID trùng hoặc edge không hợp lệ bị từ chối trước khi thực thi.
+`approvalNode` trả `WaitingApproval` và chặn nhánh phụ thuộc: executor hiện chưa
+có nguồn phê duyệt được xác thực hoặc API resume, nên không tự động duyệt từ
+trigger payload. Tmux quản lý terminal của seat; kết quả task và channel handoff
+được lấy từ lần chạy compute engine có timeout, không suy ra từ nội dung `echo`.
+
+Khi nhúng SDK, ưu tiên `EngineInput::new()` rồi thiết lập các trường cần dùng.
+Nếu tạo bằng struct literal, thêm `command_sandbox: None` và `on_event: None`; trường này chỉ được
+runtime thiết lập và không được deserialize từ dữ liệu bên ngoài.
+
+
+## Giao task cho Codex CLI
+
+Adapter `CodexEngine` dùng `codex exec --json --sandbox workspace-write`, tắt
+hỏi phê duyệt tương tác bằng `approval_policy="never"` và giữ nguyên sandbox OS
+của OODA. Adapter không dùng cờ bỏ qua sandbox. Model lấy từ cấu hình Codex khi
+không khai báo `model` trong engine hoặc seat.
+
+Cấu hình workspace đã có `[engines.codex]`. Có thể chọn executable cụ thể bằng
+`binary_path` hoặc biến `CODEX_BIN`; nếu không, adapter tìm `codex` qua PATH.
+Ưu tiên executable đã cài sẵn nếu lệnh trên PATH là shim tự cập nhật của mise.
+Ví dụ trên máy phát triển hiện tại:
+
+```bash
+export CODEX_BIN=/home/fox/.local/share/mise/installs/codex/0.166.0/bin/codex
+cargo run -p agent-cli -- run --agent-id dev-01 --engine codex --workspace . --goal "Kiểm tra và sửa lỗi trong dự án"
+```
+
+Nếu cần dùng Codex làm mặc định, đặt `defaults.engine = "codex"`. REST API nhận:
+
+```bash
+curl http://127.0.0.1:8080/api/v1/tasks/run \
+  -H "Authorization: Bearer $TUZYGENT_API_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"agent_id":"dev-01","engine":"codex","goal":"Kiểm tra và sửa lỗi trong dự án"}'
+```
+
+Rig seat có `engine: codex` và tùy chọn `model`; workflow agent node nhận
+`data.engine = "codex"`. Tên engine không hợp lệ trả lỗi, không chuyển sang
+Antigravity. Ví dụ Rig nằm tại `examples/codex-rig.yaml`:
+
+```bash
+cargo run -p agent-cli -- rig run --spec examples/codex-rig.yaml --workspace . --goal "Sửa lỗi và kiểm tra thay đổi"
+```
+
+Codex cần được cài và đăng nhập trước. `CODEX_API_KEY` có trong danh sách biến
+được phép truyền vào sandbox. Nếu dùng đăng nhập ChatGPT đã lưu, mặc định chỉ
+mount `~/.codex/auth.json` chỉ đọc vào `/root/.codex/auth.json`; không mount toàn
+bộ thư mục cấu hình hoặc session của host. Sandbox có state riêng; nếu auth cần
+refresh hoặc muốn lưu/resume session lâu dài, cần cấu hình vùng state writable
+riêng và chính sách credential phù hợp. Docker image sandbox phải chứa Codex CLI
+và các executable đi kèm. Không tự cài hay tự cập nhật CLI trong sandbox.
+
+SDK xuất `CodexEngine` trong prelude. `EngineOutput.session_id` trả UUID của
+session; gọi `engine.resume(&input, session_id)` để tiếp tục một session cụ thể.
+Mỗi `execute()` mở session mới, không dùng `--last` chung giữa các task. Hiện
+resume được cung cấp qua SDK, chưa có endpoint REST resume.
+
+`EngineInput.on_event` nhận JSONL event dưới dạng JSON; OODA phát tiếp các event
+qua `task.engine_event` trên bus/WebSocket. `on_stream_chunk` nhận văn bản agent
+message hoàn tất; callback này chưa cung cấp token delta. Adapter chỉ trả thành
+công khi có `turn.completed` và final message hợp lệ, đồng thời xử lý
+`turn.failed`, exit code, timeout và output không hợp lệ.
+
+Kiểm tra kết nối thật trong một Git workspace an toàn bằng ví dụ SDK:
+
+```bash
+cargo run -p agent-engine --example codex_delegate -- "$CODEX_BIN" /path/to/scratch-repo
+# Thêm SESSION_UUID ở cuối để kiểm tra resume.
+```
+
+Giao thức và các cờ CLI được đối chiếu với [OpenAI Docs: Non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
+và [Developer commands](https://learn.chatgpt.com/docs/developer-commands).

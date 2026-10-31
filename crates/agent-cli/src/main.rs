@@ -1,9 +1,9 @@
 use agent_domain::{
     AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel,
-    GuardrailPolicy, Priority, RigSpec, Task, VoiceEngineType, VoiceProfile,
+    GuardrailPolicy, Priority, RigSpec, Task, TaskStatus, VoiceEngineType, VoiceProfile,
 };
 use agent_engine::api::OpenAiCompatibleEngine;
-use agent_engine::cli::{AntigravityEngine, ClaudeCodeEngine, GenericCliEngine};
+use agent_engine::cli::AntigravityEngine;
 use agent_engine::config::EnginesConfig;
 use agent_engine::{ComputeEngine, EngineInput};
 use agent_memory::{DurableMemoryStore, PersonaLoader, ScratchpadManager};
@@ -44,7 +44,7 @@ enum Commands {
         goal: String,
         #[arg(short, long, default_value = ".")]
         workspace: String,
-        #[arg(short, long, default_value = "antigravity")]
+        #[arg(short, long, default_value = "")]
         engine: String,
         #[arg(long)]
         sandbox: Option<String>,
@@ -206,50 +206,8 @@ async fn main() -> anyhow::Result<()> {
                 &engine
             };
 
-            let compute_engine: Arc<dyn ComputeEngine> = match engine_name.to_lowercase().as_str() {
-                "claude" | "claude_code" => {
-                    println!("⚡ Using Claude Code CLI Engine");
-                    let single = config.engines.get("claude");
-                    Arc::new(ClaudeCodeEngine::new(
-                        single.and_then(|s| s.binary_path.clone()),
-                        single.and_then(|s| s.model.clone()),
-                    ))
-                }
-                "omniroute" | "local" => {
-                    println!("🌐 Using OmniRoute Local LLM Engine");
-                    Arc::new(OpenAiCompatibleEngine::new(
-                        "http://127.0.0.1:20128/v1",
-                        "omniroute",
-                        "local",
-                    ))
-                }
-                "antigravity" | "agy" => {
-                    println!("⚡ Using Antigravity Native Engine");
-                    let single = config.engines.get("antigravity");
-                    Arc::new(AntigravityEngine::new(
-                        single.and_then(|s| s.binary_path.clone()),
-                        single.and_then(|s| s.model.clone()),
-                    ))
-                }
-                other => {
-                    if let Some(single) = config.engines.get(other) {
-                        println!("⚡ Using Custom/Generic CLI Engine [{}]", other);
-                        Arc::new(GenericCliEngine::new(
-                            other.to_string(),
-                            single
-                                .binary_path
-                                .clone()
-                                .unwrap_or_else(|| other.to_string()),
-                            single.args.clone(),
-                            single.env.clone(),
-                            single.output_parser.clone(),
-                        ))
-                    } else {
-                        println!("⚡ Defaulting to Antigravity Native Engine (requested '{}' not in config)", other);
-                        Arc::new(AntigravityEngine::new(None, None))
-                    }
-                }
-            };
+            let compute_engine = agent_engine::configured_engine(&config, engine_name, None)?;
+            println!("⚡ Using engine: {}", compute_engine.engine_kind());
 
             let guardrail = GuardrailPolicy::default_enterprise();
             let scratchpad = ScratchpadManager::new(&workspace);
@@ -265,14 +223,9 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            let mut sandbox_cfg = SandboxConfig::default();
-            if let Some(ref sb) = sandbox {
-                match sb.to_lowercase().as_str() {
-                    "docker" => sandbox_cfg.driver = SandboxDriverKind::Docker,
-                    "bubblewrap" | "bwrap" => sandbox_cfg.driver = SandboxDriverKind::Bubblewrap,
-                    "host" => sandbox_cfg.driver = SandboxDriverKind::Host,
-                    _ => {}
-                }
+            let mut sandbox_cfg = SandboxConfig::from_engines_config(&config)?;
+            if let Some(ref driver) = sandbox {
+                sandbox_cfg.driver = SandboxDriverKind::parse(driver)?;
             }
 
             println!("🛡️  Active Sandbox Driver: {}", sandbox_cfg.driver);
@@ -308,6 +261,7 @@ async fn main() -> anyhow::Result<()> {
 
             let ooda =
                 AutonomousOodaLoop::new(compute_engine, guardrail, scratchpad, durable, &workspace)
+                    .with_timeout_seconds(config.defaults.timeout_seconds)
                     .with_sandbox_config(sandbox_cfg)
                     .with_bus(cli_bus);
 
@@ -321,6 +275,9 @@ async fn main() -> anyhow::Result<()> {
 
             stream_printer.abort();
             println!("\n🏁 Mission Finished with Status: {:?}", final_status);
+            if final_status != TaskStatus::Completed {
+                anyhow::bail!("Mission did not complete: {:?}", final_status);
+            }
         }
         Commands::Engines { workspace, test } => {
             let ws_path = std::path::Path::new(&workspace);
@@ -373,6 +330,8 @@ async fn main() -> anyhow::Result<()> {
                     working_dir: workspace.clone(),
                     timeout_seconds: 15,
                     on_stream_chunk: None,
+                    command_sandbox: None,
+                    on_event: None,
                 };
 
                 let router = agent_engine::EngineRouter::from_config(&config);
@@ -527,6 +486,8 @@ async fn main() -> anyhow::Result<()> {
                 working_dir: workspace.clone(),
                 timeout_seconds: 45,
                 on_stream_chunk: None,
+            command_sandbox: None,
+            on_event: None,
             };
 
             let delegation_brief = match compute_engine.execute(&sre_input).await {
@@ -669,6 +630,8 @@ async fn main() -> anyhow::Result<()> {
                         working_dir: ".".to_string(),
                         timeout_seconds: 30,
                         on_stream_chunk: None,
+                        command_sandbox: None,
+                        on_event: None,
                     };
 
                     match compute_engine.execute(&input).await {
@@ -698,6 +661,8 @@ async fn main() -> anyhow::Result<()> {
                         working_dir: ".".to_string(),
                         timeout_seconds: 30,
                         on_stream_chunk: None,
+                        command_sandbox: None,
+                        on_event: None,
                     };
 
                     match compute_engine.execute(&input).await {

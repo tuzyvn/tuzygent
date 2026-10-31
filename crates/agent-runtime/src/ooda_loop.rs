@@ -21,6 +21,7 @@ pub struct AutonomousOodaLoop {
     supplement_ctrl: InFlightSupplementController,
     sandbox_config: Option<SandboxConfig>,
     bus: Option<InterAgentBus>,
+    timeout_seconds: u64,
 }
 
 impl AutonomousOodaLoop {
@@ -40,7 +41,13 @@ impl AutonomousOodaLoop {
             supplement_ctrl: InFlightSupplementController::new(16),
             sandbox_config: None,
             bus: None,
+            timeout_seconds: 300,
         }
+    }
+
+    pub fn with_timeout_seconds(mut self, seconds: u64) -> Self {
+        self.timeout_seconds = seconds.max(1);
+        self
     }
 
     pub fn with_bus(mut self, bus: InterAgentBus) -> Self {
@@ -55,6 +62,17 @@ impl AutonomousOodaLoop {
 
     pub fn supplement_controller(&self) -> InFlightSupplementController {
         self.supplement_ctrl.clone()
+    }
+
+    async fn execute_engine(
+        &self,
+        input: &EngineInput,
+    ) -> Result<agent_engine::EngineOutput, agent_engine::EngineError> {
+        let mut input = input.clone();
+        let config = self.sandbox_config.clone().unwrap_or_default();
+        input.command_sandbox = SandboxEnvironment::with_config(&self.workspace_dir, config)
+            .command_sandbox(Path::new(&input.working_dir));
+        self.engine.execute(&input).await
     }
 
     /// Tự động phân rã Goal thành cây SubTasks động qua ComputeEngine (không gán cứng)
@@ -81,18 +99,22 @@ impl AutonomousOodaLoop {
             Output ONLY a valid JSON array of objects conforming to the schema above. Do not include markdown preamble or conversational text.",
             title = task_title,
             desc = goal_description,
-            workdir = workdir.display(),
+            workdir = if self.sandbox_config.as_ref().is_some_and(|config| config.driver == crate::sandbox::SandboxDriverKind::Docker) {
+                "/workspace".to_string()
+            } else { workdir.display().to_string() },
         );
 
         let input = EngineInput {
             prompt_or_command: planning_prompt,
             system_context: system_context.to_string(),
             working_dir: workdir.to_string_lossy().to_string(),
-            timeout_seconds: 60,
+            timeout_seconds: self.timeout_seconds.min(60),
             on_stream_chunk: None,
+            command_sandbox: None,
+            on_event: None,
         };
 
-        if let Ok(out) = self.engine.execute(&input).await {
+        if let Ok(out) = self.execute_engine(&input).await {
             let raw = out.stdout_content.trim();
             if let Some(parsed) = Self::parse_subtasks_json(raw) {
                 if !parsed.is_empty() {
@@ -224,11 +246,13 @@ impl AutonomousOodaLoop {
             prompt_or_command: remediation_prompt,
             system_context: system_context.to_string(),
             working_dir: workdir.to_string_lossy().to_string(),
-            timeout_seconds: 60,
+            timeout_seconds: self.timeout_seconds.min(60),
             on_stream_chunk: None,
+            command_sandbox: None,
+            on_event: None,
         };
 
-        if let Ok(out) = self.engine.execute(&input).await {
+        if let Ok(out) = self.execute_engine(&input).await {
             let raw = out.stdout_content.trim();
             let json_text = if let Some(start) = raw.find("```json") {
                 let after = &raw[start + 7..];
@@ -441,15 +465,27 @@ impl AutonomousOodaLoop {
                 None
             };
 
+            let event_cb = self.bus.as_ref().map(|bus| {
+                let bus = bus.clone();
+                let task_id = task.id.0.clone();
+                let subtask_id = subtask.id.clone();
+                Arc::new(move |event: &serde_json::Value| {
+                    let _ = bus.publish(InterAgentEvent::new(AgentId::from_str("ooda-overseer"), None,
+                        "task.engine_event", serde_json::json!({"task_id":task_id,"subtask_id":subtask_id,"event":event})));
+                }) as agent_engine::EngineEventCallback
+            });
+
             let engine_input = EngineInput {
                 prompt_or_command: subtask.command_or_prompt.clone(),
                 system_context: active_system_context.clone(),
                 working_dir: active_workdir.to_string_lossy().to_string(),
-                timeout_seconds: 300,
+                timeout_seconds: self.timeout_seconds,
                 on_stream_chunk: stream_cb,
+                command_sandbox: None,
+                on_event: event_cb,
             };
 
-            let execution_result = self.engine.execute(&engine_input).await;
+            let execution_result = self.execute_engine(&engine_input).await;
 
             // 4. Self-Check & Dynamic Backtracking
             match execution_result {
@@ -528,8 +564,9 @@ impl AutonomousOodaLoop {
                                     task.title, rem_task.title, err_msg
                                 ))
                                 .await;
-                            task.subtasks.insert(subtask_index + 1, rem_task);
-                            subtask_index += 1;
+                            subtask.status = TaskStatus::Queued;
+                            task.subtasks[subtask_index] = subtask;
+                            task.subtasks.insert(subtask_index, rem_task);
                             continue;
                         }
                     }
@@ -582,8 +619,9 @@ impl AutonomousOodaLoop {
                                     task.title, rem_task.title, err_msg
                                 ))
                                 .await;
-                            task.subtasks.insert(subtask_index + 1, rem_task);
-                            subtask_index += 1;
+                            subtask.status = TaskStatus::Queued;
+                            task.subtasks[subtask_index] = subtask;
+                            task.subtasks.insert(subtask_index, rem_task);
                             continue;
                         }
                     }
@@ -610,6 +648,17 @@ impl AutonomousOodaLoop {
 
         let _ = sandbox.purge_sidecar_context(&active_workdir).await;
 
+        if !had_fatal_failure
+            && task
+                .subtasks
+                .iter()
+                .any(|st| st.status != TaskStatus::Completed)
+        {
+            had_fatal_failure = true;
+            task.status = TaskStatus::Failed {
+                error: "Some subtasks did not complete".into(),
+            };
+        }
         if !had_fatal_failure {
             task.status = TaskStatus::Completed;
             info!(
@@ -644,7 +693,7 @@ impl AutonomousOodaLoop {
         }
 
         // Kích hoạt chu trình Phản tư & Tự học hỏi (Self-Improvement Loop)
-        self.reflect_and_crystallize_lessons(&task, had_fatal_failure, total_remediations_spawned)
+        self.reflect_and_crystallize_lessons(task, had_fatal_failure, total_remediations_spawned)
             .await;
 
         Ok(task.status.clone())

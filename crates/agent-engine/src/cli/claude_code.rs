@@ -2,7 +2,6 @@ use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineO
 use async_trait::async_trait;
 use serde_json::Value;
 use std::time::Instant;
-use tokio::process::Command;
 use tracing::{debug, info};
 
 pub struct ClaudeCodeEngine {
@@ -66,36 +65,13 @@ impl ComputeEngine for ClaudeCodeEngine {
 
         info!("Spawning Claude Code CLI at {}", self.binary_path);
 
-        let mut cmd = Command::new(&self.binary_path);
-        cmd.arg("-p").arg(&prompt);
-        cmd.arg("--output-format").arg("json");
-
-        if let Some(m) = &self.model {
-            cmd.arg("--model").arg(m);
+        let mut args = vec!["-p".into(), prompt, "--output-format".into(), "json".into()];
+        if let Some(model) = &self.model {
+            args.extend(["--model".into(), model.clone()]);
         }
-
-        if !input.working_dir.is_empty() {
-            cmd.current_dir(&input.working_dir);
-        }
-
-        let timeout_duration = if input.timeout_seconds > 0 {
-            std::time::Duration::from_secs(input.timeout_seconds)
-        } else {
-            std::time::Duration::from_secs(300)
-        };
-
-        let output_res = tokio::time::timeout(timeout_duration, cmd.output()).await;
-
-        let output = match output_res {
-            Ok(Ok(out)) => out,
-            Ok(Err(e)) => {
-                return Err(EngineError::ProcessFailed(format!(
-                    "Failed to run claude CLI at {}: {}",
-                    self.binary_path, e
-                )));
-            }
-            Err(_) => return Err(EngineError::Timeout),
-        };
+        let output =
+            crate::process::run_command(input, &self.binary_path, &args, &Default::default(), None)
+                .await?;
 
         let duration = start.elapsed().as_millis();
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -120,6 +96,7 @@ impl ComputeEngine for ClaudeCodeEngine {
             exit_code: output.status.code().unwrap_or(-1),
             execution_duration_ms: duration,
             engine_used: EngineKind::ClaudeCode,
+            session_id: None,
         })
     }
 

@@ -48,6 +48,7 @@ impl ComputeEngine for OpenAiCompatibleEngine {
         let res = self
             .client
             .post(&url)
+            .timeout(crate::process::timeout(input))
             .bearer_auth(&self.api_key)
             .json(&req_body)
             .send()
@@ -80,6 +81,7 @@ impl ComputeEngine for OpenAiCompatibleEngine {
             exit_code: 0,
             execution_duration_ms: duration,
             engine_used: EngineKind::CustomAgentApi,
+            session_id: None,
         })
     }
 

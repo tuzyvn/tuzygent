@@ -91,8 +91,9 @@ impl WsRpcClient {
 
         // 1. Kiểm tra kết nối và đăng ký pending request
         {
-            let mut pending = self.pending.lock().await;
+            // Match attach/detach lock order: outbound, then pending.
             let out_guard = self.outbound_tx.lock().await;
+            let mut pending = self.pending.lock().await;
             if let Some(ref tx) = *out_guard {
                 if let Err(e) = tx.try_send(req) {
                     return Err(format!("WS outbound buffer saturated: {}", e));
@@ -141,5 +142,75 @@ impl WsRpcClient {
                 response.request_id
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn reconnect_and_calls_do_not_deadlock() {
+        let client = Arc::new(WsRpcClient::new(Duration::ZERO));
+        let reconnect = client.clone();
+        let reconnect_task = tokio::spawn(async move {
+            for _ in 0..100 {
+                let (tx, mut rx) = mpsc::channel(8);
+                reconnect.attach(tx).await;
+                let responder = reconnect.clone();
+                tokio::spawn(async move {
+                    while let Some(request) = rx.recv().await {
+                        responder
+                            .deliver_response(WsRpcResponse {
+                                request_id: request.request_id,
+                                status: 200,
+                                payload: None,
+                                error: None,
+                            })
+                            .await;
+                    }
+                });
+                tokio::task::yield_now().await;
+                reconnect.detach().await;
+            }
+        });
+        let calls = tokio::spawn(async move {
+            for _ in 0..100 {
+                let _ = client
+                    .call("probe", serde_json::json!({}), Duration::from_millis(10))
+                    .await;
+                tokio::task::yield_now().await;
+            }
+        });
+        tokio::time::timeout(Duration::from_secs(5), async {
+            reconnect_task.await.unwrap();
+            calls.await.unwrap();
+        })
+        .await
+        .expect("lock order deadlock");
+    }
+    #[tokio::test]
+    async fn response_is_delivered_to_pending_call() {
+        let client = Arc::new(WsRpcClient::new(Duration::ZERO));
+        let (tx, mut rx) = mpsc::channel(1);
+        client.attach(tx).await;
+        let caller = client.clone();
+        let task = tokio::spawn(async move {
+            caller
+                .call("probe", serde_json::json!({}), Duration::from_secs(1))
+                .await
+        });
+        let request = rx.recv().await.unwrap();
+        client
+            .deliver_response(WsRpcResponse {
+                request_id: request.request_id,
+                status: 200,
+                payload: Some(serde_json::json!("ok")),
+                error: None,
+            })
+            .await;
+        assert_eq!(
+            task.await.unwrap().unwrap().payload,
+            Some(serde_json::json!("ok"))
+        );
     }
 }

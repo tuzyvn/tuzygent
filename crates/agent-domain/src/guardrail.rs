@@ -53,16 +53,46 @@ impl GuardrailPolicy {
     }
 
     pub fn check_command_safety(&self, command: &str) -> Result<(), String> {
+        let normalized = command
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase();
         for rule in &self.red_lines {
-            if command.contains(&rule.pattern) || command.to_uppercase().contains(&rule.pattern) {
-                if rule.requires_human_approval {
-                    return Err(format!(
-                        "RED_LINE_BLOCKED: Command violates policy '{}' (Severity: {:?})",
-                        rule.description, rule.severity
-                    ));
-                }
+            if rule.requires_human_approval
+                && rule.pattern.split('|').any(|pattern| {
+                    !pattern.trim().is_empty()
+                        && normalized.contains(&pattern.trim().to_lowercase())
+                })
+            {
+                return Err(format!(
+                    "RED_LINE_BLOCKED: Command violates policy '{}' (Severity: {:?})",
+                    rule.description, rule.severity
+                ));
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn blocks_each_alternative_and_normalizes_whitespace_and_case() {
+        let policy = GuardrailPolicy::default_enterprise();
+        for command in [
+            "DROP TABLE users",
+            "truncate users",
+            "chmod   777 file",
+            "chown root file",
+            "rm -rf data",
+        ] {
+            assert!(
+                policy.check_command_safety(command).is_err(),
+                "allowed {command}"
+            );
+        }
+        assert!(policy.check_command_safety("cargo test").is_ok());
     }
 }

@@ -6,9 +6,11 @@ services:
     container_name: agent-core-daemon
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - RUST_LOG=info,agent_server=debug
+      - TUZYGENT_API_TOKEN=${TUZYGENT_API_TOKEN:?Set TUZYGENT_API_TOKEN}
+      - TUZYGENT_ALLOWED_ORIGINS=${TUZYGENT_ALLOWED_ORIGINS:-}
     volumes:
       - ./data:/app/data
     healthcheck:

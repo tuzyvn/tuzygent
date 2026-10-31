@@ -20,6 +20,17 @@ pub enum SandboxDriverKind {
     Host,
 }
 
+impl SandboxDriverKind {
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.to_lowercase().as_str() {
+            "docker" => Ok(Self::Docker),
+            "bubblewrap" | "bwrap" => Ok(Self::Bubblewrap),
+            "host" => Ok(Self::Host),
+            _ => anyhow::bail!("Unknown sandbox driver: {value}"),
+        }
+    }
+}
+
 impl std::fmt::Display for SandboxDriverKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -45,8 +56,12 @@ impl Default for SandboxConfig {
         let sec = SecurityConfig::default();
         Self {
             mode: IsolationMode::LocalDirectory,
-            driver: SandboxConfig::detect_best_driver(),
-            docker_image: "alpine:latest".to_string(),
+            driver: if cfg!(target_os = "linux") {
+                SandboxDriverKind::Bubblewrap
+            } else {
+                SandboxDriverKind::Docker
+            },
+            docker_image: "tuzygent-engine:latest".to_string(),
             ro_credentials: sec.mount_credentials,
             env_whitelist: sec.allowed_env_vars,
             memory_limit_mb: Some(4096),
@@ -55,6 +70,17 @@ impl Default for SandboxConfig {
 }
 
 impl SandboxConfig {
+    pub fn from_engines_config(config: &agent_engine::EnginesConfig) -> Result<Self> {
+        Ok(Self {
+            mode: IsolationMode::LocalDirectory,
+            driver: SandboxDriverKind::parse(&config.defaults.sandbox_driver)?,
+            docker_image: config.defaults.sandbox_image.clone(),
+            ro_credentials: config.security.mount_credentials.clone(),
+            env_whitelist: config.security.allowed_env_vars.clone(),
+            memory_limit_mb: Some(4096),
+        })
+    }
+
     /// Detect best available sandbox driver:
     /// 1. Docker (if daemon is responding)
     /// 2. Bubblewrap (bwrap on Linux)
@@ -173,12 +199,16 @@ impl SandboxEnvironment {
         original_args: &[String],
         run_dir: &Path,
     ) -> (String, Vec<String>) {
+        let resolved_dir = std::fs::canonicalize(run_dir).unwrap_or_else(|_| run_dir.to_path_buf());
+        let run_dir = resolved_dir.as_path();
         match self.config.driver {
             SandboxDriverKind::Bubblewrap => {
                 let mut bwrap_args = vec![
-                    "--ro-bind".to_string(),
-                    "/".to_string(),
-                    "/".to_string(),
+                    "--unshare-pid".to_string(),
+                    "--unshare-ipc".to_string(),
+                    "--unshare-uts".to_string(),
+                    "--die-with-parent".to_string(),
+                    "--new-session".to_string(),
                     "--dev".to_string(),
                     "/dev".to_string(),
                     "--proc".to_string(),
@@ -186,6 +216,36 @@ impl SandboxEnvironment {
                     "--tmpfs".to_string(),
                     "/tmp".to_string(),
                 ];
+
+                // Expose runtimes and public system configuration, not the host home/root.
+                for path in [
+                    "/usr",
+                    "/bin",
+                    "/sbin",
+                    "/lib",
+                    "/lib64",
+                    "/etc/ssl",
+                    "/etc/ca-certificates",
+                    "/etc/pki",
+                    "/etc/nsswitch.conf",
+                    "/etc/gai.conf",
+                    "/etc/host.conf",
+                    "/etc/resolv.conf",
+                    "/etc/hosts",
+                    "/etc/passwd",
+                    "/etc/group",
+                ] {
+                    if Path::new(path).exists() {
+                        bwrap_args.extend(["--ro-bind".into(), path.into(), path.into()]);
+                    }
+                }
+                bwrap_args.extend([
+                    "--dir".into(),
+                    "/root".into(),
+                    "--setenv".into(),
+                    "HOME".into(),
+                    "/root".into(),
+                ]);
 
                 // Mount target working directory read-write
                 let dir_str = run_dir.to_string_lossy().to_string();
@@ -202,7 +262,7 @@ impl SandboxEnvironment {
                     if expanded_source.exists() {
                         bwrap_args.push("--ro-bind".to_string());
                         bwrap_args.push(expanded_source.to_string_lossy().to_string());
-                        bwrap_args.push(expanded_source.to_string_lossy().to_string());
+                        bwrap_args.push(mount.target.clone());
                     }
                 }
 
@@ -227,6 +287,9 @@ impl SandboxEnvironment {
                     "run".to_string(),
                     "--rm".to_string(),
                     "-i".to_string(),
+                    "--cap-drop=ALL".to_string(),
+                    "--security-opt=no-new-privileges".to_string(),
+                    "--pids-limit=256".to_string(),
                     "-v".to_string(),
                     format!("{}:/workspace", run_dir.to_string_lossy()),
                     "-w".to_string(),
@@ -266,6 +329,35 @@ impl SandboxEnvironment {
 
             SandboxDriverKind::Host => (original_bin.to_string(), original_args.to_vec()),
         }
+    }
+
+    pub fn command_sandbox(&self, run_dir: &Path) -> Option<agent_engine::process::CommandSandbox> {
+        if self.config.driver == SandboxDriverKind::Host {
+            return None;
+        }
+        let (program, mut prefix_args) = self.wrap_command("__engine__", &[], run_dir);
+        prefix_args.pop();
+        let container_name = if self.config.driver == SandboxDriverKind::Docker {
+            let name = format!("tuzygent-{}", Uuid::new_v4().simple());
+            prefix_args.splice(1..1, ["--name".into(), name.clone()]);
+            Some(name)
+        } else {
+            None
+        };
+        Some(agent_engine::process::CommandSandbox {
+            program,
+            prefix_args,
+            container_name,
+            env_whitelist: self.config.env_whitelist.clone(),
+            working_dir: if self.config.driver == SandboxDriverKind::Docker {
+                "/workspace".into()
+            } else {
+                std::fs::canonicalize(run_dir)
+                    .unwrap_or_else(|_| run_dir.to_path_buf())
+                    .to_string_lossy()
+                    .into_owned()
+            },
+        })
     }
 
     /// Tạo file Briefing Context (.multica / .agent_context) trước khi Agent chạy
@@ -347,5 +439,26 @@ mod tests {
         assert!(args.contains(&"--ro-bind".to_string()));
         assert!(args.contains(&"ls".to_string()));
         assert!(args.contains(&"-la".to_string()));
+    }
+    #[test]
+    fn bwrap_includes_public_certificate_stores() {
+        let environment = SandboxEnvironment::with_config(
+            ".",
+            SandboxConfig {
+                driver: SandboxDriverKind::Bubblewrap,
+                ..Default::default()
+            },
+        );
+        let (_, args) = environment.wrap_command("true", &[], Path::new("/tmp"));
+        for store in ["/etc/ssl", "/etc/ca-certificates", "/etc/pki"] {
+            if Path::new(store).exists() {
+                assert!(
+                    args.windows(3)
+                        .any(|args| args == ["--ro-bind", store, store]),
+                    "missing CA store {store}"
+                );
+            }
+        }
+        assert!(!args.windows(3).any(|args| args == ["--ro-bind", "/", "/"]));
     }
 }

@@ -1,16 +1,16 @@
 # ==============================================================================
 # AgentCore Standalone Multi-stage Dockerfile
 # ==============================================================================
-FROM rust:1.80-slim AS builder
+FROM rust:1.89-slim-bookworm AS builder
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev cmake && rm -rf /var/lib/apt/lists/*
 
-COPY Cargo.toml ./
+COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 
 # Build release binaries for both CLI and Server
-RUN cargo build --release -p agent-cli -p agent-server
+RUN cargo build --locked --release -p agent-cli -p agent-server
 
 # Stage 2: Minimal runtime image
 FROM debian:bookworm-slim

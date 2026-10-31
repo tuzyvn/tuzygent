@@ -43,7 +43,7 @@ pub mod prelude {
     };
     pub use agent_engine::{
         api::OpenAiCompatibleEngine, cli::AntigravityEngine, cli::ClaudeCodeEngine,
-        cli::GenericCliEngine, config::EnginesConfig, config::SingleEngineConfig,
+        cli::CodexEngine, cli::GenericCliEngine, config::EnginesConfig, config::SingleEngineConfig,
         router::EngineRouter, ComputeEngine, EngineInput, EngineKind, EngineOutput,
     };
     pub use agent_memory::{DurableMemoryStore, PersonaLoader, ScratchpadManager, SkillRegistry};

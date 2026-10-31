@@ -1,6 +1,5 @@
 use crate::bus::InterAgentBus;
 use agent_domain::{AgentId, InterAgentEvent, RigSnapshot, RigSpec, SeatSnapshot};
-use agent_engine::cli::{AntigravityEngine, ClaudeCodeEngine};
 use agent_engine::tmux::TmuxSessionManager;
 use agent_engine::{ComputeEngine, EngineInput};
 use anyhow::Result;
@@ -47,6 +46,7 @@ pub struct RigExecutionSummary {
 pub struct KernelOperator {
     pub spec: RigSpec,
     pub workspace_dir: String,
+    engines: std::collections::HashMap<String, Arc<dyn ComputeEngine>>,
 }
 
 impl KernelOperator {
@@ -54,7 +54,14 @@ impl KernelOperator {
         Self {
             spec,
             workspace_dir: workspace_dir.to_string(),
+            engines: Default::default(),
         }
+    }
+
+    /// Register an SDK-provided compute engine for this operator.
+    pub fn with_engine(mut self, name: &str, engine: Arc<dyn ComputeEngine>) -> Self {
+        self.engines.insert(name.to_lowercase(), engine);
+        self
     }
 
     /// Khởi động toàn bộ team: tạo các persistent seats (tmux hoặc process)
@@ -225,12 +232,12 @@ impl KernelOperator {
                 let sess =
                     TmuxSessionManager::format_session_name(&self.spec.rig.id, &seat_snap.seat_id);
                 if TmuxSessionManager::has_session(&sess) {
-                    let restore_msg = format!(
-                        "echo '>>> [Rig Restored] Seat: {} | Restored at: {} | Snapshot: {}'",
-                        seat_snap.seat_id,
-                        Utc::now().to_rfc3339(),
-                        snapshot.snapshot_id
+                    let message = format!(
+                        "Rig restored: seat {} | snapshot {}",
+                        seat_snap.seat_id, snapshot.snapshot_id
                     );
+                    let restore_msg =
+                        format!("printf '%s\\n' '{}'", message.replace('\'', "'\\''"));
                     let _ = TmuxSessionManager::send_command(&sess, &restore_msg);
                 }
             }
@@ -250,17 +257,26 @@ impl KernelOperator {
         &self,
         configured: Option<&str>,
         cli_override: Option<&str>,
-    ) -> Arc<dyn ComputeEngine> {
+    ) -> Result<Arc<dyn ComputeEngine>, String> {
+        self.resolve_engine_with_model(configured, cli_override, None)
+    }
+
+    fn resolve_engine_with_model(
+        &self,
+        configured: Option<&str>,
+        cli_override: Option<&str>,
+        model: Option<&str>,
+    ) -> Result<Arc<dyn ComputeEngine>, String> {
+        let config =
+            agent_engine::EnginesConfig::load_hierarchical(Some(Path::new(&self.workspace_dir)));
         let chosen = cli_override
             .or(configured)
-            .unwrap_or("antigravity")
+            .unwrap_or(&config.defaults.engine)
             .to_lowercase();
-
-        match chosen.as_str() {
-            "claude" | "claude-code" => Arc::new(ClaudeCodeEngine::new(None, None)),
-            "mock" => Arc::new(agent_engine::cli::MockEngine::new("Mock completed task")),
-            _ => Arc::new(AntigravityEngine::new(None, None)),
+        if let Some(engine) = self.engines.get(&chosen) {
+            return Ok(engine.clone());
         }
+        agent_engine::configured_engine(&config, &chosen, model).map_err(|error| error.to_string())
     }
 
     /// Kernel Operator tiếp nhận mục tiêu từ người dùng, lập kế hoạch và điều phối các seats
@@ -335,43 +351,37 @@ impl KernelOperator {
             let _ = bus.publish(assign_evt);
 
             if let Some(s) = seat {
-                if s.harness == "tmux" && TmuxSessionManager::is_available() {
-                    let sess =
-                        TmuxSessionManager::format_session_name(&self.spec.rig.id, &s.seat_id);
-                    let cmd = format!(
-                        "echo '>>> [Seat: {}] Started task: {}'",
-                        s.seat_id, assignment.task
-                    );
-                    let _ = TmuxSessionManager::send_command(&sess, &cmd);
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-
-                    let out = TmuxSessionManager::capture_pane(&sess, 20)
-                        .unwrap_or_else(|_| "Executed in tmux".to_string());
-                    assignment.output = Some(out);
-                    assignment.status = "Completed".to_string();
-                } else {
-                    // Chạy qua Compute Engine được cấu hình
-                    let engine = self.resolve_engine(s.engine.as_deref(), engine_override);
-                    let prompt = format!(
-                        "Bạn là nhân sự số '{}' (Vai trò: {}). Hãy thực thi tác vụ: {}",
+                // Tmux manages seat visibility; task completion comes from a bounded engine run.
+                let engine = self.resolve_engine_with_model(
+                    s.engine.as_deref(),
+                    engine_override,
+                    s.model.as_deref(),
+                )?;
+                let input = EngineInput {
+                    prompt_or_command: format!(
+                        "Bạn là '{}' (Vai trò: {}). Thực thi: {}",
                         s.seat_id, s.role, assignment.task
-                    );
-                    let input = EngineInput {
-                        prompt_or_command: prompt.clone(),
-                        system_context: format!("Rig Operator Dispatch for {}", s.seat_id),
-                        working_dir: self.workspace_dir.clone(),
-                        timeout_seconds: 60,
-                        on_stream_chunk: None,
-                    };
-                    match engine.execute(&input).await {
-                        Ok(res) => {
-                            assignment.output = Some(res.stdout_content);
-                            assignment.status = "Completed".to_string();
+                    ),
+                    system_context: format!("Rig Operator Dispatch for {}", s.seat_id),
+                    working_dir: self.workspace_dir.clone(),
+                    timeout_seconds: 60,
+                    on_stream_chunk: None,
+                    command_sandbox: None,
+                    on_event: None,
+                };
+                match engine.execute(&input).await {
+                    Ok(result) => {
+                        assignment.status = if result.exit_code == 0 {
+                            "Completed"
+                        } else {
+                            "Failed"
                         }
-                        Err(e) => {
-                            assignment.output = Some(format!("Lỗi: {:?}", e));
-                            assignment.status = "Failed".to_string();
-                        }
+                        .into();
+                        assignment.output = Some(result.stdout_content);
+                    }
+                    Err(error) => {
+                        assignment.status = "Failed".into();
+                        assignment.output = Some(error.to_string());
                     }
                 }
 
@@ -416,27 +426,39 @@ impl KernelOperator {
                         output: None,
                     };
 
-                    if target_seat.harness == "tmux" && TmuxSessionManager::is_available() {
-                        let sess = TmuxSessionManager::format_session_name(
-                            &self.spec.rig.id,
-                            &target_seat.seat_id,
-                        );
-                        let cmd = format!(
-                            "echo '>>> [Channel Handshake] From: {} (Mode: {}) - Handled'",
-                            channel.from_seat, mode
-                        );
-                        let _ = TmuxSessionManager::send_command(&sess, &cmd);
-                        ch_assign.output = Some(format!(
-                            "Channel handoff received in tmux session '{}'",
-                            sess
-                        ));
-                        ch_assign.status = "Completed".to_string();
-                    } else {
-                        ch_assign.output = Some(format!(
-                            "Channel handoff processed for seat '{}' (mode: {})",
-                            target_seat.seat_id, mode
-                        ));
-                        ch_assign.status = "Completed".to_string();
+                    let engine = self.resolve_engine_with_model(
+                        target_seat.engine.as_deref(),
+                        engine_override,
+                        target_seat.model.as_deref(),
+                    )?;
+                    let input = EngineInput {
+                        prompt_or_command: channel_task,
+                        system_context: format!(
+                            "Role: {}\nSource task: {}\nSource output:\n{}",
+                            target_seat.role,
+                            src_assignment.task,
+                            src_assignment.output.as_deref().unwrap_or("")
+                        ),
+                        working_dir: self.workspace_dir.clone(),
+                        timeout_seconds: 60,
+                        on_stream_chunk: None,
+                        command_sandbox: None,
+                        on_event: None,
+                    };
+                    match engine.execute(&input).await {
+                        Ok(result) => {
+                            ch_assign.status = if result.exit_code == 0 {
+                                "Completed"
+                            } else {
+                                "Failed"
+                            }
+                            .into();
+                            ch_assign.output = Some(result.stdout_content);
+                        }
+                        Err(error) => {
+                            ch_assign.status = "Failed".into();
+                            ch_assign.output = Some(error.to_string());
+                        }
                     }
 
                     // Gửi sự kiện channel lên Bus
@@ -459,12 +481,17 @@ impl KernelOperator {
         }
 
         let completed_at = Utc::now();
+        let succeeded = !assignments.is_empty()
+            && assignments
+                .iter()
+                .chain(channel_dispatches.iter())
+                .all(|assignment| assignment.status == "Completed");
         let synthesis = format!(
-            "Kernel Operator '{}' đã hoàn tất điều phối {} tác vụ và {} luồng kênh liên lạc cho đội ngũ '{}'. Toàn bộ các seats đã hoàn tất mục tiêu.",
-            self.spec.operator.agent_id,
+            "Rig '{}' processed {} tasks and {} channel handoffs. Status: {}.",
+            self.spec.rig.name,
             assignments.len(),
             channel_dispatches.len(),
-            self.spec.rig.name
+            if succeeded { "Completed" } else { "Failed" }
         );
 
         Ok(RigExecutionSummary {
@@ -472,7 +499,7 @@ impl KernelOperator {
             rig_name: self.spec.rig.name.clone(),
             operator_id: self.spec.operator.agent_id.clone(),
             goal: goal.to_string(),
-            status: "Completed".to_string(),
+            status: if succeeded { "Completed" } else { "Failed" }.into(),
             started_at: started_at.to_rfc3339(),
             completed_at: completed_at.to_rfc3339(),
             assignments,

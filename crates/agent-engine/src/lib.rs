@@ -1,6 +1,7 @@
 pub mod api;
 pub mod cli;
 pub mod config;
+pub mod process;
 pub mod router;
 pub mod tmux;
 pub mod traits;

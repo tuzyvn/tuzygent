@@ -1,0 +1,22 @@
+rig:
+  id: codex-team
+  name: Codex Development Team
+operator:
+  agent_id: lead
+seats:
+  - seat_id: developer
+    name: Codex Developer
+    role: Implement and verify the requested code changes
+    capabilities: [code, rust, fix]
+    engine: codex
+    harness: process
+  - seat_id: reviewer
+    name: Codex Reviewer
+    role: Review the developer output and verify the changes
+    capabilities: [review]
+    engine: codex
+    harness: process
+channels:
+  - from_seat: developer
+    to_seat: reviewer
+    mode: review

@@ -1,10 +1,7 @@
 use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::process::Stdio;
 use std::time::Instant;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
 use tracing::{debug, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,32 +108,34 @@ impl ComputeEngine for AntigravityEngine {
             input.prompt_or_command.clone()
         };
 
-        // Tham khảo Multica: cấu hình stream-json và output-format
-        let mut cmd = Command::new(&self.binary_path);
-        cmd.arg("-p")
-            .arg(&full_prompt)
-            .arg("--output-format")
-            .arg("stream-json")
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        if let Some(m) = &self.model {
-            cmd.arg("--model").arg(m);
+        let mut args = vec![
+            "-p".into(),
+            full_prompt,
+            "--output-format".into(),
+            "stream-json".into(),
+        ];
+        if let Some(model) = &self.model {
+            args.extend(["--model".into(), model.clone()]);
         }
-
-        if !input.working_dir.is_empty() {
-            cmd.current_dir(&input.working_dir);
-        }
-
-        let mut child = cmd.spawn().map_err(|e| {
-            EngineError::ProcessFailed(format!("Failed to spawn Antigravity CLI (agy): {}", e))
-        })?;
-
-        let stdout = child.stdout.take().ok_or_else(|| {
-            EngineError::ProcessFailed("Failed to capture stdout of agy".to_string())
-        })?;
-
-        let mut reader = BufReader::new(stdout).lines();
+        let callback = input.on_stream_chunk.clone().map(|cb| {
+            std::sync::Arc::new(move |line: &str| {
+                if let Ok(event) = serde_json::from_str::<AntigravityStreamEvent>(line) {
+                    if let Some(step) = event.step_update {
+                        if !step.text_delta.is_empty() {
+                            cb(&step.text_delta);
+                        }
+                    }
+                }
+            }) as crate::StreamCallback
+        });
+        let output = crate::process::run_command(
+            input,
+            &self.binary_path,
+            &args,
+            &Default::default(),
+            callback,
+        )
+        .await?;
         let mut accumulated_text = String::new();
         let mut final_response = String::new();
         let mut total_usage = AntigravityUsage {
@@ -147,19 +146,16 @@ impl ComputeEngine for AntigravityEngine {
         };
 
         // Stream NDJSON parsing loop (Multica stream-scanner pattern)
-        while let Ok(Some(line)) = reader.next_line().await {
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
             if line.trim().is_empty() {
                 continue;
             }
 
-            if let Ok(event) = serde_json::from_str::<AntigravityStreamEvent>(&line) {
+            if let Ok(event) = serde_json::from_str::<AntigravityStreamEvent>(line) {
                 match event.event.as_str() {
                     "step_update" => {
                         if let Some(step) = event.step_update {
                             if !step.text_delta.is_empty() {
-                                if let Some(ref cb) = input.on_stream_chunk {
-                                    cb(&step.text_delta);
-                                }
                                 accumulated_text.push_str(&step.text_delta);
                                 debug!("agy text delta: {}", step.text_delta);
                             }
@@ -188,13 +184,11 @@ impl ComputeEngine for AntigravityEngine {
                 if !accumulated_text.is_empty() {
                     accumulated_text.push('\n');
                 }
-                accumulated_text.push_str(&line);
+                accumulated_text.push_str(line);
             }
         }
 
-        let status = child.wait().await.map_err(|e| {
-            EngineError::ProcessFailed(format!("Failed to wait for agy child process: {}", e))
-        })?;
+        let status = output.status;
 
         let duration = start.elapsed().as_millis();
 
@@ -226,6 +220,7 @@ impl ComputeEngine for AntigravityEngine {
             exit_code: status.code().unwrap_or(-1),
             execution_duration_ms: duration,
             engine_used: EngineKind::Antigravity,
+            session_id: None,
         })
     }
 

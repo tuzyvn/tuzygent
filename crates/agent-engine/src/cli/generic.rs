@@ -2,7 +2,6 @@ use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineO
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::time::Instant;
-use tokio::process::Command;
 use tracing::{debug, info};
 
 #[derive(Debug, Clone)]
@@ -51,7 +50,14 @@ impl ComputeEngine for GenericCliEngine {
                 rendered = rendered.replace("{system_context}", &input.system_context);
             }
             if rendered.contains("{workspace}") {
-                rendered = rendered.replace("{workspace}", &input.working_dir);
+                rendered = rendered.replace(
+                    "{workspace}",
+                    input
+                        .command_sandbox
+                        .as_ref()
+                        .map(|s| s.working_dir.as_str())
+                        .unwrap_or(&input.working_dir),
+                );
             }
             rendered_args.push(rendered);
         }
@@ -66,82 +72,17 @@ impl ComputeEngine for GenericCliEngine {
             self.name, self.binary_path, rendered_args
         );
 
-        let mut cmd = Command::new(&self.binary_path);
-        cmd.args(&rendered_args);
-
-        // 2. Set working directory
-        if !input.working_dir.is_empty() {
-            cmd.current_dir(&input.working_dir);
-        }
-
-        // 3. Set custom environment variables
-        for (k, v) in &self.env_vars {
-            cmd.env(k, v);
-        }
-
-        // 4. Execute with streaming or buffered timeout
-        let timeout_duration = if input.timeout_seconds > 0 {
-            std::time::Duration::from_secs(input.timeout_seconds)
-        } else {
-            std::time::Duration::from_secs(300)
-        };
-
-        cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
-
-        let mut child = cmd.spawn().map_err(|e| {
-            EngineError::ProcessFailed(format!(
-                "Failed to spawn generic CLI [{}]: {}",
-                self.name, e
-            ))
-        })?;
-
-        let stdout = child.stdout.take();
-        let stderr = child.stderr.take();
-
-        let cb_opt = input.on_stream_chunk.clone();
-
-        let run_future = async {
-            let mut accumulated_stdout = String::new();
-            if let Some(out) = stdout {
-                use tokio::io::{AsyncBufReadExt, BufReader};
-                let mut lines = BufReader::new(out).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    if let Some(ref cb) = cb_opt {
-                        cb(&line);
-                        cb("\n");
-                    }
-                    accumulated_stdout.push_str(&line);
-                    accumulated_stdout.push('\n');
-                }
-            }
-
-            let mut accumulated_stderr = String::new();
-            if let Some(err) = stderr {
-                use tokio::io::{AsyncBufReadExt, BufReader};
-                let mut lines = BufReader::new(err).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    accumulated_stderr.push_str(&line);
-                    accumulated_stderr.push('\n');
-                }
-            }
-
-            let status = child.wait().await.map_err(|e| {
-                EngineError::ProcessFailed(format!(
-                    "Failed to wait for generic CLI [{}]: {}",
-                    self.name, e
-                ))
-            })?;
-
-            Ok::<_, EngineError>((status, accumulated_stdout, accumulated_stderr))
-        };
-
-        let result = match tokio::time::timeout(timeout_duration, run_future).await {
-            Ok(res) => res?,
-            Err(_) => return Err(EngineError::Timeout),
-        };
-
-        let (status, stdout, stderr) = result;
+        let output = crate::process::run_command(
+            input,
+            &self.binary_path,
+            &rendered_args,
+            &self.env_vars,
+            input.on_stream_chunk.clone(),
+        )
+        .await?;
+        let status = output.status;
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         let duration = start.elapsed().as_millis();
 
         let final_content = if status.success() || !stdout.is_empty() {
@@ -157,6 +98,7 @@ impl ComputeEngine for GenericCliEngine {
             exit_code: status.code().unwrap_or(-1),
             execution_duration_ms: duration,
             engine_used: EngineKind::Generic(self.name.clone()),
+            session_id: None,
         })
     }
 

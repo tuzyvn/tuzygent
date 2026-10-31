@@ -15,6 +15,10 @@ fn default_sandbox() -> String {
     "docker".to_string()
 }
 
+fn default_sandbox_image() -> String {
+    "tuzygent-engine:latest".into()
+}
+
 fn default_true() -> bool {
     true
 }
@@ -27,6 +31,8 @@ pub struct DefaultsConfig {
     pub timeout_seconds: u64,
     #[serde(default = "default_sandbox")]
     pub sandbox_driver: String,
+    #[serde(default = "default_sandbox_image")]
+    pub sandbox_image: String,
 }
 
 impl Default for DefaultsConfig {
@@ -35,6 +41,7 @@ impl Default for DefaultsConfig {
             engine: default_engine_name(),
             timeout_seconds: default_timeout(),
             sandbox_driver: default_sandbox(),
+            sandbox_image: default_sandbox_image(),
         }
     }
 }
@@ -59,6 +66,8 @@ impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
             allowed_env_vars: vec![
+                "CODEX_API_KEY".to_string(),
+                "CODEX_BIN".to_string(),
                 "ANTHROPIC_API_KEY".to_string(),
                 "GEMINI_API_KEY".to_string(),
                 "OPENAI_API_KEY".to_string(),
@@ -66,6 +75,11 @@ impl Default for SecurityConfig {
                 "AGY_BIN".to_string(),
             ],
             mount_credentials: vec![
+                CredentialMount {
+                    source: "~/.codex/auth.json".into(),
+                    target: "/root/.codex/auth.json".into(),
+                    readonly: true,
+                },
                 CredentialMount {
                     source: "~/.gemini".to_string(),
                     target: "/root/.gemini".to_string(),
@@ -83,7 +97,7 @@ impl Default for SecurityConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SingleEngineConfig {
-    pub kind: String, // "antigravity", "claude_code", "generic", "openai", "mock"
+    pub kind: String, // "antigravity", "claude_code", "codex", "generic", "openai", "mock"
     pub binary_path: Option<String>,
     #[serde(default)]
     pub args: Vec<String>,
@@ -145,6 +159,19 @@ impl Default for EnginesConfig {
             },
         );
 
+        engines.insert(
+            "codex".into(),
+            SingleEngineConfig {
+                kind: "codex".into(),
+                binary_path: None,
+                args: vec![],
+                model: None,
+                interactive_fallback: None,
+                output_parser: Some("codex_jsonl".into()),
+                env: HashMap::new(),
+            },
+        );
+
         Self {
             defaults: DefaultsConfig::default(),
             security: SecurityConfig::default(),
@@ -167,8 +194,7 @@ impl EnginesConfig {
             if global_path.exists() {
                 info!("Loading global OS engine config from {:?}", global_path);
                 if let Ok(content) = std::fs::read_to_string(&global_path) {
-                    if let Ok(parsed) = toml::from_str::<EnginesConfig>(&content) {
-                        config.merge_from(parsed);
+                    if config.merge_toml(&content).is_ok() {
                     } else {
                         warn!("Failed to parse global engines.toml at {:?}", global_path);
                     }
@@ -188,8 +214,7 @@ impl EnginesConfig {
                 if path.exists() {
                     info!("Loading local workspace engine config from {:?}", path);
                     if let Ok(content) = std::fs::read_to_string(path) {
-                        if let Ok(parsed) = toml::from_str::<EnginesConfig>(&content) {
-                            config.merge_from(parsed);
+                        if config.merge_toml(&content).is_ok() {
                             break;
                         } else {
                             warn!("Failed to parse local config at {:?}", path);
@@ -202,6 +227,32 @@ impl EnginesConfig {
         config
     }
 
+    /// Overlay only explicitly present keys. Empty arrays intentionally clear policy.
+    fn merge_toml(&mut self, content: &str) -> Result<(), String> {
+        fn overlay(base: &mut toml::Value, patch: toml::Value) {
+            match (base, patch) {
+                (toml::Value::Table(base), toml::Value::Table(patch)) => {
+                    for (key, value) in patch {
+                        if let Some(current) = base.get_mut(&key) {
+                            overlay(current, value);
+                        } else {
+                            base.insert(key, value);
+                        }
+                    }
+                }
+                (base, value) => *base = value,
+            }
+        }
+        let patch: toml::Value = toml::from_str(content).map_err(|error| error.to_string())?;
+        let mut merged = toml::Value::try_from(&*self).map_err(|error| error.to_string())?;
+        overlay(&mut merged, patch);
+        let parsed = merged
+            .try_into()
+            .map_err(|error: toml::de::Error| error.to_string())?;
+        *self = parsed;
+        Ok(())
+    }
+
     /// Merge settings from another config (overriding self)
     pub fn merge_from(&mut self, other: EnginesConfig) {
         if !other.defaults.engine.is_empty() {
@@ -212,6 +263,10 @@ impl EnginesConfig {
         }
         if !other.defaults.sandbox_driver.is_empty() {
             self.defaults.sandbox_driver = other.defaults.sandbox_driver;
+        }
+
+        if !other.defaults.sandbox_image.is_empty() {
+            self.defaults.sandbox_image = other.defaults.sandbox_image;
         }
 
         if !other.security.allowed_env_vars.is_empty() {
@@ -252,7 +307,7 @@ mod tests {
 
         let parsed: EnginesConfig = toml::from_str(&toml_str).expect("Must parse from toml");
         assert_eq!(parsed.defaults.engine, "antigravity");
-        assert_eq!(parsed.engines.len(), 2);
+        assert_eq!(parsed.engines.len(), 3);
     }
 
     #[test]
@@ -274,5 +329,33 @@ mod tests {
         assert_eq!(base.defaults.engine, "ollama");
         assert_eq!(base.defaults.timeout_seconds, 120);
         assert!(base.engines.contains_key("ollama"));
+    }
+    #[test]
+    fn partial_workspace_config_preserves_global_policy_and_can_clear_credentials() {
+        let mut config = EnginesConfig::default();
+        config.defaults.timeout_seconds = 17;
+        config.defaults.sandbox_image = "private/engines:v1".into();
+        config
+            .merge_toml(
+                r#"
+            [engines.probe]
+            kind = "generic"
+            binary_path = "echo"
+        "#,
+            )
+            .unwrap();
+        assert_eq!(config.defaults.timeout_seconds, 17);
+        assert_eq!(config.defaults.sandbox_image, "private/engines:v1");
+        config
+            .merge_toml(
+                r#"
+            [security]
+            allowed_env_vars = []
+            mount_credentials = []
+        "#,
+            )
+            .unwrap();
+        assert!(config.security.allowed_env_vars.is_empty());
+        assert!(config.security.mount_credentials.is_empty());
     }
 }

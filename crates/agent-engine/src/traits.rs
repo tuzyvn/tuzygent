@@ -52,10 +52,16 @@ impl EngineKind {
     }
 }
 
+pub type EngineEventCallback = std::sync::Arc<dyn Fn(&serde_json::Value) + Send + Sync>;
+
 pub type StreamCallback = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct EngineInput {
+    #[serde(skip)]
+    pub on_event: Option<EngineEventCallback>,
+    #[serde(skip)]
+    pub command_sandbox: Option<crate::process::CommandSandbox>,
     pub prompt_or_command: String,
     pub system_context: String,
     pub working_dir: String,
@@ -84,6 +90,8 @@ impl EngineInput {
             working_dir: working_dir.into(),
             timeout_seconds: 300,
             on_stream_chunk: None,
+            command_sandbox: None,
+            on_event: None,
         }
     }
 
@@ -101,12 +109,16 @@ impl Default for EngineInput {
             working_dir: ".".to_string(),
             timeout_seconds: 300,
             on_stream_chunk: None,
+            command_sandbox: None,
+            on_event: None,
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineOutput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
     pub stdout_content: String,
     pub exit_code: i32,
     pub execution_duration_ms: u128,
