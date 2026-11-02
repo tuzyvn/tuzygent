@@ -15,16 +15,28 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::sync::Arc;
 
+mod update;
+
 #[derive(Parser)]
 #[command(name = "agent-ctl")]
+#[command(version = concat!(env!("CARGO_PKG_VERSION"), "\nCommit: ", env!("AGENTCTL_COMMIT"), "\nRelease date: ", env!("AGENTCTL_RELEASE_DATE")))]
 #[command(about = "Enterprise Autonomous Multi-Agent Platform CLI", long_about = None)]
 struct Cli {
+    /// Print version, source commit and release date
+    #[arg(short = 'v', action = clap::ArgAction::Version)]
+    short_version: Option<bool>,
     #[command(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Build and install the latest AgentCore main from GitHub (requires Git and Cargo)
+    Update {
+        /// Only check the latest commit; do not build or replace the executable
+        #[arg(long)]
+        check: bool,
+    },
     /// Create a new autonomous digital employee
     Create {
         #[arg(short, long)]
@@ -154,6 +166,7 @@ async fn main() -> anyhow::Result<()> {
     let supervisor = Arc::new(AgentSupervisor::new(bus.clone()));
 
     match cli.command {
+        Commands::Update { check } => update::run(check)?,
         Commands::Create { id, name, autonomy } => {
             let level = match autonomy.to_lowercase().as_str() {
                 "supervised" => AutonomyLevel::Supervised,

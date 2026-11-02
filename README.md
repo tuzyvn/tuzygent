@@ -115,6 +115,27 @@ cargo build --release -p agent-cli
 # Binary nằm tại: target/release/agent-ctl
 ```
 
+Kiểm tra binary đã cài và phiên bản:
+```bash
+command -v agent-ctl
+agent-ctl -v
+# Tương đương: agent-ctl --version hoặc agent-ctl -V
+```
+
+Thông tin phiên bản gồm version, commit và ngày phát hành. Bản build local dùng
+ngày commit nguồn; khi đóng gói release có thể đặt `AGENTCTL_RELEASE_DATE=YYYY-MM-DD`
+trước lệnh build. Commit có hậu tố `-dirty` khi có thay đổi chưa commit.
+
+Cập nhật binary đã cài từ nhánh `main` chính thức (cần Git, Cargo và Rust toolchain):
+```bash
+agent-ctl update --check  # Chỉ kiểm tra commit mới
+agent-ctl update          # Tải source, build release và thay binary đang chạy
+```
+
+Updater dùng clone tạm, không thay đổi workspace hiện tại. Binary cũ chỉ được thay
+sau khi build và kiểm tra `--version` thành công; thư mục chứa binary phải có quyền
+ghi. Với cài đặt qua symlink, updater thay file đích của symlink.
+
 Các lệnh quản trị và điều phối OS AI:
 ```bash
 # 1. Liệt kê và kiểm tra kết nối các AI CLI engine của hệ thống
