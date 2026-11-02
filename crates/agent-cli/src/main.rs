@@ -70,7 +70,7 @@ enum Commands {
     /// Execute real multi-agent collaboration and task delegation via Event Bus
     #[command(alias = "multi-agent", alias = "collab")]
     DemoMultiAgent {
-        #[arg(short, long, default_value = "antigravity")]
+        #[arg(short, long, default_value = "")]
         engine: String,
         #[arg(short, long, default_value = ".")]
         workspace: String,
@@ -427,21 +427,15 @@ async fn main() -> anyhow::Result<()> {
         Commands::DemoMultiAgent { engine, workspace } => {
             println!("🤖🤖 Khởi chạy hệ thống Hợp tác Đa tác tử Tự trị (Real Multi-Agent Collaboration)...");
 
-            let compute_engine: Arc<dyn ComputeEngine> =
-                if engine.to_lowercase() == "antigravity" || engine.to_lowercase() == "agy" {
-                    println!("⚡ Using Antigravity Native Engine");
-                    Arc::new(AntigravityEngine::new(None, None))
-                } else if engine.to_lowercase() == "omniroute" || engine.to_lowercase() == "local" {
-                    println!("🌐 Using OmniRoute Local LLM Engine");
-                    Arc::new(OpenAiCompatibleEngine::new(
-                        "http://127.0.0.1:20128/v1",
-                        "omniroute",
-                        "local",
-                    ))
-                } else {
-                    println!("⚡ Defaulting to Antigravity Native Engine");
-                    Arc::new(AntigravityEngine::new(None, None))
-                };
+            let config = EnginesConfig::load_hierarchical(Some(std::path::Path::new(&workspace)));
+            let engine_name = if engine.is_empty() {
+                &config.defaults.engine
+            } else {
+                &engine
+            };
+            let compute_engine = agent_engine::configured_engine(&config, engine_name, None)?;
+            let sandbox_cfg = SandboxConfig::from_engines_config(&config)?;
+            println!("⚡ Using engine: {}", compute_engine.engine_kind());
 
             // 1. Create Agent 1 (DevOps/SRE) and Agent 2 (Core Developer)
             let agent1 = AgentIdentity {
@@ -490,10 +484,11 @@ async fn main() -> anyhow::Result<()> {
             on_event: None,
             };
 
-            let delegation_brief = match compute_engine.execute(&sre_input).await {
-                Ok(out) => out.stdout_content.trim().to_string(),
-                Err(e) => format!("Yêu cầu kiểm tra và vá lỗi upstream reverse proxy: {}", e),
-            };
+            let briefing = compute_engine.execute(&sre_input).await?;
+            if briefing.exit_code != 0 {
+                anyhow::bail!("Delegation briefing failed: {}", briefing.stdout_content);
+            }
+            let delegation_brief = briefing.stdout_content.trim().to_string();
 
             let handoff_payload = serde_json::json!({
                 "ticket": "INCIDENT-502-NGINX",
@@ -533,7 +528,9 @@ async fn main() -> anyhow::Result<()> {
                     ScratchpadManager::new(&workspace),
                     DurableMemoryStore::new(&workspace),
                     &workspace,
-                );
+                )
+                .with_timeout_seconds(config.defaults.timeout_seconds)
+                .with_sandbox_config(sandbox_cfg);
 
                 let mut task = Task::new(
                     "Khắc phục sự cố Nginx 502",
@@ -559,6 +556,10 @@ async fn main() -> anyhow::Result<()> {
                         "     - [{:?}] {} (Retries: {})",
                         st.status, st.title, st.retry_count
                     );
+                }
+
+                if result != TaskStatus::Completed {
+                    anyhow::bail!("Delegated mission did not complete: {:?}", result);
                 }
 
                 // Agent 2 gửi phản hồi hoàn tất về cho Agent 1

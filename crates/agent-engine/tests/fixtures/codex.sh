@@ -12,6 +12,14 @@ case "${CODEX_TEST_CASE:-success}" in
     timeout) sleep 3; exit 0 ;;
     transient) printf '%s\n' '{"type":"error","message":"retrying connection"}' ;;
 esac
+if [ "${CODEX_TEST_CASE:-}" = worker_fail ]; then
+    case "$last" in
+        *'Bạn là Kỹ sư SRE Alex.'*) ;;
+        *)
+            printf '%s\n' '{"type":"turn.failed","error":{"message":"worker unavailable"}}'
+            exit 0 ;;
+    esac
+fi
 text=CODEX_DELEGATED
 if [ "${CODEX_TEST_CASE:-}" = ooda ]; then
     case "$last" in

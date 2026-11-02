@@ -55,6 +55,60 @@ fn run_command_delegates_to_configured_codex() {
         assert!(stdout.contains("Completed"), "{stdout}");
         assert!(!stdout.contains("Defaulting to Antigravity"));
     }
+    for explicit in [true, false] {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_agent-ctl"));
+        command.args(["multi-agent", "--workspace", directory.to_str().unwrap()]);
+        if explicit {
+            command.args(["--engine", "codex"]);
+        }
+        let output = command.output().unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success(),
+            "{stdout}\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(stdout.contains("Using engine: codex"), "{stdout}");
+        assert!(stdout.contains("agent.task.resolved"), "{stdout}");
+    }
+    let unknown = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
+        .args([
+            "multi-agent",
+            "--engine",
+            "unknown-provider",
+            "--workspace",
+            directory.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!unknown.status.success());
+
+    let config_path = directory.join("tuzygent.toml");
+    let config = std::fs::read_to_string(&config_path).unwrap();
+    std::fs::write(
+        &config_path,
+        config.replace(
+            "CODEX_TEST_CASE = \"ooda\"",
+            "CODEX_TEST_CASE = \"worker_fail\"",
+        ),
+    )
+    .unwrap();
+    let failed_worker = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
+        .args([
+            "multi-agent",
+            "--engine",
+            "codex",
+            "--workspace",
+            directory.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!failed_worker.status.success());
+    assert!(String::from_utf8_lossy(&failed_worker.stderr)
+        .contains("Delegated mission did not complete"));
+    assert!(!String::from_utf8_lossy(&failed_worker.stdout).contains("agent.task.resolved"));
+    std::fs::write(&config_path, config).unwrap();
+
     let config = std::fs::read_to_string(directory.join("tuzygent.toml"))
         .unwrap()
         .replace("CODEX_TEST_CASE = \"ooda\"", "CODEX_TEST_CASE = \"exit\"");
@@ -78,5 +132,18 @@ fn run_command_delegates_to_configured_codex() {
         "failed delegation returned success"
     );
     assert!(String::from_utf8_lossy(&failed.stderr).contains("Mission did not complete"));
+    let failed = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
+        .args([
+            "multi-agent",
+            "--engine",
+            "codex",
+            "--workspace",
+            directory.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!failed.status.success());
+    assert!(String::from_utf8_lossy(&failed.stderr).contains("Delegation briefing failed"));
+    assert!(!String::from_utf8_lossy(&failed.stdout).contains("agent.task.resolved"));
     std::fs::remove_dir_all(directory).unwrap();
 }
