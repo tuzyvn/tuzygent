@@ -1,6 +1,6 @@
 [defaults]
 engine = "antigravity"
-timeout_seconds = 180
+timeout_seconds = 600
 sandbox_driver = "bubblewrap"
 
 [security]

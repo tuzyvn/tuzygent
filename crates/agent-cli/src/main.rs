@@ -62,6 +62,8 @@ enum Commands {
         sandbox: Option<String>,
         #[arg(short, long)]
         persona_path: Option<String>,
+        #[arg(short, long)]
+        timeout: Option<u64>,
     },
     /// List, inspect or test configured AI CLI engines
     Engines {
@@ -208,6 +210,7 @@ async fn main() -> anyhow::Result<()> {
             engine,
             sandbox,
             persona_path,
+            timeout,
         } => {
             println!("🚀 Dispatching goal to Agent [{}]: {}", agent_id, goal);
 
@@ -272,9 +275,10 @@ async fn main() -> anyhow::Result<()> {
                 }
             });
 
+            let timeout_secs = timeout.unwrap_or(config.defaults.timeout_seconds);
             let ooda =
                 AutonomousOodaLoop::new(compute_engine, guardrail, scratchpad, durable, &workspace)
-                    .with_timeout_seconds(config.defaults.timeout_seconds)
+                    .with_timeout_seconds(timeout_secs)
                     .with_sandbox_config(sandbox_cfg)
                     .with_bus(cli_bus);
 
