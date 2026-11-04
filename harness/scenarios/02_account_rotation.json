@@ -1,0 +1,18 @@
+{
+  "name": "account_rotation",
+  "description": "Verify model validation, account rotation failover and credential isolation",
+  "checks": [
+    {
+      "id": "model_registry_resolution",
+      "type": "unit_test",
+      "target": "crates/agent-engine/src/accounts.rs",
+      "pattern": "test_account_rotation_exhaustion"
+    },
+    {
+      "id": "isolated_env_execution",
+      "type": "unit_test",
+      "target": "crates/agent-server/src/gateway.rs",
+      "pattern": "test_gateway_stream_account_resolution"
+    }
+  ]
+}

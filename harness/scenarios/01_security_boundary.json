@@ -1,0 +1,18 @@
+{
+  "name": "security_boundary",
+  "description": "Verify sandbox containment, secret sanitization, and path traversal prevention",
+  "checks": [
+    {
+      "id": "vault_path_traversal",
+      "type": "unit_test",
+      "target": "crates/agent-engine/src/accounts.rs",
+      "pattern": "test_account_registration_vault_containment"
+    },
+    {
+      "id": "secret_scrubbing_dto",
+      "type": "unit_test",
+      "target": "crates/agent-server/src/gateway.rs",
+      "pattern": "test_gateway_account_profile_sanitization"
+    }
+  ]
+}

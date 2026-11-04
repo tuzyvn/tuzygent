@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-11-04T15:32:42Z",
+  "overall_status": "PASS",
+  "tests": {
+    "status": "PASS",
+    "passed": 68,
+    "failed": 0,
+    "duration_sec": 5.79
+  },
+  "clippy": {
+    "status": "PASS",
+    "duration_sec": 8.13
+  },
+  "scenarios": [
+    {
+      "scenario": "security_boundary",
+      "passed": 2,
+      "total": 2,
+      "status": "PASS"
+    },
+    {
+      "scenario": "account_rotation",
+      "passed": 2,
+      "total": 2,
+      "status": "PASS"
+    },
+    {
+      "scenario": "memory_persistence",
+      "passed": 2,
+      "total": 2,
+      "status": "PASS"
+    },
+    {
+      "scenario": "cli_version_and_update",
+      "passed": 2,
+      "total": 2,
+      "status": "PASS"
+    }
+  ]
+}

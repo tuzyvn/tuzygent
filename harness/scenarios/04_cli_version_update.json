@@ -1,0 +1,18 @@
+{
+  "name": "cli_version_and_update",
+  "description": "Verify agent-ctl version reporting, staging directory isolation, and update validation",
+  "checks": [
+    {
+      "id": "cli_version_flag",
+      "type": "cli_command",
+      "command": "agent-ctl --version",
+      "must_contain": ["agent-ctl", "Commit:", "Release date:"]
+    },
+    {
+      "id": "cli_update_check",
+      "type": "cli_command",
+      "command": "agent-ctl update --check",
+      "must_contain": ["Checking", "Installed:", "Latest:"]
+    }
+  ]
+}

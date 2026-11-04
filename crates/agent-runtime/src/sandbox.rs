@@ -258,6 +258,17 @@ impl SandboxEnvironment {
                 bwrap_args.push("--chdir".to_string());
                 bwrap_args.push(dir_str);
 
+                // Mount binary directory if outside standard system paths (~/.local/bin, cargo, etc.)
+                let bin_path = Path::new(original_bin);
+                if let Some(parent) = bin_path.parent() {
+                    let parent_str = parent.to_string_lossy().to_string();
+                    if parent.exists() && !parent_str.starts_with("/usr") && !parent_str.starts_with("/bin") && !parent_str.starts_with("/lib") {
+                        bwrap_args.push("--ro-bind".to_string());
+                        bwrap_args.push(parent_str.clone());
+                        bwrap_args.push(parent_str);
+                    }
+                }
+
                 // Mount read-only credentials if they exist
                 for mount in &self.config.ro_credentials {
                     let expanded_source = expand_home(&mount.source);
