@@ -10,6 +10,7 @@ impl AgentId {
         Self(format!("{}-{}", prefix, Uuid::new_v4().simple()))
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(id: &str) -> Self {
         Self(id.to_string())
     }
@@ -45,9 +46,10 @@ pub struct AgentRole {
     pub capabilities: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum VoiceEngineType {
     #[serde(rename = "vieneu")]
+    #[default]
     VieNeu,
     #[serde(rename = "cosyvoice")]
     CosyVoice,
@@ -59,12 +61,6 @@ pub enum VoiceEngineType {
     SherpaOnnx,
     #[serde(untagged)]
     Custom(String),
-}
-
-impl Default for VoiceEngineType {
-    fn default() -> Self {
-        Self::VieNeu
-    }
 }
 
 fn default_voice_id() -> String {
@@ -172,7 +168,7 @@ impl AgentPersonaProfile {
         for cv in &self.soul.core_values {
             prompt.push_str(&format!("  * {}\n", cv));
         }
-        prompt.push_str("\n");
+        prompt.push('\n');
 
         prompt.push_str("# MISSION & OBJECTIVES (MỤC TIÊU & NHIỆM VỤ)\n");
         prompt.push_str(&format!(
@@ -264,4 +260,11 @@ mod tests {
             "vp_miku_01"
         );
     }
+}
+
+/// Stable persona key, scoped to a project. Display names are never storage keys.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PersonaId(pub String);
+impl From<&AgentPersonaProfile> for PersonaId {
+    fn from(profile: &AgentPersonaProfile) -> Self { Self(profile.identity.id.0.clone()) }
 }

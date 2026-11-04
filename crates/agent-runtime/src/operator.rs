@@ -368,6 +368,9 @@ impl KernelOperator {
                     on_stream_chunk: None,
                     command_sandbox: None,
                     on_event: None,
+                    temperature: None,
+                    max_tokens: None,
+                    max_output_bytes: None,
                 };
                 match engine.execute(&input).await {
                     Ok(result) => {
@@ -444,6 +447,9 @@ impl KernelOperator {
                         on_stream_chunk: None,
                         command_sandbox: None,
                         on_event: None,
+                        temperature: None,
+                        max_tokens: None,
+                        max_output_bytes: None,
                     };
                     match engine.execute(&input).await {
                         Ok(result) => {

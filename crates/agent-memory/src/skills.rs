@@ -1,10 +1,15 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use tokio::fs;
+
+static FRONTMATTER_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?s)\A---\r?\n(.*?\r?\n)---").unwrap());
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillMetadata {
+    pub id: String,
     pub name: String,
     pub description: String,
     pub path: PathBuf,
@@ -24,12 +29,12 @@ impl SkillRegistry {
 
     /// Trích xuất Frontmatter chuẩn YAML `--- ... ---` theo quy chuẩn Multica
     pub fn parse_frontmatter(content: &str) -> (String, String) {
-        if !content.starts_with("---") {
+        let trimmed = content.trim_start_matches('\u{feff}').trim_start();
+        if !trimmed.starts_with("---") {
             return ("".to_string(), "".to_string());
         }
 
-        let re = Regex::new(r"(?s)\A---\r?\n(.*?\r?\n)---").unwrap();
-        if let Some(caps) = re.captures(content) {
+        if let Some(caps) = FRONTMATTER_RE.captures(trimmed) {
             let yaml_block = &caps[1];
             if let Ok(yaml_map) = serde_yaml_ng::from_str::<serde_json::Value>(yaml_block) {
                 let name = yaml_map
@@ -64,10 +69,11 @@ impl SkillRegistry {
                 if skill_file.exists() {
                     let content = fs::read_to_string(&skill_file).await.unwrap_or_default();
                     let (name, desc) = Self::parse_frontmatter(&content);
+                    let folder_name = entry.file_name().to_string_lossy().to_string();
                     let final_name = if !name.is_empty() {
                         name
                     } else {
-                        entry.file_name().to_string_lossy().to_string()
+                        folder_name.clone()
                     };
                     let final_desc = if !desc.is_empty() {
                         desc
@@ -80,6 +86,7 @@ impl SkillRegistry {
                     };
 
                     skills.push(SkillMetadata {
+                        id: folder_name,
                         name: final_name,
                         description: final_desc,
                         path: skill_file,
@@ -91,8 +98,40 @@ impl SkillRegistry {
         Ok(skills)
     }
 
+    /// Nạp nội dung một kỹ năng từ tên folder hoặc tên khai báo trong metadata.
+    /// Có cơ chế phòng chống Path Traversal nghiêm ngặt.
     pub async fn load_skill(&self, skill_name: &str) -> Result<String, std::io::Error> {
-        let skill_file = self.skills_dir.join(skill_name).join("SKILL.md");
-        fs::read_to_string(skill_file).await
+        let trimmed_name = skill_name.trim();
+        // Kiểm tra an ninh chống tấn công đường dẫn duyệt thư mục
+        if trimmed_name.is_empty()
+            || trimmed_name.contains("..")
+            || trimmed_name.contains('/')
+            || trimmed_name.contains('\\')
+            || trimmed_name.contains('\0')
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Invalid or unsafe skill name: '{}'", skill_name),
+            ));
+        }
+
+        let direct_file = self.skills_dir.join(trimmed_name).join("SKILL.md");
+        if direct_file.exists() {
+            return fs::read_to_string(direct_file).await;
+        }
+
+        // Nếu không khớp trực tiếp tên thư mục, tìm theo trường `name` trong danh sách skills
+        let all_skills = self.list_available_skills().await?;
+        if let Some(matched) = all_skills
+            .into_iter()
+            .find(|s| s.name.eq_ignore_ascii_case(trimmed_name) || s.id.eq_ignore_ascii_case(trimmed_name))
+        {
+            return fs::read_to_string(matched.path).await;
+        }
+
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Skill '{}' not found in {}", trimmed_name, self.skills_dir.display()),
+        ))
     }
 }

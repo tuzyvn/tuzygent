@@ -56,6 +56,34 @@ pub enum TaskStatus {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum VerificationSpec {
+    Command { command: String, expected_exit_code: i32 },
+    FileExists { path: String, min_bytes: Option<u64> },
+    JsonValid { path: String },
+    ContentContains { path: String, pattern: String },
+    Custom { description: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerificationResult {
+    pub passed: bool,
+    pub spec: VerificationSpec,
+    pub details: String,
+    pub executed_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskResult {
+    pub task_id: TaskId,
+    pub status: TaskStatus,
+    pub summary: String,
+    pub artifacts: Vec<String>,
+    pub verifications: Vec<VerificationResult>,
+    pub duration_ms: u128,
+    pub engine_used: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubTask {
     pub id: String,
@@ -69,6 +97,12 @@ pub struct SubTask {
     pub parent_subtask_id: Option<String>,
     #[serde(default)]
     pub remediation_for_error: Option<String>,
+    #[serde(default)]
+    pub verification_spec: Option<VerificationSpec>,
+    #[serde(default)]
+    pub verification_result: Option<VerificationResult>,
+    #[serde(default)]
+    pub output_excerpt: Option<String>,
 }
 
 impl SubTask {
@@ -87,6 +121,9 @@ impl SubTask {
             retry_count: 0,
             parent_subtask_id: None,
             remediation_for_error: None,
+            verification_spec: None,
+            verification_result: None,
+            output_excerpt: None,
         }
     }
 
@@ -107,6 +144,9 @@ impl SubTask {
             retry_count: retry,
             parent_subtask_id: Some(parent_id.to_string()),
             remediation_for_error: Some(error_msg.to_string()),
+            verification_spec: None,
+            verification_result: None,
+            output_excerpt: None,
         }
     }
 

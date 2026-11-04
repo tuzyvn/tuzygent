@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 mod update;
+mod memory;
 
 #[derive(Parser)]
 #[command(name = "agent-ctl")]
@@ -31,6 +32,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Manage project-scoped persona memory
+    Memory(memory::MemoryArgs),
     /// Build and install the latest AgentCore main from GitHub (requires Git and Cargo)
     Update {
         /// Only check the latest commit; do not build or replace the executable
@@ -109,6 +112,38 @@ enum Commands {
         #[command(subcommand)]
         action: RigAction,
     },
+    /// Manage multiple CLI accounts, tokens and rotation policies
+    Auth {
+        #[command(subcommand)]
+        action: AuthAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum AuthAction {
+    /// List all configured accounts and their statuses
+    List {
+        #[arg(short, long)]
+        engine: Option<String>,
+    },
+    /// Register or import an account into the vault
+    Add {
+        #[arg(short, long)]
+        engine: String,
+        #[arg(short, long)]
+        id: String,
+        #[arg(short, long)]
+        name: String,
+        #[arg(long)]
+        api_key: Option<String>,
+    },
+    /// Remove an account from the vault
+    Remove {
+        #[arg(short, long)]
+        engine: String,
+        #[arg(short, long)]
+        id: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -168,6 +203,7 @@ async fn main() -> anyhow::Result<()> {
     let supervisor = Arc::new(AgentSupervisor::new(bus.clone()));
 
     match cli.command {
+        Commands::Memory(args) => memory::run(args)?,
         Commands::Update { check } => update::run(check)?,
         Commands::Create { id, name, autonomy } => {
             let level = match autonomy.to_lowercase().as_str() {
@@ -229,15 +265,10 @@ async fn main() -> anyhow::Result<()> {
             let scratchpad = ScratchpadManager::new(&workspace);
             let durable = DurableMemoryStore::new(&workspace);
 
-            // Nạp Persona Profile nếu có
-            if let Some(ref p_path) = persona_path {
-                if let Ok(profile) = PersonaLoader::load_from_dir(p_path).await {
-                    println!(
-                        "👤 Active Persona: {} ({})",
-                        profile.identity.name, profile.role.title
-                    );
-                }
-            }
+            let profile = match persona_path {
+                Some(path) => Some(PersonaLoader::load_from_dir(path).await?),
+                None => None,
+            };
 
             let mut sandbox_cfg = SandboxConfig::from_engines_config(&config)?;
             if let Some(ref driver) = sandbox {
@@ -281,19 +312,32 @@ async fn main() -> anyhow::Result<()> {
                     .with_timeout_seconds(timeout_secs)
                     .with_sandbox_config(sandbox_cfg)
                     .with_bus(cli_bus);
+            let ooda = if let Some(profile) = profile { ooda.with_persona(profile) } else { ooda };
 
             let mut task = Task::new(&goal, &goal, Priority::High);
             task.assigned_agent = Some(AgentId::from_str(&agent_id));
 
-            let final_status = ooda
-                .run_goal(&mut task)
+            let task_result = ooda
+                .run_goal_detailed(&mut task)
                 .await
                 .map_err(|e| anyhow::anyhow!(e))?;
 
             stream_printer.abort();
-            println!("\n🏁 Mission Finished with Status: {:?}", final_status);
-            if final_status != TaskStatus::Completed {
-                anyhow::bail!("Mission did not complete: {:?}", final_status);
+            println!("\n🏁 Mission Finished with Status: {:?}", task_result.status);
+            println!(
+                "⏱️  Duration: {}ms | Engine: {}",
+                task_result.duration_ms,
+                task_result.engine_used.as_deref().unwrap_or("unknown")
+            );
+            if !task_result.verifications.is_empty() {
+                println!("\n🔍 Verification Report ({} checks):", task_result.verifications.len());
+                for (idx, v) in task_result.verifications.iter().enumerate() {
+                    let mark = if v.passed { "✅ PASS" } else { "❌ FAIL" };
+                    println!("  [#{} {}] {}", idx + 1, mark, v.details);
+                }
+            }
+            if task_result.status != TaskStatus::Completed {
+                anyhow::bail!("Mission did not complete: {:?}", task_result.status);
             }
         }
         Commands::Engines { workspace, test } => {
@@ -349,6 +393,9 @@ async fn main() -> anyhow::Result<()> {
                     on_stream_chunk: None,
                     command_sandbox: None,
                     on_event: None,
+                    temperature: None,
+                    max_tokens: None,
+                    max_output_bytes: None,
                 };
 
                 let router = agent_engine::EngineRouter::from_config(&config);
@@ -411,7 +458,7 @@ async fn main() -> anyhow::Result<()> {
             println!("   • Thời gian thực thi: {} ms", report.duration_ms);
             println!("   • Trạng thái: {}", report.status);
             println!("   • Các Node đã hoàn tất:");
-            for (_node_id, res) in &report.node_results {
+            for res in report.node_results.values() {
                 println!(
                     "     - [{}] {} ({:?}ms, engine: {})",
                     res.node_type,
@@ -497,8 +544,11 @@ async fn main() -> anyhow::Result<()> {
                 working_dir: workspace.clone(),
                 timeout_seconds: 45,
                 on_stream_chunk: None,
-            command_sandbox: None,
-            on_event: None,
+                command_sandbox: None,
+                on_event: None,
+                temperature: None,
+                max_tokens: None,
+                max_output_bytes: None,
             };
 
             let briefing = compute_engine.execute(&sre_input).await?;
@@ -650,6 +700,9 @@ async fn main() -> anyhow::Result<()> {
                         on_stream_chunk: None,
                         command_sandbox: None,
                         on_event: None,
+                        temperature: None,
+                        max_tokens: None,
+                        max_output_bytes: None,
                     };
 
                     match compute_engine.execute(&input).await {
@@ -681,6 +734,9 @@ async fn main() -> anyhow::Result<()> {
                         on_stream_chunk: None,
                         command_sandbox: None,
                         on_event: None,
+                        temperature: None,
+                        max_tokens: None,
+                        max_output_bytes: None,
                     };
 
                     match compute_engine.execute(&input).await {
@@ -1038,6 +1094,58 @@ async fn main() -> anyhow::Result<()> {
                 );
             }
         },
+        Commands::Auth { action } => {
+            let vault = agent_engine::AccountVault::new();
+            match action {
+                AuthAction::List { engine } => {
+                    let eng = engine.as_deref().map(agent_engine::AccountEngineKind::from_str_name);
+                    let accounts = vault.list_accounts(eng.as_ref());
+                    if accounts.is_empty() {
+                        println!("ℹ️ Không có tài khoản nào được đăng ký trong kho (~/.agentcore/accounts/).");
+                    } else {
+                        println!("📋 DANH SÁCH TÀI KHOẢN CLI (ACCOUNT VAULT):");
+                        println!("{:<14} | {:<20} | {:<24} | {:<16} | {:<8}", "ENGINE", "ID", "TÊN", "TRẠNG THÁI", "REQUESTS");
+                        println!("{:-<14}-+-{:-<20}-+-{:-<24}-+-{:-<16}-+-{:-<8}", "", "", "", "", "");
+                        for acc in accounts {
+                            let status_str = match &acc.status {
+                                agent_engine::AccountStatus::Ready => "Ready".to_string(),
+                                agent_engine::AccountStatus::Cooldown { until, reason } => {
+                                    let remaining = (*until - chrono::Utc::now()).num_seconds().max(0);
+                                    format!("Cooldown({}s, {})", remaining, reason)
+                                }
+                                agent_engine::AccountStatus::Disabled => "Disabled".to_string(),
+                            };
+                            println!("{:<14} | {:<20} | {:<24} | {:<16} | {:<8}", acc.engine.to_string(), acc.id, acc.name, status_str, acc.requests_count);
+                        }
+                    }
+                }
+                AuthAction::Add { engine, id, name, api_key } => {
+                    let engine_kind = agent_engine::AccountEngineKind::from_str_name(&engine);
+                    let mut extra_env = std::collections::HashMap::new();
+                    if let Some(key) = api_key {
+                        extra_env.insert("OPENAI_API_KEY".to_string(), key.clone());
+                        extra_env.insert("CODEX_API_KEY".to_string(), key);
+                    }
+                    match vault.register_account(engine_kind, &id, &name, extra_env) {
+                        Ok(acc) => {
+                            println!("✅ Đã đăng ký thành công tài khoản '{}' cho engine '{}'!", acc.id, acc.engine);
+                            println!("📁 Thư mục Sandbox cách ly: {}", acc.home_dir.display());
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Lỗi khi đăng ký tài khoản: {}", e);
+                        }
+                    }
+                }
+                AuthAction::Remove { engine, id } => {
+                    let engine_kind = agent_engine::AccountEngineKind::from_str_name(&engine);
+                    match vault.remove_account(&engine_kind, &id) {
+                        Ok(true) => println!("🗑️ Đã xóa tài khoản '{}' của engine '{}' thành công.", id, engine_kind),
+                        Ok(false) => println!("⚠️ Không tìm thấy tài khoản '{}' để xóa.", id),
+                        Err(e) => eprintln!("❌ Lỗi: {}", e),
+                    }
+                }
+            }
+        }
     }
 
     Ok(())

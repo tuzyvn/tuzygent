@@ -12,6 +12,12 @@ pub struct MonotonicClock {
     start: Instant,
 }
 
+impl Default for MonotonicClock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MonotonicClock {
     pub fn new() -> Self {
         Self {

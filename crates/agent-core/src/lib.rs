@@ -37,7 +37,7 @@ pub use agent_runtime as runtime;
 
 pub mod prelude {
     pub use agent_domain::{
-        AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul,
+        PersonaId, AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul,
         AutonomyLevel, GuardrailPolicy, InterAgentEvent, Priority, RedLineRule, RigSnapshot,
         RigSpec, SeatSnapshot, SubTask, Task, TaskId, TaskStatus, VoiceEngineType, VoiceProfile,
     };
@@ -46,7 +46,7 @@ pub mod prelude {
         cli::CodexEngine, cli::GenericCliEngine, config::EnginesConfig, config::SingleEngineConfig,
         router::EngineRouter, ComputeEngine, EngineInput, EngineKind, EngineOutput,
     };
-    pub use agent_memory::{DurableMemoryStore, PersonaLoader, ScratchpadManager, SkillRegistry};
+    pub use agent_memory::{MemoryService, MemoryRecord, RetrievedContext, DurableMemoryStore, PersonaLoader, ScratchpadManager, SkillRegistry};
     pub use agent_runtime::{
         AgentSupervisor, AutonomousOodaLoop, InterAgentBus, IsolationMode, KernelOperator,
         SandboxConfig, SandboxDriverKind, SandboxEnvironment, WorkflowOrchestrator, WsRpcClient,

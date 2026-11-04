@@ -92,13 +92,17 @@ impl Drop for ProcessGroup {
     }
 }
 
+pub const DEFAULT_MAX_OUTPUT_BYTES: usize = 10 * 1024 * 1024; // 10MB limit
+
 async fn read_stream(
     stream: impl AsyncRead + Unpin,
     callback: Option<StreamCallback>,
+    max_bytes: usize,
 ) -> std::io::Result<Vec<u8>> {
     let mut reader = BufReader::new(stream);
     let mut output = Vec::new();
     let mut chunk = Vec::new();
+    let mut truncated = false;
     loop {
         chunk.clear();
         if reader.read_until(b'\n', &mut chunk).await? == 0 {
@@ -107,16 +111,34 @@ async fn read_stream(
         if let Some(cb) = &callback {
             cb(&String::from_utf8_lossy(&chunk));
         }
-        output.extend_from_slice(&chunk);
+        if output.len() + chunk.len() <= max_bytes {
+            output.extend_from_slice(&chunk);
+        } else if !truncated {
+            let remaining = max_bytes.saturating_sub(output.len());
+            if remaining > 0 {
+                output.extend_from_slice(&chunk[..remaining]);
+            }
+            output.extend_from_slice(b"\n...[OUTPUT TRUNCATED: buffer exceeded limit]...\n");
+            truncated = true;
+        }
     }
     Ok(output)
 }
 
 /// Drains both pipes concurrently; kills the process group on timeout or cancellation.
 pub async fn run_process(
+    cmd: Command,
+    timeout: Duration,
+    callback: Option<StreamCallback>,
+) -> Result<std::process::Output, EngineError> {
+    run_process_with_limit(cmd, timeout, callback, DEFAULT_MAX_OUTPUT_BYTES).await
+}
+
+pub async fn run_process_with_limit(
     mut cmd: Command,
     timeout: Duration,
     callback: Option<StreamCallback>,
+    max_output_bytes: usize,
 ) -> Result<std::process::Output, EngineError> {
     cmd.stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -133,8 +155,8 @@ pub async fn run_process(
     let run = async {
         let (status, stdout, stderr) = tokio::try_join!(
             child.wait(),
-            read_stream(stdout, callback),
-            read_stream(stderr, None)
+            read_stream(stdout, callback, max_output_bytes),
+            read_stream(stderr, None, max_output_bytes)
         )?;
         Ok::<_, std::io::Error>(std::process::Output {
             status,
@@ -185,7 +207,8 @@ pub async fn run_command(
             .as_ref()
             .and_then(|sandbox| sandbox.container_name.clone()),
     );
-    let result = run_process(command(input, binary, args, env), timeout(input), callback).await;
+    let limit = input.max_output_bytes.unwrap_or(DEFAULT_MAX_OUTPUT_BYTES);
+    let result = run_process_with_limit(command(input, binary, args, env), timeout(input), callback, limit).await;
     if let Some(name) = &cleanup.0 {
         // Wait for cleanup on normal completion and timeout; Drop handles cancellation.
         let mut remove = Command::new("docker");

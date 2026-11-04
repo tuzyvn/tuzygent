@@ -9,7 +9,7 @@ use axum::{
     middleware::{self, Next},
     response::IntoResponse,
     response::Response,
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use clap::Parser;
@@ -19,6 +19,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
+
+pub mod dashboard_html;
+pub mod gateway;
+use gateway::*;
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -42,10 +46,12 @@ struct ServerCli {
 }
 
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
     supervisor: Arc<AgentSupervisor>,
     bus: InterAgentBus,
     workspace: String,
+    pub vault: Arc<agent_engine::AccountVault>,
+    pub task_service: Arc<agent_runtime::TaskService>,
 }
 
 #[derive(Clone)]
@@ -150,17 +156,33 @@ async fn main() -> anyhow::Result<()> {
 
     let bus = InterAgentBus::new(200);
     let supervisor = Arc::new(AgentSupervisor::new(bus.clone()));
+    let vault = Arc::new(agent_engine::AccountVault::new());
+    let task_store = Arc::new(
+        agent_runtime::SqliteTaskStore::new(&cli.workspace)
+            .unwrap_or_else(|_| agent_runtime::SqliteTaskStore::memory().unwrap()),
+    );
+    let task_service = Arc::new(agent_runtime::TaskService::new(
+        task_store,
+        &cli.workspace,
+        4,
+        None,
+        None,
+    ));
 
     let state = AppState {
         supervisor,
         bus,
         workspace: cli.workspace,
+        vault,
+        task_service,
     };
 
     let app = build_app(state, auth);
 
     let addr: SocketAddr = format!("{}:{}", cli.host, cli.port).parse()?;
     info!("🚀 AgentCore Daemon Server listening on http://{}", addr);
+    info!("🤖 OpenAI-Compatible Gateway active at http://{}/v1/chat/completions", addr);
+    info!("🌐 Web Account Management Dashboard active at http://{}/dashboard", addr);
     info!("📡 WebSocket stream active at ws://{}/api/v1/ws", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -172,11 +194,35 @@ async fn main() -> anyhow::Result<()> {
 fn build_app(state: AppState, auth: AuthState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(auth.allowed_origins.clone())
-        .allow_methods([Method::GET, Method::POST])
+        .allow_methods([Method::GET, Method::POST, Method::DELETE])
         .allow_headers([
             axum::http::header::AUTHORIZATION,
             axum::http::header::CONTENT_TYPE,
         ]);
+
+    let gateway = Router::new()
+        .route("/v1/chat/completions", post(chat_completions_handler))
+        .route("/v1/models", get(list_models_handler))
+        .route(
+            "/api/v1/auth/accounts",
+            get(list_accounts_handler).post(add_account_handler),
+        )
+        .route(
+            "/api/v1/auth/accounts/{engine}/{id}",
+            delete(remove_account_handler),
+        )
+        .route(
+            "/api/v1/auth/accounts/{engine}/{id}/reset",
+            post(reset_account_handler),
+        )
+        .route(
+            "/api/v1/auth/accounts/{engine}/{id}/import-local",
+            post(import_local_handler),
+        )
+        .route(
+            "/api/v1/auth/accounts/{engine}/{id}/verify",
+            post(verify_account_handler),
+        );
 
     let api = Router::new()
         .route("/api/v1/engines", get(list_engines_handler))
@@ -185,9 +231,19 @@ fn build_app(state: AppState, auth: AuthState) -> Router {
             get(list_agents_handler).post(create_agent_handler),
         )
         .route("/api/v1/tasks/run", post(run_task_handler))
+        .route(
+            "/api/v1/tasks",
+            post(submit_task_handler).get(list_tasks_handler),
+        )
+        .route("/api/v1/tasks/{id}", get(get_task_handler))
+        .route("/api/v1/tasks/{id}/cancel", post(cancel_task_handler))
+        .route("/api/v1/tasks/{id}/approve", post(approve_task_handler))
         .route("/api/v1/ws", get(ws_handler))
+        .merge(gateway)
         .route_layer(middleware::from_fn_with_state(auth, require_auth));
     Router::new()
+        .route("/", get(dashboard_handler))
+        .route("/dashboard", get(dashboard_handler))
         .route("/health", get(health_handler))
         .merge(api)
         .layer(cors)
@@ -323,6 +379,13 @@ async fn run_task_handler(
     .with_sandbox_config(sandbox_cfg)
     .with_bus(state.bus.clone());
 
+    let ooda = if let Some(path) = &payload.persona_path {
+        match PersonaLoader::load_from_dir(path).await {
+            Ok(profile) => ooda.with_persona(profile),
+            Err(error) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":error.to_string()}))),
+        }
+    } else { ooda };
+
     let mut task = Task::new(&payload.goal, &payload.goal, Priority::High);
     task.assigned_agent = Some(AgentId::from_str(&payload.agent_id));
 
@@ -345,6 +408,109 @@ async fn run_task_handler(
                 "error": err.to_string(),
             })),
         ),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SubmitTaskReq {
+    pub title: String,
+    pub goal: String,
+    pub priority: Option<String>,
+    pub engine: Option<String>,
+}
+
+async fn submit_task_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<SubmitTaskReq>,
+) -> impl IntoResponse {
+    let priority = match payload.priority.as_deref().unwrap_or("normal") {
+        "low" => Priority::Low,
+        "high" => Priority::High,
+        "critical" => Priority::Critical,
+        _ => Priority::Normal,
+    };
+
+    match state.task_service.submit_task(&payload.title, &payload.goal, priority).await {
+        Ok(task_id) => {
+            let ws_path = std::path::Path::new(&state.workspace);
+            let config = EnginesConfig::load_hierarchical(Some(ws_path));
+            let engine_name = payload.engine.as_deref().unwrap_or(&config.defaults.engine);
+            if let Ok(engine) = agent_engine::configured_engine(&config, engine_name, None) {
+                state.task_service.dispatch(task_id.clone(), engine);
+            }
+
+            (
+                StatusCode::ACCEPTED,
+                Json(serde_json::json!({
+                    "task_id": task_id.to_string(),
+                    "status": "queued",
+                    "tracking_url": format!("/api/v1/tasks/{}", task_id),
+                })),
+            ).into_response()
+        }
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": err.to_string() })),
+        ).into_response(),
+    }
+}
+
+async fn list_tasks_handler(State(state): State<AppState>) -> impl IntoResponse {
+    match state.task_service.list_tasks(50, 0).await {
+        Ok(tasks) => Json(serde_json::json!({ "tasks": tasks })),
+        Err(err) => Json(serde_json::json!({ "error": err.to_string(), "tasks": [] })),
+    }
+}
+
+async fn get_task_handler(
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let task_id = TaskId(id);
+    match state.task_service.get_task(&task_id).await {
+        Ok(Some(task)) => {
+            let result = state.task_service.get_result(&task_id).await.unwrap_or(None);
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "task": task,
+                    "result": result,
+                })),
+            ).into_response()
+        }
+        Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Task not found" }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.to_string() }))).into_response(),
+    }
+}
+
+async fn cancel_task_handler(
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let task_id = TaskId(id);
+    match state.task_service.cancel_task(&task_id).await {
+        Ok(true) => (StatusCode::OK, Json(serde_json::json!({ "canceled": true }))).into_response(),
+        Ok(false) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Task not found" }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.to_string() }))).into_response(),
+    }
+}
+
+async fn approve_task_handler(
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let task_id = TaskId(id);
+    let ws_path = std::path::Path::new(&state.workspace);
+    let config = EnginesConfig::load_hierarchical(Some(ws_path));
+    let engine = match agent_engine::configured_engine(&config, &config.defaults.engine, None) {
+        Ok(e) => e,
+        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": err.to_string() }))).into_response(),
+    };
+
+    match state.task_service.approve_task(&task_id, engine).await {
+        Ok(true) => (StatusCode::OK, Json(serde_json::json!({ "resumed": true }))).into_response(),
+        Ok(false) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Task not found" }))).into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e.to_string() }))).into_response(),
     }
 }
 
@@ -398,11 +564,16 @@ mod tests {
 
     fn app() -> Router {
         let bus = InterAgentBus::new(16);
+        let temp_vault = std::env::temp_dir().join(format!("test_vault_{}", uuid::Uuid::new_v4().simple()));
+        let task_store = Arc::new(agent_runtime::SqliteTaskStore::memory().unwrap());
+        let task_service = Arc::new(agent_runtime::TaskService::new(task_store, "/tmp", 2, None, None));
         build_app(
             AppState {
                 supervisor: Arc::new(AgentSupervisor::new(bus.clone())),
                 bus,
                 workspace: "/tmp".into(),
+                vault: Arc::new(agent_engine::AccountVault::new_with_dir(temp_vault)),
+                task_service,
             },
             AuthState {
                 token: Arc::new("test-secret".into()),
@@ -425,12 +596,28 @@ mod tests {
                 .status(),
             StatusCode::OK
         );
+        assert_eq!(
+            app()
+                .oneshot(
+                    Request::builder()
+                        .uri("/dashboard")
+                        .body(Body::empty())
+                        .unwrap()
+                )
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::OK
+        );
         for (method, path) in [
             ("GET", "/api/v1/engines"),
             ("GET", "/api/v1/agents"),
             ("POST", "/api/v1/agents"),
             ("POST", "/api/v1/tasks/run"),
             ("GET", "/api/v1/ws"),
+            ("GET", "/v1/models"),
+            ("POST", "/v1/chat/completions"),
+            ("GET", "/api/v1/auth/accounts"),
         ] {
             let response = app()
                 .oneshot(
@@ -567,11 +754,16 @@ mod tests {
         )
         .unwrap();
         let bus = InterAgentBus::new(32);
+        let temp_vault = std::env::temp_dir().join(format!("test_vault_{}", uuid::Uuid::new_v4().simple()));
+        let task_store = Arc::new(agent_runtime::SqliteTaskStore::memory().unwrap());
+        let task_service = Arc::new(agent_runtime::TaskService::new(task_store, workspace.to_str().unwrap(), 2, None, None));
         let app = build_app(
             AppState {
                 supervisor: Arc::new(AgentSupervisor::new(bus.clone())),
                 bus,
                 workspace: workspace.to_str().unwrap().into(),
+                vault: Arc::new(agent_engine::AccountVault::new_with_dir(temp_vault)),
+                task_service,
             },
             AuthState {
                 token: Arc::new("test-secret".into()),
@@ -597,5 +789,131 @@ mod tests {
         assert_eq!(result["status"], "Completed");
         assert_eq!(result["subtasks_count"], 1);
         std::fs::remove_dir_all(workspace).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_gateway_lists_models_and_manages_accounts() {
+        let app = app();
+        // 1. GET /v1/models
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/models")
+                    .header("authorization", "Bearer test-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // 2. POST /api/v1/auth/accounts
+        let add_acc = serde_json::json!({
+            "engine": "antigravity",
+            "id": "acc_test_1",
+            "name": "Test Google Account",
+            "extra_env": { "TEST_VAR": "1" }
+        });
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/auth/accounts")
+                    .header("authorization", "Bearer test-secret")
+                    .header("content-type", "application/json")
+                    .body(Body::from(add_acc.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // 3. GET /api/v1/auth/accounts (verifying secrets are redacted)
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/auth/accounts")
+                    .header("authorization", "Bearer test-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 8192).await.unwrap();
+        let json_body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let accounts = json_body["accounts"].as_array().unwrap();
+        assert_eq!(accounts.len(), 1);
+        assert!(accounts[0].get("extra_env").is_none());
+        assert!(accounts[0].get("extra_env_keys").is_some());
+
+        // 4. Reject account with path traversal ID
+        let bad_acc = serde_json::json!({
+            "engine": "antigravity",
+            "id": "../evil",
+            "name": "Bad Traversal Account",
+        });
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/auth/accounts")
+                    .header("authorization", "Bearer test-secret")
+                    .header("content-type", "application/json")
+                    .body(Body::from(bad_acc.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        // 5. Reject unknown model without spawning process
+        let bad_model_req = serde_json::json!({
+            "model": "malicious_unrecognized_binary",
+            "messages": [{"role": "user", "content": "hi"}],
+        });
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/chat/completions")
+                    .header("authorization", "Bearer test-secret")
+                    .header("content-type", "application/json")
+                    .body(Body::from(bad_model_req.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        // 6. Test async task submission returning 202 Accepted
+        let submit_req = serde_json::json!({
+            "title": "Async Test Task",
+            "goal": "Test 202 pattern",
+            "priority": "normal"
+        });
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/tasks")
+                    .header("authorization", "Bearer test-secret")
+                    .header("content-type", "application/json")
+                    .body(Body::from(submit_req.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let body = axum::body::to_bytes(response.into_body(), 8192).await.unwrap();
+        let body_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body_json["status"], "queued");
+        assert!(body_json["task_id"].as_str().is_some());
     }
 }

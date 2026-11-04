@@ -15,12 +15,30 @@ pub struct RedLineRule {
     pub requires_human_approval: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GuardrailPolicy {
     pub red_lines: Vec<RedLineRule>,
     pub max_subtasks_per_goal: usize,
     pub max_retries_on_error: usize,
     pub allow_shell_execution: bool,
+    #[serde(default = "default_max_output_bytes")]
+    pub max_output_bytes: usize,
+}
+
+fn default_max_output_bytes() -> usize {
+    10 * 1024 * 1024 // 10MB default buffer limit
+}
+
+impl Default for GuardrailPolicy {
+    fn default() -> Self {
+        Self {
+            red_lines: Vec::new(),
+            max_subtasks_per_goal: 30,
+            max_retries_on_error: 3,
+            allow_shell_execution: true,
+            max_output_bytes: default_max_output_bytes(),
+        }
+    }
 }
 
 impl GuardrailPolicy {
@@ -49,6 +67,7 @@ impl GuardrailPolicy {
             max_subtasks_per_goal: 30,
             max_retries_on_error: 3,
             allow_shell_execution: true,
+            max_output_bytes: default_max_output_bytes(),
         }
     }
 

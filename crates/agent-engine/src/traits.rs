@@ -16,6 +16,20 @@ pub enum EngineError {
     PolicyRejected(String),
 }
 
+impl EngineError {
+    pub fn is_auth_or_quota(&self) -> bool {
+        let msg = self.to_string().to_lowercase();
+        msg.contains("auth")
+            || msg.contains("quota")
+            || msg.contains("401")
+            || msg.contains("403")
+            || msg.contains("rate limit")
+            || msg.contains("rate_limit")
+            || msg.contains("unauthorized")
+            || msg.contains("exhausted")
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum EngineKind {
     ClaudeCode,
@@ -68,6 +82,12 @@ pub struct EngineInput {
     pub timeout_seconds: u64,
     #[serde(skip)]
     pub on_stream_chunk: Option<StreamCallback>,
+    #[serde(default)]
+    pub temperature: Option<f32>,
+    #[serde(default)]
+    pub max_tokens: Option<u32>,
+    #[serde(default)]
+    pub max_output_bytes: Option<usize>,
 }
 
 impl std::fmt::Debug for EngineInput {
@@ -92,6 +112,9 @@ impl EngineInput {
             on_stream_chunk: None,
             command_sandbox: None,
             on_event: None,
+            temperature: None,
+            max_tokens: None,
+            max_output_bytes: None,
         }
     }
 
@@ -111,6 +134,9 @@ impl Default for EngineInput {
             on_stream_chunk: None,
             command_sandbox: None,
             on_event: None,
+            temperature: None,
+            max_tokens: None,
+            max_output_bytes: None,
         }
     }
 }

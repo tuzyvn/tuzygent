@@ -1,6 +1,7 @@
 use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::time::Instant;
 use tracing::{debug, info, warn};
 
@@ -56,6 +57,7 @@ pub struct AntigravityStreamEvent {
 pub struct AntigravityEngine {
     pub binary_path: String,
     pub model: Option<String>,
+    pub env_vars: HashMap<String, String>,
 }
 
 fn resolve_agy_binary(binary_path: Option<String>) -> String {
@@ -89,7 +91,13 @@ impl AntigravityEngine {
         Self {
             binary_path: resolve_agy_binary(binary_path),
             model,
+            env_vars: HashMap::new(),
         }
+    }
+
+    pub fn with_env(mut self, env: HashMap<String, String>) -> Self {
+        self.env_vars = env;
+        self
     }
 }
 
@@ -132,7 +140,7 @@ impl ComputeEngine for AntigravityEngine {
             input,
             &self.binary_path,
             &args,
-            &Default::default(),
+            &self.env_vars,
             callback,
         )
         .await?;

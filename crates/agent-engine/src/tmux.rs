@@ -211,7 +211,7 @@ mod tests {
 
         let buffer =
             TmuxSessionManager::capture_pane(&session_name, 50).expect("Must capture pane");
-        assert!(buffer.contains("AGENT_ALIVE_TEST") || buffer.len() > 0);
+        assert!(buffer.contains("AGENT_ALIVE_TEST") || !buffer.is_empty());
 
         // Test cleanup
         TmuxSessionManager::kill_seat_session(&session_name).expect("Must kill session");

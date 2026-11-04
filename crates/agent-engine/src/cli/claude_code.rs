@@ -1,12 +1,14 @@
 use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use async_trait::async_trait;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::time::Instant;
 use tracing::{debug, info};
 
 pub struct ClaudeCodeEngine {
     pub binary_path: String,
     pub model: Option<String>,
+    pub env_vars: HashMap<String, String>,
 }
 
 fn resolve_claude_binary(binary_path: Option<String>) -> String {
@@ -48,7 +50,13 @@ impl ClaudeCodeEngine {
         Self {
             binary_path: resolve_claude_binary(binary_path),
             model,
+            env_vars: HashMap::new(),
         }
+    }
+
+    pub fn with_env(mut self, env: HashMap<String, String>) -> Self {
+        self.env_vars = env;
+        self
     }
 }
 
@@ -70,7 +78,7 @@ impl ComputeEngine for ClaudeCodeEngine {
             args.extend(["--model".into(), model.clone()]);
         }
         let output =
-            crate::process::run_command(input, &self.binary_path, &args, &Default::default(), None)
+            crate::process::run_command(input, &self.binary_path, &args, &self.env_vars, None)
                 .await?;
 
         let duration = start.elapsed().as_millis();

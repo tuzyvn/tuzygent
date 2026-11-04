@@ -119,8 +119,10 @@ pub struct SandboxEnvironment {
 
 impl SandboxEnvironment {
     pub fn new<P: AsRef<Path>>(base_repo_path: P, mode: IsolationMode) -> Self {
-        let mut config = SandboxConfig::default();
-        config.mode = mode;
+        let config = SandboxConfig {
+            mode,
+            ..Default::default()
+        };
         Self {
             base_repo_path: base_repo_path.as_ref().to_path_buf(),
             config,
@@ -376,9 +378,17 @@ impl SandboxEnvironment {
             let _ = fs::remove_file(agent_ctx).await;
         }
 
+        // Only remove task-generated briefing and runtime context files, do NOT delete the entire .multica directory
         let meta_dir = target_dir.join(".multica");
         if meta_dir.exists() {
-            let _ = fs::remove_dir_all(meta_dir).await;
+            let brief_file = meta_dir.join("brief.md");
+            if brief_file.exists() {
+                let _ = fs::remove_file(brief_file).await;
+            }
+            let exec_file = meta_dir.join("execution_context.md");
+            if exec_file.exists() {
+                let _ = fs::remove_file(exec_file).await;
+            }
         }
 
         Ok(())
@@ -430,8 +440,10 @@ mod tests {
 
     #[test]
     fn test_bwrap_wrap_command() {
-        let mut config = SandboxConfig::default();
-        config.driver = SandboxDriverKind::Bubblewrap;
+        let config = SandboxConfig {
+            driver: SandboxDriverKind::Bubblewrap,
+            ..Default::default()
+        };
         let env = SandboxEnvironment::with_config(".", config);
 
         let (bin, args) = env.wrap_command("ls", &["-la".to_string()], Path::new("/tmp"));

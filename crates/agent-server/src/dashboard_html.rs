@@ -1,0 +1,497 @@
+pub const DASHBOARD_HTML: &str = r#"<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentCore AI Gateway & Account Manager</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --purple: #8b5cf6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text-main); min-height: 100vh; padding: 24px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    /* Top Header */
+    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 24px; border-bottom: 1px solid var(--card-border); margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .logo-area { display: flex; align-items: center; gap: 12px; }
+    .logo-badge { background: linear-gradient(135deg, #3b82f6, #8b5cf6); padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 18px; }
+    .title-h1 { font-size: 22px; font-weight: 700; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 4px 10px; border-radius: 9999px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background-color: currentColor; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    
+    /* Auth Token Bar */
+    .auth-bar { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px 18px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .auth-bar input { background: #0f172a; border: 1px solid var(--card-border); color: #fff; padding: 8px 14px; border-radius: 6px; font-size: 14px; flex: 1; min-width: 240px; }
+    .btn { background: var(--primary); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.15s; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #334155; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-success { background: var(--success); }
+    .btn-success:hover { background: #059669; }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 18px; }
+    .stat-title { color: var(--text-muted); font-size: 13px; text-transform: uppercase; font-weight: 600; margin-bottom: 6px; }
+    .stat-value { font-size: 28px; font-weight: 800; }
+    
+    /* Controls Bar */
+    .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .filter-tabs { display: flex; gap: 8px; }
+    .filter-btn { background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+    .filter-btn.active { background: #334155; color: #fff; border-color: #64748b; font-weight: 600; }
+
+    /* Accounts Grid */
+    .accounts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .account-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; position: relative; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.15s, border-color 0.15s; }
+    .account-card:hover { border-color: #475569; transform: translateY(-2px); }
+    .acc-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .engine-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; }
+    .tag-antigravity { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .tag-codex { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .tag-claude { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .tag-generic { background: rgba(139, 92, 246, 0.2); color: #c084fc; }
+    
+    .status-tag { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 9999px; }
+    .status-ready { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .status-cooldown { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .status-disabled { background: #334155; color: #94a3b8; }
+    
+    .acc-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+    .acc-id { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+    .acc-details { margin: 14px 0; font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+    .acc-dir { background: #0f172a; padding: 6px 8px; border-radius: 6px; font-family: monospace; font-size: 11px; word-break: break-all; margin-top: 6px; color: #cbd5e1; }
+    .acc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; border-top: 1px solid var(--card-border); padding-top: 14px; }
+    
+    /* Modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+    .modal { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; width: 100%; max-width: 520px; padding: 24px; position: relative; }
+    .modal-h2 { font-size: 18px; font-weight: 700; margin-bottom: 18px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-muted); }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; background: #0f172a; border: 1px solid var(--card-border); color: #fff; padding: 10px 12px; border-radius: 6px; font-size: 14px; }
+    .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+    /* Playground */
+    .playground-box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; }
+    .output-box { background: #0f172a; border: 1px solid var(--card-border); border-radius: 8px; padding: 14px; font-family: monospace; font-size: 13px; color: #cbd5e1; min-height: 120px; white-space: pre-wrap; margin-top: 12px; max-height: 350px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="logo-area">
+        <div class="logo-badge">⚡ AC</div>
+        <div>
+          <h1 class="title-h1">AgentCore AI Gateway & Accounts</h1>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+            OpenAI-Compatible Local Endpoint: <code style="color: #60a5fa;">http://localhost:8080/v1</code>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="status-badge"><span class="dot"></span> Gateway Sẵn Sàng</span>
+      </div>
+    </header>
+
+    <!-- Auth Token Key Bar -->
+    <div class="auth-bar">
+      <span style="font-size: 14px; font-weight: 600;">🔑 API Token:</span>
+      <input type="password" id="authTokenInput" placeholder="Nhập TUZYGENT_API_TOKEN để xác thực với Gateway">
+      <button class="btn btn-secondary" onclick="saveToken()">Lưu Token</button>
+      <span id="authStatusBadge" style="font-size: 13px; color: var(--text-muted);">Chưa xác thực</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-title">Tổng số tài khoản</div>
+        <div class="stat-value" id="statTotal">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Sẵn sàng (Ready)</div>
+        <div class="stat-value" id="statReady" style="color: var(--success);">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Đang Cooldown (429)</div>
+        <div class="stat-value" id="statCooldown" style="color: var(--danger);">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Tổng lượt Request đã xoay tua</div>
+        <div class="stat-value" id="statRequests" style="color: var(--primary);">0</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="filter-tabs">
+        <button class="filter-btn active" onclick="setFilter('all', this)">Tất cả</button>
+        <button class="filter-btn" onclick="setFilter('antigravity', this)">Antigravity</button>
+        <button class="filter-btn" onclick="setFilter('codex', this)">Codex</button>
+        <button class="filter-btn" onclick="setFilter('claude', this)">Claude</button>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-secondary" onclick="fetchAccounts()">🔄 Làm mới</button>
+        <button class="btn" onclick="openAddModal()">➕ Thêm Tài Khoản Mới</button>
+      </div>
+    </div>
+
+    <!-- Accounts Cards Grid -->
+    <div class="accounts-grid" id="accountsGrid">
+      <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">
+        Đang tải danh sách tài khoản...
+      </div>
+    </div>
+
+    <!-- Gateway Test Playground -->
+    <div class="playground-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h2 style="font-size: 16px; font-weight: 700;">🧪 Gateway Test Playground (POST /v1/chat/completions)</h2>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 13px; color: var(--text-muted);">Model:</span>
+          <select id="playModel" style="background:#0f172a; border:1px solid var(--card-border); color:#fff; padding:6px 10px; border-radius:6px; font-size:13px;">
+            <option value="antigravity">antigravity (Auto Rotate)</option>
+            <option value="antigravity/gemini-3.5-pro">antigravity/gemini-3.5-pro</option>
+            <option value="codex">codex (Auto Rotate)</option>
+            <option value="codex/gpt-4o">codex/gpt-4o</option>
+            <option value="claude">claude</option>
+          </select>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <input type="text" id="playPrompt" value="Say 'AgentCore Gateway is fully operational!' in 1 sentence" style="flex:1; background:#0f172a; border:1px solid var(--card-border); color:#fff; padding:10px 14px; border-radius:6px; font-size:14px;">
+        <button class="btn btn-success" id="btnTestRun" onclick="runGatewayTest()">🚀 Gửi Thử Nghiệm</button>
+      </div>
+      <div class="output-box" id="playOutput">Kết quả phản hồi từ tiến trình CLI hoặc Gateway sẽ hiển thị tại đây...</div>
+    </div>
+  </div>
+
+  <!-- Add Account Modal -->
+  <div class="modal-overlay" id="addModal">
+    <div class="modal">
+      <h2 class="modal-h2">➕ Đăng Ký Tài Khoản CLI Mới</h2>
+      <div class="form-group">
+        <label>Engine CLI:</label>
+        <select id="modalEngine">
+          <option value="antigravity">Google Antigravity (agy)</option>
+          <option value="codex">OpenAI Codex (codex)</option>
+          <option value="claude">Anthropic Claude (claude-code)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Account ID (Định danh không dấu, ví dụ: acc_google_1):</label>
+        <input type="text" id="modalId" placeholder="acc_google_work">
+      </div>
+      <div class="form-group">
+        <label>Tên hiển thị:</label>
+        <input type="text" id="modalName" placeholder="Tài khoản Google Công Ty">
+      </div>
+      <div class="form-group">
+        <label>Tùy chọn Khởi tạo / Credentials:</label>
+        <select id="modalAuthType" onchange="toggleAuthFields()">
+          <option value="isolate">Tạo thư mục Sandbox trắng (~/.agentcore/accounts/...)</option>
+          <option value="import">Tự động sao chép session CLI hiện có trên máy (~/.gemini, ~/.codex)</option>
+          <option value="apikey">Truyền OPENAI_API_KEY / Bearer Token</option>
+        </select>
+      </div>
+      <div class="form-group" id="apiKeyField" style="display: none;">
+        <label>API Key / Token:</label>
+        <input type="password" id="modalApiKey" placeholder="sk-...">
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeAddModal()">Hủy</button>
+        <button class="btn btn-success" onclick="submitAddAccount()">Đăng Ký Tài Khoản</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allAccounts = [];
+    let currentFilter = 'all';
+
+    function getToken() {
+      return localStorage.getItem('agentcore_token') || '';
+    }
+
+    function saveToken() {
+      const val = document.getElementById('authTokenInput').value.trim();
+      localStorage.setItem('agentcore_token', val);
+      updateAuthStatus();
+      fetchAccounts();
+    }
+
+    function updateAuthStatus() {
+      const t = getToken();
+      const badge = document.getElementById('authStatusBadge');
+      if (t) {
+        document.getElementById('authTokenInput').value = t;
+        badge.innerHTML = '<span style="color:var(--success);">✅ Đã thiết lập</span>';
+      } else {
+        badge.innerHTML = '<span style="color:var(--danger);">⚠️ Cần nhập Token</span>';
+      }
+    }
+
+    function setFilter(f, btn) {
+      currentFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderAccounts();
+    }
+
+    function openAddModal() {
+      document.getElementById('addModal').style.display = 'flex';
+    }
+
+    function closeAddModal() {
+      document.getElementById('addModal').style.display = 'none';
+    }
+
+    function toggleAuthFields() {
+      const type = document.getElementById('modalAuthType').value;
+      document.getElementById('apiKeyField').style.display = (type === 'apikey') ? 'block' : 'none';
+    }
+
+    async function apiFetch(endpoint, options = {}) {
+      const token = getToken();
+      const headers = options.headers || {};
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      headers['Content-Type'] = 'application/json';
+      options.headers = headers;
+      return fetch(endpoint, options);
+    }
+
+    async function fetchAccounts() {
+      try {
+        const res = await apiFetch('/api/v1/auth/accounts');
+        if (res.status === 401) {
+          document.getElementById('accountsGrid').innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--danger);">
+              ⚠️ Lỗi xác thực 401: Vui lòng nhập đúng <b>TUZYGENT_API_TOKEN</b> ở thanh trên và nhấn "Lưu Token".
+            </div>
+          `;
+          return;
+        }
+        const data = await res.json();
+        allAccounts = data.accounts || [];
+        updateStats();
+        renderAccounts();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('statTotal').innerText = allAccounts.length;
+      let ready = 0;
+      let cooldown = 0;
+      let totalReqs = 0;
+
+      allAccounts.forEach(a => {
+        totalReqs += (a.requests_count || 0);
+        if (a.status === 'Ready') ready++;
+        else if (a.status && a.status.Cooldown) cooldown++;
+      });
+
+      document.getElementById('statReady').innerText = ready;
+      document.getElementById('statCooldown').innerText = cooldown;
+      document.getElementById('statRequests').innerText = totalReqs;
+    }
+
+    function renderAccounts() {
+      const grid = document.getElementById('accountsGrid');
+      grid.innerHTML = '';
+
+      const filtered = allAccounts.filter(a => {
+        if (currentFilter === 'all') return true;
+        return (a.engine || '').toLowerCase() === currentFilter;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted); background: var(--card-bg); border-radius: 12px; border: 1px dashed var(--card-border);">
+            Chưa có tài khoản nào trong kho cho bộ lọc này. Nhấn <b>"Thêm Tài Khoản Mới"</b> để bắt đầu.
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(acc => {
+        const card = document.createElement('div');
+        card.className = 'account-card';
+
+        let engineClass = 'tag-generic';
+        if (acc.engine === 'Antigravity') engineClass = 'tag-antigravity';
+        else if (acc.engine === 'Codex') engineClass = 'tag-codex';
+        else if (acc.engine === 'Claude') engineClass = 'tag-claude';
+
+        let statusClass = 'status-ready';
+        let statusText = 'Ready';
+        if (acc.status && acc.status.Cooldown) {
+          statusClass = 'status-cooldown';
+          statusText = 'Cooldown: ' + (acc.status.Cooldown.reason || 'Rate limit');
+        } else if (acc.status === 'Disabled') {
+          statusClass = 'status-disabled';
+          statusText = 'Disabled';
+        }
+
+        card.innerHTML = `
+          <div>
+            <div class="acc-header">
+              <span class="engine-tag ${engineClass}">${acc.engine}</span>
+              <span class="status-tag ${statusClass}">${statusText}</span>
+            </div>
+            <div class="acc-title">${acc.name}</div>
+            <div class="acc-id">ID: ${acc.id}</div>
+            <div class="acc-details">
+              <div>📊 Số lượt gọi: <b>${acc.requests_count || 0}</b> | Lỗi: <b style="color:var(--danger);">${acc.failure_count || 0}</b></div>
+              <div style="margin-top:6px;">📁 Thư mục Sandbox cách ly:</div>
+              <div class="acc-dir">${acc.home_dir}</div>
+            </div>
+          </div>
+          <div>
+            <div id="verifyMsg_${acc.engine}_${acc.id}" style="font-size:12px; margin-bottom:8px; min-height:16px;"></div>
+            <div class="acc-actions">
+              <button class="btn btn-sm btn-success" onclick="verifyAccount('${acc.engine}', '${acc.id}')">⚡ Xác Thực CLI</button>
+              ${acc.status && acc.status.Cooldown ? `<button class="btn btn-sm btn-secondary" onclick="resetCooldown('${acc.engine}', '${acc.id}')">🔄 Xóa Phạt</button>` : ''}
+              <button class="btn btn-sm btn-secondary" onclick="importLocal('${acc.engine}', '${acc.id}')">📥 Copy Host Token</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteAccount('${acc.engine}', '${acc.id}')">🗑️ Xóa</button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function submitAddAccount() {
+      const engine = document.getElementById('modalEngine').value;
+      const id = document.getElementById('modalId').value.trim();
+      const name = document.getElementById('modalName').value.trim();
+      const authType = document.getElementById('modalAuthType').value;
+      const apiKey = document.getElementById('modalApiKey').value.trim();
+
+      if (!id || !name) {
+        alert('Vui lòng nhập ID và Tên tài khoản');
+        return;
+      }
+
+      const extra_env = {};
+      if (authType === 'apikey' && apiKey) {
+        extra_env['OPENAI_API_KEY'] = apiKey;
+        extra_env['CODEX_API_KEY'] = apiKey;
+      }
+
+      const res = await apiFetch('/api/v1/auth/accounts', {
+        method: 'POST',
+        body: JSON.stringify({ engine, id, name, extra_env })
+      });
+
+      if (res.ok) {
+        if (authType === 'import') {
+          await apiFetch(`/api/v1/auth/accounts/${engine}/${id}/import-local`, { method: 'POST' });
+        }
+        closeAddModal();
+        fetchAccounts();
+      } else {
+        const err = await res.text();
+        alert('Lỗi: ' + err);
+      }
+    }
+
+    async function deleteAccount(engine, id) {
+      if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản "${id}" không?`)) return;
+      const res = await apiFetch(`/api/v1/auth/accounts/${engine}/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchAccounts();
+    }
+
+    async function resetCooldown(engine, id) {
+      const res = await apiFetch(`/api/v1/auth/accounts/${engine}/${id}/reset`, { method: 'POST' });
+      if (res.ok) fetchAccounts();
+    }
+
+    async function importLocal(engine, id) {
+      const res = await apiFetch(`/api/v1/auth/accounts/${engine}/${id}/import-local`, { method: 'POST' });
+      const data = await res.json();
+      if (data.imported) {
+        alert('✅ Đã sao chép thành công token từ máy host vào sandbox của tài khoản này!');
+      } else {
+        alert('ℹ️ Không tìm thấy thư mục token của CLI này trên máy host (~/.gemini, ~/.codex).');
+      }
+    }
+
+    async function verifyAccount(engine, id) {
+      const msgBox = document.getElementById(`verifyMsg_${engine}_${id}`);
+      msgBox.innerHTML = '<span style="color:#60a5fa;">⏳ Đang thực thi lệnh test CLI...</span>';
+
+      const res = await apiFetch(`/api/v1/auth/accounts/${engine}/${id}/verify`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        msgBox.innerHTML = `<span style="color:var(--success);">✅ Hoạt động tốt (${data.latency_ms}ms)!</span>`;
+      } else {
+        msgBox.innerHTML = `<span style="color:var(--danger);">❌ Lỗi: ${data.error || 'Thất bại'}</span>`;
+      }
+      fetchAccounts();
+    }
+
+    async function runGatewayTest() {
+      const model = document.getElementById('playModel').value;
+      const prompt = document.getElementById('playPrompt').value;
+      const outBox = document.getElementById('playOutput');
+      const btn = document.getElementById('btnTestRun');
+
+      btn.disabled = true;
+      btn.innerText = '⏳ Đang gọi...';
+      outBox.innerText = `[Gửi tới Gateway POST /v1/chat/completions]\nModel: ${model}\nPrompt: ${prompt}\n\nĐang đợi phản hồi từ tiến trình...`;
+
+      try {
+        const start = Date.now();
+        const res = await apiFetch('/v1/chat/completions', {
+          method: 'POST',
+          body: JSON.stringify({
+            model: model,
+            messages: [{ role: 'user', content: prompt }],
+            stream: false
+          })
+        });
+
+        const elapsed = Date.now() - start;
+        const data = await res.json();
+
+        if (res.ok && data.choices && data.choices[0]) {
+          outBox.innerText = `✅ [Phản hồi thành công trong ${elapsed}ms]\n\n${data.choices[0].message.content}`;
+        } else {
+          outBox.innerText = `❌ [Lỗi Gateway]\n${JSON.stringify(data, null, 2)}`;
+        }
+      } catch (e) {
+        outBox.innerText = '❌ Lỗi kết nối: ' + e;
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '🚀 Gửi Thử Nghiệm';
+        fetchAccounts();
+      }
+    }
+
+    // Khởi chạy khi load trang
+    updateAuthStatus();
+    fetchAccounts();
+  </script>
+</body>
+</html>
+"#;

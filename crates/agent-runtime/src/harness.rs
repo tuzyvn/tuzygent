@@ -21,6 +21,7 @@ pub struct HarnessLesson {
 #[derive(Debug, Clone)]
 pub struct HarnessMemoryStore {
     memory_path: PathBuf,
+    legacy_path: PathBuf,
 }
 
 impl HarnessMemoryStore {
@@ -29,19 +30,43 @@ impl HarnessMemoryStore {
             .join("storage")
             .join("harness_memory");
         let _ = std::fs::create_dir_all(&memory_dir);
-        let memory_path = memory_dir.join("lessons.json");
-        Self { memory_path }
+        let memory_path = memory_dir.join("harness_lessons.json");
+        let legacy_path = memory_dir.join("lessons.json");
+        Self {
+            memory_path,
+            legacy_path,
+        }
     }
 
     /// Đọc tất cả các bài học kinh nghiệm đã tích lũy
     pub async fn load_lessons(&self) -> Vec<HarnessLesson> {
-        if !self.memory_path.exists() {
-            return Vec::new();
+        if self.memory_path.exists() {
+            match tokio::fs::read(&self.memory_path).await {
+                Ok(bytes) => match serde_json::from_slice::<Vec<HarnessLesson>>(&bytes) {
+                    Ok(lessons) => return lessons,
+                    Err(err) => {
+                        let ts = chrono::Utc::now().timestamp();
+                        let corrupt = self.memory_path.with_extension(format!("corrupt.{}.json", ts));
+                        let _ = tokio::fs::copy(&self.memory_path, &corrupt).await;
+                        tracing::error!("Harness lessons corrupt, backup saved to {:?}: {}", corrupt, err);
+                        return Vec::new();
+                    }
+                },
+                Err(_) => return Vec::new(),
+            }
         }
-        match tokio::fs::read(&self.memory_path).await {
-            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
-            Err(_) => Vec::new(),
+
+        // Migration from legacy lessons.json if present and matches HarnessLesson schema
+        if self.legacy_path.exists() {
+            if let Ok(bytes) = tokio::fs::read(&self.legacy_path).await {
+                if let Ok(lessons) = serde_json::from_slice::<Vec<HarnessLesson>>(&bytes) {
+                    let _ = self.save_all(&lessons).await;
+                    return lessons;
+                }
+            }
         }
+
+        Vec::new()
     }
 
     /// Ghi nhận hoặc tăng điểm thành công cho bài học kinh nghiệm
@@ -70,7 +95,7 @@ impl HarnessMemoryStore {
         }
 
         let new_lesson = HarnessLesson {
-            id: format!("les-{}", Uuid::new_v4().to_string()[..8].to_string()),
+            id: format!("les-{}", &Uuid::new_v4().to_string()[..8]),
             node_type: node_type.to_string(),
             identifier: identifier.to_string(),
             error_pattern: error_pattern.to_string(),
@@ -108,9 +133,14 @@ impl HarnessMemoryStore {
         }
         let json_data = serde_json::to_string_pretty(lessons)
             .map_err(|e| anyhow!("Lỗi serialize harness lessons: {}", e))?;
-        tokio::fs::write(&self.memory_path, json_data)
+
+        let temp_path = self.memory_path.with_extension(format!("tmp.{}", Uuid::new_v4().simple()));
+        tokio::fs::write(&temp_path, &json_data)
             .await
-            .map_err(|e| anyhow!("Không ghi được file harness lessons: {}", e))?;
+            .map_err(|e| anyhow!("Không ghi được file tạm harness lessons: {}", e))?;
+        tokio::fs::rename(&temp_path, &self.memory_path)
+            .await
+            .map_err(|e| anyhow!("Không thể rename atomic file harness lessons: {}", e))?;
         Ok(())
     }
 }

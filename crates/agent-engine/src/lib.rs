@@ -1,3 +1,4 @@
+pub mod accounts;
 pub mod api;
 pub mod cli;
 pub mod config;
@@ -6,6 +7,7 @@ pub mod router;
 pub mod tmux;
 pub mod traits;
 
+pub use accounts::*;
 pub use api::*;
 pub use cli::*;
 pub use config::*;

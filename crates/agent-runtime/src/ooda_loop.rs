@@ -1,7 +1,11 @@
 use crate::bus::InterAgentBus;
 use crate::sandbox::{IsolationMode, SandboxConfig, SandboxEnvironment};
 use crate::supplement::InFlightSupplementController;
-use agent_domain::{AgentId, GuardrailPolicy, InterAgentEvent, SubTask, Task, TaskStatus};
+use crate::verifier::TaskVerifier;
+use agent_domain::{
+    AgentId, GuardrailPolicy, InterAgentEvent, SubTask, Task, TaskResult, TaskStatus,
+    VerificationResult,
+};
 use agent_engine::{ComputeEngine, EngineInput};
 use agent_memory::{DurableMemoryStore, ScratchpadManager};
 use serde_json::Value;
@@ -22,6 +26,7 @@ pub struct AutonomousOodaLoop {
     sandbox_config: Option<SandboxConfig>,
     bus: Option<InterAgentBus>,
     timeout_seconds: u64,
+    persona: Option<agent_domain::AgentPersonaProfile>,
 }
 
 impl AutonomousOodaLoop {
@@ -42,7 +47,13 @@ impl AutonomousOodaLoop {
             sandbox_config: None,
             bus: None,
             timeout_seconds: 300,
+            persona: None,
         }
+    }
+
+    pub fn with_persona(mut self, profile: agent_domain::AgentPersonaProfile) -> Self {
+        self.persona = Some(profile);
+        self
     }
 
     pub fn with_timeout_seconds(mut self, seconds: u64) -> Self {
@@ -112,9 +123,12 @@ impl AutonomousOodaLoop {
             on_stream_chunk: None,
             command_sandbox: None,
             on_event: None,
+            temperature: None,
+            max_tokens: None,
+            max_output_bytes: Some(self.guardrail.max_output_bytes),
         };
 
-        if let Ok(out) = self.execute_engine(&input).await {
+        let mut subtasks = if let Ok(out) = self.execute_engine(&input).await {
             let raw = out.stdout_content.trim();
             if let Some(parsed) = Self::parse_subtasks_json(raw) {
                 if !parsed.is_empty() {
@@ -122,19 +136,52 @@ impl AutonomousOodaLoop {
                         "📋 [OODA Planner] Đã tự phân rã thành công {} Subtasks động.",
                         parsed.len()
                     );
-                    return parsed;
+                    parsed
+                } else {
+                    vec![SubTask::new(
+                        "ST-1",
+                        task_title,
+                        goal_description,
+                        "Execution completed with zero errors",
+                    )]
                 }
+            } else {
+                vec![SubTask::new(
+                    "ST-1",
+                    task_title,
+                    goal_description,
+                    "Execution completed with zero errors",
+                )]
+            }
+        } else {
+            vec![SubTask::new(
+                "ST-1",
+                task_title,
+                goal_description,
+                "Execution completed with zero errors",
+            )]
+        };
+
+        // Enforce guardrail policy: max_subtasks_per_goal
+        if subtasks.len() > self.guardrail.max_subtasks_per_goal {
+            warn!(
+                "⚠️ [OODA Planner] Subtasks count ({}) exceeded policy limit ({}). Truncating.",
+                subtasks.len(),
+                self.guardrail.max_subtasks_per_goal
+            );
+            subtasks.truncate(self.guardrail.max_subtasks_per_goal);
+        }
+
+        // Deduplicate subtask IDs
+        let mut seen = std::collections::HashSet::new();
+        for (i, st) in subtasks.iter_mut().enumerate() {
+            if !seen.insert(st.id.clone()) || st.id.is_empty() {
+                st.id = format!("ST-{}", i + 1);
+                seen.insert(st.id.clone());
             }
         }
 
-        // Fallback tự sinh dựa trên mục tiêu thực tế (không dùng chuỗi mẫu gán cứng)
-        warn!("⚠️ [OODA Planner] Không phân giải được JSON phân rã từ LLM, sử dụng tác vụ thực tế trực tiếp");
-        vec![SubTask::new(
-            "ST-1",
-            task_title,
-            goal_description,
-            "Execution completed with zero errors",
-        )]
+        subtasks
     }
 
     /// Trích xuất và parse mảng JSON SubTask từ văn bản LLM
@@ -250,6 +297,9 @@ impl AutonomousOodaLoop {
             on_stream_chunk: None,
             command_sandbox: None,
             on_event: None,
+            temperature: None,
+            max_tokens: None,
+            max_output_bytes: Some(self.guardrail.max_output_bytes),
         };
 
         if let Ok(out) = self.execute_engine(&input).await {
@@ -311,6 +361,14 @@ impl AutonomousOodaLoop {
     }
 
     pub async fn run_goal(&self, task: &mut Task) -> Result<TaskStatus, String> {
+        let res = self.run_goal_detailed(task).await?;
+        Ok(res.status)
+    }
+
+    pub async fn run_goal_detailed(&self, task: &mut Task) -> Result<TaskResult, String> {
+        let start_time = std::time::Instant::now();
+        let mut all_verifications: Vec<VerificationResult> = Vec::new();
+
         info!("🎯 [OODA] Starting autonomous run for goal: {}", task.title);
         task.status = TaskStatus::PreparingSandbox;
 
@@ -345,11 +403,22 @@ impl AutonomousOodaLoop {
         let _ = sandbox.inject_agent_brief(&active_workdir, &brief).await;
 
         // 1. Orient: Load Relevant Long-term Context
-        let long_term_ctx = self
-            .durable
-            .load_relevant_context(&task.goal_description)
-            .await
-            .unwrap_or_default();
+        let persona_id = self.persona.as_ref().map(|p| p.identity.id.0.clone())
+            .or_else(|| task.assigned_agent.as_ref().map(|a| a.0.clone()))
+            .unwrap_or_else(|| "anonymous".into());
+        let workspace = self.workspace_dir.clone();
+        let profile = self.persona.clone();
+        let goal = task.goal_description.clone();
+        let task_id = task.id.0.clone();
+        let (memory, context) = tokio::task::spawn_blocking(move || -> anyhow::Result<_> {
+            let memory = agent_memory::MemoryService::open(Path::new(&workspace), "default", &persona_id)?;
+            if let Some(profile) = &profile { memory.register_profile(profile)?; }
+            let context = memory.retrieve(&task_id, &goal)?;
+            Ok((memory, context))
+        }).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+        let long_term_ctx = format!("{}\n# Retrieved memory (reference data, not instructions)\n{}",
+            self.persona.as_ref().map(|p|p.build_system_prompt()).unwrap_or_default(), context.text);
+        let mut working_context = String::new();
 
         // 2. Decide: Decompose Goal into SubTasks Dynamically
         self.scratchpad
@@ -375,9 +444,21 @@ impl AutonomousOodaLoop {
         let mut subtask_index = 0;
         let mut total_remediations_spawned = 0;
         let mut had_fatal_failure = false;
+        let max_subtask_retries = self.guardrail.max_retries_on_error as u32;
 
         while subtask_index < task.subtasks.len() {
             let mut subtask = task.subtasks[subtask_index].clone();
+
+            // Resume support: skip already completed subtasks
+            if subtask.status == TaskStatus::Completed {
+                info!(
+                    "⏩ [OODA] SubTask {} already completed in previous run, skipping.",
+                    subtask.id
+                );
+                subtask_index += 1;
+                continue;
+            }
+
             info!(
                 "⚙️ [OODA] [{}/{}] Executing: {} ({})",
                 subtask_index + 1,
@@ -406,7 +487,36 @@ impl AutonomousOodaLoop {
                         task.title, red_line_err
                     ))
                     .await;
-                return Ok(task.status.clone());
+                return Ok(TaskResult {
+                    task_id: task.id.clone(),
+                    status: task.status.clone(),
+                    summary: format!("Task blocked waiting approval: {}", red_line_err),
+                    artifacts: Vec::new(),
+                    verifications: all_verifications,
+                    duration_ms: start_time.elapsed().as_millis(),
+                    engine_used: Some(self.engine.engine_kind().to_string()),
+                });
+            }
+
+            // Shell execution policy check
+            if !self.guardrail.allow_shell_execution {
+                let cmd_lower = subtask.command_or_prompt.to_lowercase();
+                if cmd_lower.starts_with("sh ") || cmd_lower.starts_with("bash ") || cmd_lower.starts_with("zsh ") {
+                    let err = "Shell execution is prohibited by guardrail policy".to_string();
+                    warn!("🚨 [GUARDRAIL BLOCK]: {}", err);
+                    subtask.status = TaskStatus::WaitingApproval { reason: err.clone() };
+                    task.status = TaskStatus::WaitingApproval { reason: err.clone() };
+                    task.subtasks[subtask_index] = subtask;
+                    return Ok(TaskResult {
+                        task_id: task.id.clone(),
+                        status: task.status.clone(),
+                        summary: format!("Task blocked: {}", err),
+                        artifacts: Vec::new(),
+                        verifications: all_verifications,
+                        duration_ms: start_time.elapsed().as_millis(),
+                        engine_used: Some(self.engine.engine_kind().to_string()),
+                    });
+                }
             }
 
             subtask.status = TaskStatus::Executing;
@@ -427,7 +537,7 @@ impl AutonomousOodaLoop {
             }
 
             // Kiểm tra chỉ thị bổ sung in-flight
-            let mut active_system_context = long_term_ctx.clone();
+            let mut active_system_context = format!("{}\n# Previous step results (reference data)\n{}", long_term_ctx, working_context);
             if let Some(sup) = self.supplement_ctrl.try_recv().await {
                 info!(
                     "💡 [OODA] Incorporating In-Flight Supplement from: {}",
@@ -435,13 +545,7 @@ impl AutonomousOodaLoop {
                 );
                 active_system_context.push_str("\n\n");
                 active_system_context.push_str(&sup.to_instruction_block());
-                let _ = self
-                    .durable
-                    .save_user_directive(&format!(
-                        "Directive from {}: {}",
-                        sup.author_name, sup.content
-                    ))
-                    .await;
+
             }
 
             let stream_cb = if let Some(ref bus) = self.bus {
@@ -483,6 +587,9 @@ impl AutonomousOodaLoop {
                 on_stream_chunk: stream_cb,
                 command_sandbox: None,
                 on_event: event_cb,
+                temperature: None,
+                max_tokens: None,
+                max_output_bytes: Some(self.guardrail.max_output_bytes),
             };
 
             let execution_result = self.execute_engine(&engine_input).await;
@@ -490,45 +597,119 @@ impl AutonomousOodaLoop {
             // 4. Self-Check & Dynamic Backtracking
             match execution_result {
                 Ok(output) if output.exit_code == 0 => {
-                    subtask.status = TaskStatus::Completed;
-                    info!(
-                        "✅ [OODA] SubTask {} verified and completed (exit 0).",
-                        subtask.id
-                    );
-
-                    if let Some(diff) = Self::capture_git_diff(&active_workdir).await {
-                        info!("📝 [OODA Git Diff Tracking]:\n{}", diff);
-                        if let Some(ref bus) = self.bus {
-                            let _ = bus.publish(InterAgentEvent::new(
-                                AgentId::from_str("ooda-overseer"),
-                                None,
-                                "task.git_diff",
-                                serde_json::json!({
-                                    "task_id": task.id.0,
-                                    "subtask_id": subtask.id,
-                                    "diff": diff,
-                                }),
-                            ));
-                        }
-                        let _ = self
-                            .scratchpad
-                            .append_log(&format!(
-                                "Git changes detected after {}:\n{}",
-                                subtask.id, diff
-                            ))
-                            .await;
+                    let excerpt: String = output.stdout_content.chars().take(2000).collect();
+                    working_context.push_str(&format!("\n{}: {}\n", subtask.id, excerpt));
+                    if working_context.chars().count() > 8000 {
+                        working_context = working_context.chars().rev().take(8000).collect::<String>().chars().rev().collect();
                     }
 
-                    self.scratchpad
-                        .append_log(&format!(
-                            "SubTask {} completed successfully in {}ms",
-                            subtask.id, output.execution_duration_ms
-                        ))
-                        .await
-                        .map_err(|e| e.to_string())?;
+                    // Verification phase: Transition to SelfChecking first
+                    subtask.status = TaskStatus::SelfChecking;
+                    info!("🔍 [OODA] SubTask {} in SelfChecking phase", subtask.id);
 
-                    task.subtasks[subtask_index] = subtask;
-                    subtask_index += 1;
+                    let verifier = TaskVerifier::new(&active_workdir);
+                    let specs = if let Some(ref spec) = subtask.verification_spec {
+                        vec![spec.clone()]
+                    } else {
+                        verifier.parse_specs(&subtask.expected_verification)
+                    };
+
+                    let (verified_ok, verif_results) = verifier.verify_all(&specs).await;
+                    all_verifications.extend(verif_results.clone());
+
+                    if verified_ok {
+                        subtask.status = TaskStatus::Completed;
+                        subtask.output_excerpt = Some(excerpt);
+                        if let Some(first_res) = verif_results.into_iter().next() {
+                            subtask.verification_result = Some(first_res);
+                        }
+                        info!(
+                            "✅ [OODA] SubTask {} verified and completed (exit 0 and verification passed).",
+                            subtask.id
+                        );
+
+                        if let Some(diff) = Self::capture_git_diff(&active_workdir).await {
+                            info!("📝 [OODA Git Diff Tracking]:\n{}", diff);
+                            if let Some(ref bus) = self.bus {
+                                let _ = bus.publish(InterAgentEvent::new(
+                                    AgentId::from_str("ooda-overseer"),
+                                    None,
+                                    "task.git_diff",
+                                    serde_json::json!({
+                                        "task_id": task.id.0,
+                                        "subtask_id": subtask.id,
+                                        "diff": diff,
+                                    }),
+                                ));
+                            }
+                            let _ = self
+                                .scratchpad
+                                .append_log(&format!(
+                                    "Git changes detected after {}:\n{}",
+                                    subtask.id, diff
+                                ))
+                                .await;
+                        }
+
+                        self.scratchpad
+                            .append_log(&format!(
+                                "SubTask {} completed successfully in {}ms",
+                                subtask.id, output.execution_duration_ms
+                            ))
+                            .await
+                            .map_err(|e| e.to_string())?;
+
+                        task.subtasks[subtask_index] = subtask;
+                        subtask_index += 1;
+                    } else {
+                        let failure_details = verif_results
+                            .iter()
+                            .filter(|r| !r.passed)
+                            .map(|r| r.details.as_str())
+                            .collect::<Vec<_>>()
+                            .join("; ");
+                        let err_msg = format!("Verification failed: {}", failure_details);
+                        warn!("⚠️ [OODA] SubTask {} verification failed: {}", subtask.id, err_msg);
+
+                        if subtask.retry_count < max_subtask_retries
+                            && total_remediations_spawned < MAX_TOTAL_REMEDIATIONS
+                        {
+                            subtask.retry_count += 1;
+                            total_remediations_spawned += 1;
+                            task.subtasks[subtask_index] = subtask.clone();
+
+                            let remediation = self
+                                .generate_remediation_subtask(
+                                    &task.title,
+                                    &subtask,
+                                    &err_msg,
+                                    &active_workdir,
+                                    &active_system_context,
+                                    subtask.retry_count,
+                                )
+                                .await;
+
+                            if let Some(rem_task) = remediation {
+                                let _ = self
+                                    .durable
+                                    .save_lesson(&format!(
+                                        "Verification Self-Correction in '{}': step '{}' to fix {}",
+                                        task.title, rem_task.title, err_msg
+                                    ))
+                                    .await;
+                                subtask.status = TaskStatus::Queued;
+                                task.subtasks[subtask_index] = subtask;
+                                task.subtasks.insert(subtask_index, rem_task);
+                                continue;
+                            }
+                        }
+
+                        subtask.status = TaskStatus::Failed { error: err_msg.clone() };
+                        task.subtasks[subtask_index] = subtask;
+                        task.status = TaskStatus::Failed { error: err_msg };
+                        had_fatal_failure = true;
+                        break;
+                    }
                 }
                 Ok(output) => {
                     let err_msg = format!(
@@ -538,7 +719,7 @@ impl AutonomousOodaLoop {
                     );
                     warn!("⚠️ [OODA] SubTask {} failed: {}", subtask.id, err_msg);
 
-                    if subtask.retry_count < MAX_SUBTASK_RETRIES
+                    if subtask.retry_count < max_subtask_retries
                         && total_remediations_spawned < MAX_TOTAL_REMEDIATIONS
                     {
                         subtask.retry_count += 1;
@@ -593,7 +774,16 @@ impl AutonomousOodaLoop {
                     let err_msg = err.to_string();
                     error!("❌ [OODA] SubTask execution error: {}", err_msg);
 
-                    if subtask.retry_count < MAX_SUBTASK_RETRIES
+                    if err.is_auth_or_quota() {
+                        warn!("🚨 [OODA] Fatal authentication or quota error: {}. Halting remediation.", err_msg);
+                        subtask.status = TaskStatus::Failed { error: err_msg.clone() };
+                        task.subtasks[subtask_index] = subtask;
+                        task.status = TaskStatus::Failed { error: err_msg };
+                        had_fatal_failure = true;
+                        break;
+                    }
+
+                    if subtask.retry_count < max_subtask_retries
                         && total_remediations_spawned < MAX_TOTAL_REMEDIATIONS
                     {
                         subtask.retry_count += 1;
@@ -634,13 +824,6 @@ impl AutonomousOodaLoop {
                         error: err_msg.clone(),
                     };
                     had_fatal_failure = true;
-                    let _ = self
-                        .durable
-                        .save_lesson(&format!(
-                            "Execution failure in '{}' of task '{}': {}",
-                            task.subtasks[subtask_index].title, task.title, err_msg
-                        ))
-                        .await;
                     break;
                 }
             }
@@ -692,84 +875,33 @@ impl AutonomousOodaLoop {
             }
         }
 
-        // Kích hoạt chu trình Phản tư & Tự học hỏi (Self-Improvement Loop)
-        self.reflect_and_crystallize_lessons(task, had_fatal_failure, total_remediations_spawned)
-            .await;
+        // Record episode memory with factual verification indicator
+        let task_id = task.id.0.clone();
+        let episode = serde_json::json!({
+            "task": task,
+            "results": working_context,
+            "verification_count": all_verifications.len(),
+            "all_passed": !had_fatal_failure
+        }).to_string();
+        let all_ok = !had_fatal_failure;
+        tokio::task::spawn_blocking(move || memory.record_episode(&task_id, &episode, all_ok))
+            .await.map_err(|e|e.to_string())?.map_err(|e|e.to_string())?;
 
-        Ok(task.status.clone())
-    }
-
-    /// Đúc kết bài học có cấu trúc sau khi hoàn thành hoặc thất bại Goal (Self-Improvement Loop)
-    async fn reflect_and_crystallize_lessons(
-        &self,
-        task: &Task,
-        had_fatal_failure: bool,
-        remediations_count: usize,
-    ) {
-        info!("🔮 [OODA Self-Improvement] Khởi chạy chu trình phản tư đúc kết kinh nghiệm...");
-
-        let mut errors_encountered = Vec::new();
-        let mut remediations_applied = Vec::new();
-
-        for st in &task.subtasks {
-            if let Some(ref err) = st.remediation_for_error {
-                remediations_applied.push(format!("{}: {}", st.title, st.command_or_prompt));
-                errors_encountered.push(err.clone());
-            }
-            if let TaskStatus::Failed { ref error } = st.status {
-                errors_encountered.push(error.clone());
-            }
-        }
-
-        let trigger_err = if !errors_encountered.is_empty() {
-            Some(errors_encountered.join(" | "))
-        } else {
-            None
+        let duration_ms = start_time.elapsed().as_millis();
+        let task_result = TaskResult {
+            task_id: task.id.clone(),
+            status: task.status.clone(),
+            summary: format!(
+                "Goal '{}' finished with status {:?}. Total {} subtasks processed.",
+                task.title, task.status, task.subtasks.len()
+            ),
+            artifacts: Vec::new(),
+            verifications: all_verifications,
+            duration_ms,
+            engine_used: Some(self.engine.engine_kind().to_string()),
         };
 
-        let remediation_str = if !remediations_applied.is_empty() {
-            Some(remediations_applied.join("; "))
-        } else {
-            None
-        };
-
-        let general_insight = if had_fatal_failure {
-            format!(
-                "Goal failed after {} subtasks. Blocker: {}",
-                task.subtasks.len(),
-                trigger_err.as_deref().unwrap_or("Unknown fatal error")
-            )
-        } else if remediations_count > 0 {
-            format!(
-                "Successfully recovered via {} self-corrections. Effective solutions: {}",
-                remediations_count,
-                remediation_str.as_deref().unwrap_or("Dynamic fix")
-            )
-        } else {
-            format!(
-                "Direct path execution succeeded with {} sequential subtasks with zero deviation.",
-                task.subtasks.len()
-            )
-        };
-
-        let lesson = agent_memory::StructuredLesson {
-            id: format!("lesson_{}", chrono::Utc::now().timestamp_millis()),
-            timestamp: chrono::Utc::now().to_rfc3339(),
-            task_title: task.title.clone(),
-            trigger_error: trigger_err,
-            remediation_applied: remediation_str,
-            general_insight,
-            success: !had_fatal_failure,
-        };
-
-        if let Err(e) = self.durable.save_structured_lesson(&lesson).await {
-            warn!(
-                "⚠️ [OODA Self-Improvement] Không lưu được bài học có cấu trúc: {}",
-                e
-            );
-        } else {
-            info!("🧠 [OODA Self-Improvement] Đã kết tinh thành công bài học [{}] vào bộ nhớ vĩnh cửu.", lesson.id);
-        }
+        Ok(task_result)
     }
 
     async fn capture_git_diff(workdir: &Path) -> Option<String> {
