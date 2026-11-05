@@ -112,6 +112,23 @@ impl SubtaskExecutor {
         crate::execution::ExecutionService::new(&self.workspace_dir, self.sandbox_config.clone(), Some(self.guardrail.clone()))
             .execute(self.engine.clone(), input).await
     }
+
+    /// Khởi tạo ScopedScratchpad phân cấp cho subtask hoặc sub-agent được ủy quyền
+    pub fn scoped_scratchpad(
+        &self,
+        sub_agent_or_subtask_id: &str,
+        access: agent_memory::ScopeAccess,
+    ) -> agent_memory::ScopedScratchpad {
+        self.scratchpad.scoped_child(sub_agent_or_subtask_id, access)
+    }
+
+    /// Khởi tạo ScopedScratchpad cô lập hoàn toàn cho subtask hoặc sub-agent, cấm đọc trộm bộ nhớ cha
+    pub fn isolated_scratchpad(
+        &self,
+        sub_agent_or_subtask_id: &str,
+    ) -> agent_memory::ScopedScratchpad {
+        self.scratchpad.isolated_child(sub_agent_or_subtask_id)
+    }
 }
 
 #[cfg(test)]

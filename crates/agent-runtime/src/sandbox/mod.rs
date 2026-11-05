@@ -6,7 +6,7 @@ pub mod env;
 pub mod workspace;
 
 pub use command::{command_sandbox, expand_home, wrap_command, CommandManager};
-pub use config::{IsolationMode, SandboxConfig};
+pub use config::{IsolationMode, SandboxConfig, SandboxSpec};
 pub use context::{inject_agent_brief, purge_sidecar_context, SidecarContextManager};
 pub use driver::SandboxDriverKind;
 pub use env::SandboxEnvironment;

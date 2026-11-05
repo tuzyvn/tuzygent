@@ -8,6 +8,12 @@ pub use execution::{
     QueueExecutionOutcome, SubtaskExecutor, MAX_SUBTASK_RETRIES, MAX_TOTAL_REMEDIATIONS,
 };
 
+pub const OODA_PHASE_OBSERVE: &str = "Observe";
+pub const OODA_PHASE_ORIENT: &str = "Orient";
+pub const OODA_PHASE_DECIDE: &str = "Decide";
+pub const OODA_PHASE_ACT: &str = "Act";
+pub const OODA_PHASE_REMEDIATE: &str = "Remediate";
+
 use crate::bus::InterAgentBus;
 use crate::sandbox::SandboxConfig;
 use crate::supplement::InFlightSupplementController;
@@ -143,5 +149,22 @@ impl AutonomousOodaLoop {
             exec = exec.with_auto_approve(true);
         }
         exec
+    }
+
+    /// Khởi tạo ScopedScratchpad phân cấp cho sub-agent được ủy quyền
+    pub fn scoped_scratchpad(
+        &self,
+        sub_agent_or_subtask_id: &str,
+        access: agent_memory::ScopeAccess,
+    ) -> agent_memory::ScopedScratchpad {
+        self.scratchpad.scoped_child(sub_agent_or_subtask_id, access)
+    }
+
+    /// Khởi tạo ScopedScratchpad cô lập hoàn toàn cho sub-agent, cấm đọc trộm bộ nhớ cha
+    pub fn isolated_scratchpad(
+        &self,
+        sub_agent_or_subtask_id: &str,
+    ) -> agent_memory::ScopedScratchpad {
+        self.scratchpad.isolated_child(sub_agent_or_subtask_id)
     }
 }

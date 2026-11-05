@@ -17,7 +17,11 @@ pub struct SandboxConfig {
     pub ro_credentials: Vec<CredentialMount>,
     pub env_whitelist: Vec<String>,
     pub memory_limit_mb: Option<u64>,
+    pub ephemeral_overlay: bool,
 }
+
+/// Type alias for SandboxConfig according to system specification.
+pub type SandboxSpec = SandboxConfig;
 
 impl Default for SandboxConfig {
     fn default() -> Self {
@@ -33,6 +37,7 @@ impl Default for SandboxConfig {
             ro_credentials: sec.mount_credentials,
             env_whitelist: sec.allowed_env_vars,
             memory_limit_mb: Some(4096),
+            ephemeral_overlay: false,
         }
     }
 }
@@ -46,7 +51,13 @@ impl SandboxConfig {
             ro_credentials: config.security.mount_credentials.clone(),
             env_whitelist: config.security.allowed_env_vars.clone(),
             memory_limit_mb: Some(4096),
+            ephemeral_overlay: false,
         })
+    }
+
+    pub fn with_ephemeral_overlay(mut self, enabled: bool) -> Self {
+        self.ephemeral_overlay = enabled;
+        self
     }
 
     /// Detect best available sandbox driver:

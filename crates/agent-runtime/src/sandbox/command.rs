@@ -68,11 +68,21 @@ pub fn wrap_command(
                 "/root".into(),
             ]);
 
-            // Mount target working directory read-write
+            // Mount target working directory (read-write or ephemeral overlay)
             let dir_str = run_dir.to_string_lossy().to_string();
-            bwrap_args.push("--bind".to_string());
-            bwrap_args.push(dir_str.clone());
-            bwrap_args.push(dir_str.clone());
+            if config.ephemeral_overlay {
+                bwrap_args.push("--ro-bind".to_string());
+                bwrap_args.push(dir_str.clone());
+                bwrap_args.push(dir_str.clone());
+                bwrap_args.push("--overlay-src".to_string());
+                bwrap_args.push(dir_str.clone());
+                bwrap_args.push("--tmp-overlay".to_string());
+                bwrap_args.push(dir_str.clone());
+            } else {
+                bwrap_args.push("--bind".to_string());
+                bwrap_args.push(dir_str.clone());
+                bwrap_args.push(dir_str.clone());
+            }
 
             bwrap_args.push("--chdir".to_string());
             bwrap_args.push(dir_str);
@@ -126,11 +136,20 @@ pub fn wrap_command(
                 "--cap-drop=ALL".to_string(),
                 "--security-opt=no-new-privileges".to_string(),
                 "--pids-limit=256".to_string(),
-                "-v".to_string(),
-                format!("{}:/workspace", run_dir.to_string_lossy()),
-                "-w".to_string(),
-                "/workspace".to_string(),
             ];
+
+            if config.ephemeral_overlay {
+                docker_args.push("-v".to_string());
+                docker_args.push(format!("{}:/workspace:ro", run_dir.to_string_lossy()));
+                docker_args.push("--tmpfs".to_string());
+                docker_args.push("/workspace".to_string());
+            } else {
+                docker_args.push("-v".to_string());
+                docker_args.push(format!("{}:/workspace", run_dir.to_string_lossy()));
+            }
+
+            docker_args.push("-w".to_string());
+            docker_args.push("/workspace".to_string());
 
             if let Some(mem) = config.memory_limit_mb {
                 docker_args.push("--memory".to_string());

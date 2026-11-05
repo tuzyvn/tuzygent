@@ -46,9 +46,12 @@ pub mod prelude {
         cli::CodexEngine, cli::GenericCliEngine, config::EnginesConfig, config::SingleEngineConfig,
         router::EngineRouter, ComputeEngine, EngineInput, EngineKind, EngineOutput,
     };
-    pub use agent_memory::{MemoryService, MemoryRecord, RetrievedContext, DurableMemoryStore, PersonaLoader, ScratchpadManager, SkillRegistry};
+    pub use agent_memory::{
+        DurableMemoryStore, MemoryRecord, MemoryService, PersonaLoader, RetrievedContext,
+        ScopeAccess, ScopedScratchpad, ScratchpadManager, SkillRegistry,
+    };
     pub use agent_runtime::{
         AgentSupervisor, AutonomousOodaLoop, InterAgentBus, IsolationMode, KernelOperator,
-        SandboxConfig, SandboxDriverKind, SandboxEnvironment, WorkflowOrchestrator, WsRpcClient,
+        SandboxConfig, SandboxDriverKind, SandboxEnvironment, SandboxSpec, WorkflowOrchestrator, WsRpcClient,
     };
 }

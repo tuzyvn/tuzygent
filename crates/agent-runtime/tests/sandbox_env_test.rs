@@ -5,7 +5,7 @@
 
 use agent_engine::config::CredentialMount;
 use agent_runtime::{
-    expand_home, IsolationMode, SandboxConfig, SandboxDriverKind, SandboxEnvironment,
+    expand_home, IsolationMode, SandboxConfig, SandboxDriverKind, SandboxEnvironment, SandboxSpec,
 };
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -588,3 +588,143 @@ fn test_detect_best_driver() {
         SandboxDriverKind::Bubblewrap | SandboxDriverKind::Docker | SandboxDriverKind::Host
     ));
 }
+
+// ============================================================================
+// 5. EPHEMERAL OVERLAYFS & TMPFS ISOLATION (TOPIC-20261105-9b68a1)
+// ============================================================================
+
+#[test]
+fn test_sandbox_spec_alias_and_builder() {
+    // SandboxSpec should be an alias of SandboxConfig
+    let mut spec = SandboxSpec::default();
+    assert!(!spec.ephemeral_overlay);
+
+    spec = spec.with_ephemeral_overlay(true);
+    assert!(spec.ephemeral_overlay);
+
+    let spec_manual = SandboxSpec {
+        ephemeral_overlay: true,
+        ..Default::default()
+    };
+    assert!(spec_manual.ephemeral_overlay);
+}
+
+#[test]
+fn test_ephemeral_overlay_bubblewrap_flags() {
+    let target_dir = unique_test_dir("bwrap_overlay_test");
+    let canonical_target = std::fs::canonicalize(&target_dir).unwrap_or(target_dir.clone());
+    let target_str = canonical_target.to_string_lossy().to_string();
+
+    let spec = SandboxSpec {
+        driver: SandboxDriverKind::Bubblewrap,
+        ephemeral_overlay: true,
+        ..Default::default()
+    };
+    let env = SandboxEnvironment::with_config(".", spec);
+    let (bin, args) = env.wrap_command("ls", &["-la".to_string()], &target_dir);
+
+    assert_eq!(bin, "bwrap");
+
+    // Standard read-write --bind must NOT be present for target_dir
+    assert!(
+        !args.windows(3).any(|w| w == ["--bind", target_str.as_str(), target_str.as_str()]),
+        "Bubblewrap must NOT bind target directory read-write when ephemeral_overlay is active"
+    );
+
+    // Read-only base binding must be present
+    assert!(
+        args.windows(3).any(|w| w == ["--ro-bind", target_str.as_str(), target_str.as_str()]),
+        "Bubblewrap must bind base target directory read-only"
+    );
+
+    // Ephemeral overlay mounts (--overlay-src and --tmp-overlay)
+    assert!(
+        args.windows(2).any(|w| w == ["--overlay-src", target_str.as_str()]),
+        "Bubblewrap must specify --overlay-src for the base directory"
+    );
+    assert!(
+        args.windows(2).any(|w| w == ["--tmp-overlay", target_str.as_str()]),
+        "Bubblewrap must specify --tmp-overlay for the writable tmpfs upper"
+    );
+
+    let _ = std::fs::remove_dir_all(&target_dir);
+}
+
+#[test]
+fn test_ephemeral_overlay_docker_flags() {
+    let target_dir = unique_test_dir("docker_overlay_test");
+    let canonical_target = std::fs::canonicalize(&target_dir).unwrap_or(target_dir.clone());
+    let target_str = canonical_target.to_string_lossy().to_string();
+
+    let spec = SandboxSpec {
+        driver: SandboxDriverKind::Docker,
+        docker_image: "test-engine:latest".to_string(),
+        ephemeral_overlay: true,
+        ..Default::default()
+    };
+    let env = SandboxEnvironment::with_config(".", spec);
+    let (bin, args) = env.wrap_command("sh", &["-c".to_string(), "ls".to_string()], &target_dir);
+
+    assert_eq!(bin, "docker");
+
+    // Normal read-write volume mount should NOT be present
+    let normal_vol = format!("{}:/workspace", target_str);
+    assert!(
+        !args.windows(2).any(|w| w == ["-v", normal_vol.as_str()]),
+        "Docker must not mount /workspace read-write when ephemeral_overlay is active"
+    );
+
+    // Read-only base volume mount must be present
+    let ro_vol = format!("{}:/workspace:ro", target_str);
+    assert!(
+        args.windows(2).any(|w| w == ["-v", ro_vol.as_str()]),
+        "Docker must mount base directory as read-only volume (:ro)"
+    );
+
+    // Writable tmpfs upper must be mounted at /workspace
+    assert!(
+        args.windows(2).any(|w| w == ["--tmpfs", "/workspace"]),
+        "Docker must mount writable tmpfs on /workspace"
+    );
+
+    let _ = std::fs::remove_dir_all(&target_dir);
+}
+
+#[test]
+fn test_ephemeral_overlay_bwrap_execution_isolation() {
+    if std::process::Command::new("bwrap").arg("--version").output().is_err() {
+        return;
+    }
+
+    let test_dir = unique_test_dir("bwrap_live_overlay");
+    let test_file = test_dir.join("created_in_sandbox.txt");
+
+    let spec = SandboxSpec {
+        driver: SandboxDriverKind::Bubblewrap,
+        ephemeral_overlay: true,
+        ..Default::default()
+    };
+    let env = SandboxEnvironment::with_config(".", spec);
+    let (bin, args) = env.wrap_command(
+        "sh",
+        &["-c".to_string(), format!("echo 'secret-data' > {}", test_file.display())],
+        &test_dir,
+    );
+
+    let status = std::process::Command::new(bin)
+        .args(&args)
+        .status();
+
+    if let Ok(st) = status {
+        if st.success() {
+            // Because of the ephemeral overlay, the host filesystem must NOT have the file!
+            assert!(
+                !test_file.exists(),
+                "File written in ephemeral overlay sandbox must not leak to the host filesystem"
+            );
+        }
+    }
+
+    let _ = std::fs::remove_dir_all(&test_dir);
+}
+

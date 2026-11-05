@@ -81,4 +81,19 @@ impl ScratchpadManager {
         }
         Ok(())
     }
+
+    /// Khởi tạo một ScopedScratchpad phân cấp cho sub-agent được ủy quyền
+    pub fn scoped_child(&self, sub_agent_id: &str, access: crate::scoped_scratchpad::ScopeAccess) -> crate::scoped_scratchpad::ScopedScratchpad {
+        crate::scoped_scratchpad::ScopedScratchpad::from_parent(&self.file_path, "root", sub_agent_id, access)
+    }
+
+    /// Khởi tạo một ScopedScratchpad phân cấp gắn với task cụ thể
+    pub fn scoped_child_for_task(&self, task_id: &str, sub_agent_id: &str, access: crate::scoped_scratchpad::ScopeAccess) -> crate::scoped_scratchpad::ScopedScratchpad {
+        crate::scoped_scratchpad::ScopedScratchpad::from_parent(&self.file_path, task_id, sub_agent_id, access)
+    }
+
+    /// Khởi tạo một ScopedScratchpad cô lập hoàn toàn, cấm đọc trộm bộ nhớ cha
+    pub fn isolated_child(&self, sub_agent_id: &str) -> crate::scoped_scratchpad::ScopedScratchpad {
+        self.scoped_child(sub_agent_id, crate::scoped_scratchpad::ScopeAccess::Isolated)
+    }
 }

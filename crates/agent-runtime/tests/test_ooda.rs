@@ -643,3 +643,93 @@ async fn test_subtask_queue_backtracking_exhausted_retries() -> Result<(), Box<d
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_subtask_executor_scoped_scratchpad_isolation_and_merge() -> Result<(), Box<dyn std::error::Error>> {
+    let mock = Arc::new(CallbackMockEngine::new(|_input, _attempt| {
+        Ok(EngineOutput {
+            stdout_content: "ok".to_string(),
+            exit_code: 0,
+            execution_duration_ms: 5,
+            engine_used: EngineKind::Mock,
+            session_id: None,
+        })
+    }));
+    let env = TestEnv::new("scoped_scratchpad_test");
+    let (executor, scratchpad, _durable) = setup_test_executor(mock, None, env.path());
+
+    scratchpad.append_log("Root executor plan initialized").await?;
+
+    // Create ReadOnly scope for review subtask
+    let audit_scope = executor.scoped_scratchpad("subtask-review", agent_runtime::ScopeAccess::ReadOnly);
+    assert_eq!(audit_scope.access(), agent_runtime::ScopeAccess::ReadOnly);
+    let parent_content = audit_scope.read_parent().await?;
+    assert!(parent_content.contains("Root executor plan initialized"));
+    assert!(audit_scope.append_log("illegal write").await.is_err());
+
+    // Create ReadWrite scope for worker subtask
+    let worker_scope = executor.scoped_scratchpad("subtask-worker", agent_runtime::ScopeAccess::ReadWrite);
+    worker_scope.append_log("Running worker isolated action").await?;
+    assert!(worker_scope.read().await?.contains("Running worker isolated action"));
+
+    // Merge into executor root scratchpad
+    worker_scope.merge_into_parent("Worker finished unit test execution").await?;
+    let root_content = scratchpad.read().await?;
+    assert!(root_content.contains("[DELEGATION RESULT: subtask-worker] Worker finished unit test execution"));
+
+    worker_scope.cleanup().await?;
+    assert!(!worker_scope.file_path().exists());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_subtask_executor_isolated_scratchpad_anti_snoop_and_cleanup() -> Result<(), Box<dyn std::error::Error>> {
+    let mock = Arc::new(CallbackMockEngine::new(|_input, _attempt| {
+        Ok(EngineOutput {
+            stdout_content: "ok".to_string(),
+            exit_code: 0,
+            execution_duration_ms: 5,
+            engine_used: EngineKind::Mock,
+            session_id: None,
+        })
+    }));
+    let env = TestEnv::new("isolated_scratchpad_test");
+    let (executor, scratchpad, _durable) = setup_test_executor(mock, None, env.path());
+
+    // Parent holds confidential instructions and state
+    scratchpad.append_log("CONFIDENTIAL_AGENT_KEY=super-secret-token-42").await?;
+
+    // 1. Untrusted sub-agent gets isolated scope
+    let isolated_subagent = executor.isolated_scratchpad("untrusted-subagent");
+    assert_eq!(isolated_subagent.access(), agent_runtime::ScopeAccess::Isolated);
+
+    // Attempting to read parent memory fails (anti-snooping)
+    let snoop_res = isolated_subagent.read_parent().await;
+    assert!(snoop_res.is_err(), "Isolated sub-agent must not access parent memory");
+    assert_eq!(snoop_res.unwrap_err().kind(), std::io::ErrorKind::PermissionDenied);
+
+    // Sub-agent can write internally without polluting root
+    isolated_subagent.append_log("Local computations performed").await?;
+    assert!(isolated_subagent.read().await?.contains("Local computations performed"));
+    assert!(!scratchpad.read().await?.contains("Local computations performed"));
+
+    // 2. Safe merge to parent
+    isolated_subagent.merge_into_parent("Untrusted subagent finished securely").await?;
+    let parent_content = scratchpad.read().await?;
+    assert!(parent_content.contains("[DELEGATION RESULT: untrusted-subagent] Untrusted subagent finished securely"));
+
+    // 3. Auto-cleanup on drop test
+    let sub_path;
+    {
+        let scoped_tmp = executor
+            .scoped_scratchpad("ephemeral-worker", agent_runtime::ScopeAccess::ReadWrite)
+            .with_auto_cleanup(true);
+        scoped_tmp.append_log("Ephemeral work").await?;
+        sub_path = scoped_tmp.file_path().to_path_buf();
+        assert!(sub_path.exists());
+    }
+    assert!(!sub_path.exists(), "Ephemeral worker scratchpad must be removed on drop");
+
+    Ok(())
+}

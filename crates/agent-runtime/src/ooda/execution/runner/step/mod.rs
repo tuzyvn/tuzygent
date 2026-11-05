@@ -11,7 +11,7 @@ use crate::ooda::execution::safety::check_and_apply_guardrail_policy;
 use crate::ooda::execution::SubtaskExecutor;
 use agent_domain::{Task, TaskStatus, VerificationResult};
 use std::path::Path;
-use tracing::info;
+use tracing::{info, info_span, Instrument};
 
 /// Executes a single subtask step including safety check, event emission, execution, and outcome resolution.
 #[allow(clippy::too_many_arguments)]
@@ -74,6 +74,13 @@ pub async fn execute_single_step(
     let active_system_context =
         resolve_active_system_context(executor, long_term_ctx, working_context).await;
 
+    let act_span = info_span!(
+        "ooda_phase",
+        task_id = %task.id.0,
+        subtask_id = %subtask.id,
+        execution_phase = crate::ooda::OODA_PHASE_ACT,
+    );
+
     let engine_input = build_engine_input(
         executor,
         task,
@@ -82,7 +89,10 @@ pub async fn execute_single_step(
         active_workdir,
     );
 
-    let execution_result = executor.execute_engine(&engine_input).await;
+    let execution_result = executor
+        .execute_engine(&engine_input)
+        .instrument(act_span.clone())
+        .await;
 
     handle_subtask_execution_result(
         executor,
@@ -96,6 +106,7 @@ pub async fn execute_single_step(
         all_verifications,
         total_remediations_spawned,
     )
+    .instrument(act_span)
     .await
 }
 

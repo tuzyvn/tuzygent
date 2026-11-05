@@ -187,4 +187,82 @@ impl Task {
             engine_name: None,
         }
     }
+
+    pub fn add_subtask(&mut self, subtask: SubTask) {
+        self.subtasks.push(subtask);
+        self.updated_at = chrono::Utc::now();
+    }
+
+    pub fn find_subtask(&self, subtask_id: &str) -> Option<&SubTask> {
+        self.subtasks.iter().find(|s| s.id == subtask_id)
+    }
+
+    pub fn find_subtask_mut(&mut self, subtask_id: &str) -> Option<&mut SubTask> {
+        self.subtasks.iter_mut().find(|s| s.id == subtask_id)
+    }
+
+    pub fn is_completed(&self) -> bool {
+        matches!(self.status, TaskStatus::Completed)
+    }
+
+    pub fn is_failed(&self) -> bool {
+        matches!(self.status, TaskStatus::Failed { .. })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_task_lifecycle_and_subtask_management() {
+        let mut task = Task::new(
+            "Security Hardening",
+            "Implement enterprise guardrail policies",
+            Priority::High,
+        );
+
+        assert_eq!(task.status, TaskStatus::Queued);
+        assert!(!task.is_completed());
+        assert!(!task.is_failed());
+        assert!(task.subtasks.is_empty());
+
+        let subtask1 = SubTask::new(
+            "sub-1",
+            "Lint security rules",
+            "cargo test -p agent-domain",
+            "Exit code 0",
+        );
+        assert!(!subtask1.is_remediation());
+
+        task.add_subtask(subtask1);
+        assert_eq!(task.subtasks.len(), 1);
+
+        let remediation = SubTask::new_remediation(
+            "sub-1-fix",
+            "Remediate test failure",
+            "cargo fix --allow-no-vcs",
+            "sub-1",
+            "Compilation error in guardrail",
+            1,
+        );
+        assert!(remediation.is_remediation());
+        assert_eq!(remediation.parent_subtask_id.as_deref(), Some("sub-1"));
+        assert_eq!(remediation.retry_count, 1);
+
+        task.add_subtask(remediation);
+        assert_eq!(task.subtasks.len(), 2);
+
+        assert!(task.find_subtask("sub-1").is_some());
+        assert!(task.find_subtask("sub-1-fix").is_some());
+        assert!(task.find_subtask("nonexistent").is_none());
+
+        if let Some(sub) = task.find_subtask_mut("sub-1") {
+            sub.status = TaskStatus::Completed;
+        }
+        assert_eq!(task.find_subtask("sub-1").unwrap().status, TaskStatus::Completed);
+
+        task.status = TaskStatus::Completed;
+        assert!(task.is_completed());
+    }
 }

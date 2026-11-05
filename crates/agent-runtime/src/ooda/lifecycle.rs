@@ -6,7 +6,7 @@ use crate::ooda::execution::QueueExecutionOutcome;
 use crate::sandbox::SandboxEnvironment;
 use agent_domain::{Task, TaskResult, TaskStatus, VerificationResult};
 use std::path::Path;
-use tracing::info;
+use tracing::{info, info_span, Instrument};
 
 impl AutonomousOodaLoop {
     async fn handle_task_failure(
@@ -56,12 +56,19 @@ impl AutonomousOodaLoop {
             }),
         );
 
-        // Chuẩn bị Sandbox và tiêm Agent Brief Context theo chuẩn Multica
+        // 0. Observe: Chuẩn bị Sandbox và tiêm Agent Brief Context theo chuẩn Multica
+        let observe_span = info_span!(
+            "ooda_phase",
+            task_id = %task.id.0,
+            subtask_id = "",
+            execution_phase = super::OODA_PHASE_OBSERVE,
+        );
         let (mut sandbox, active_workdir) = match prepare_sandbox_and_brief(
             &self.workspace_dir,
             &self.sandbox_config,
             task,
         )
+        .instrument(observe_span)
         .await
         {
             Ok(res) => res,
@@ -83,8 +90,17 @@ impl AutonomousOodaLoop {
         };
 
         // 1. Orient: Load Relevant Long-term Context
+        let orient_span = info_span!(
+            "ooda_phase",
+            task_id = %task.id.0,
+            subtask_id = "",
+            execution_phase = super::OODA_PHASE_ORIENT,
+        );
         let (memory, long_term_ctx) =
-            match orient_context(&self.workspace_dir, &self.persona, task).await {
+            match orient_context(&self.workspace_dir, &self.persona, task)
+                .instrument(orient_span)
+                .await
+            {
                 Ok(res) => res,
                 Err(err_msg) => {
                     self.handle_task_failure(task, &mut sandbox, &active_workdir, &err_msg)
@@ -100,6 +116,12 @@ impl AutonomousOodaLoop {
         }
 
         // 2. Decide: Decompose Goal into SubTasks Dynamically
+        let decide_span = info_span!(
+            "ooda_phase",
+            task_id = %task.id.0,
+            subtask_id = "",
+            execution_phase = super::OODA_PHASE_DECIDE,
+        );
         if let Err(e) = self
             .scratchpad
             .append_log(&format!("Starting Goal: {}", task.title))
@@ -128,7 +150,7 @@ impl AutonomousOodaLoop {
                     &task.goal_description,
                     &active_workdir,
                     &long_term_ctx,
-                ) => result,
+                ).instrument(decide_span.clone()) => result,
             };
             task.subtasks = dynamic_subtasks;
         }
@@ -146,6 +168,12 @@ impl AutonomousOodaLoop {
         task.status = TaskStatus::Executing;
 
         // 3. Act & Re-Act: Hàng đợi thực thi thích ứng (Queue with Dynamic Backtracking)
+        let act_span = info_span!(
+            "ooda_phase",
+            task_id = %task.id.0,
+            subtask_id = "",
+            execution_phase = super::OODA_PHASE_ACT,
+        );
         let executor = self.executor();
         if let Err(err) = executor.checkpoint(task).await {
             self.handle_task_failure(task, &mut sandbox, &active_workdir, &err).await;
@@ -159,6 +187,7 @@ impl AutonomousOodaLoop {
                 &mut all_verifications,
                 &mut working_context,
             )
+            .instrument(act_span)
             .await
         {
             Ok(outcome) => outcome,

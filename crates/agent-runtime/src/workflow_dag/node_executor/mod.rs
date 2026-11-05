@@ -5,7 +5,9 @@ pub mod tool;
 pub mod types;
 
 pub use agent::execute_agent_node;
-pub use control_flow::{execute_approval_node, execute_router_node, execute_trigger_node};
+pub use control_flow::{
+    execute_approval_node, execute_consensus_gate_node, execute_router_node, execute_trigger_node,
+};
 pub use sub_workflow::execute_sub_workflow_node;
 pub use tool::execute_tool_node;
 pub use types::{NodeExecutionContext, NodeExecutionOutcome};
@@ -44,6 +46,9 @@ pub async fn execute_node(
         }
         "approvalNode" => Ok(execute_approval_node(node)),
         "routerNode" => Ok(execute_router_node(node)),
+        "consensusGateNode" | "consensusGate" | "ConsensusGate" => {
+            Ok(execute_consensus_gate_node(node, ctx.context_state))
+        }
         "subWorkflowNode" | "workflowNode" => {
             Ok(execute_sub_workflow_node(
                 orchestrator,

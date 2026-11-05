@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use super::chaos::{AccountError, AccountFault};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AccountEngineKind {
@@ -43,7 +44,7 @@ pub enum AccountStatus {
     Disabled,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccountProfile {
     pub id: String,
     pub name: String,
@@ -56,7 +57,7 @@ pub struct AccountProfile {
     pub extra_env: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SafeAccountProfile {
     pub id: String,
     pub name: String,
@@ -89,6 +90,47 @@ impl AccountProfile {
             failure_count: self.failure_count,
             last_used_at: self.last_used_at,
             extra_env_keys: self.extra_env.keys().cloned().collect(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), AccountError> {
+        let trimmed_id = self.id.trim();
+        if trimmed_id.is_empty() {
+            return Err(AccountError::InvalidAccount("Account ID cannot be empty".to_string()));
+        }
+        if self.name.trim().is_empty() {
+            return Err(AccountError::InvalidAccount("Account name cannot be empty".to_string()));
+        }
+        if trimmed_id == "."
+            || trimmed_id == ".."
+            || trimmed_id.contains('/')
+            || trimmed_id.contains('\\')
+            || trimmed_id.contains("..")
+        {
+            return Err(AccountError::InvalidAccount(format!(
+                "Account ID '{}' contains path traversal or invalid characters",
+                self.id
+            )));
+        }
+        Ok(())
+    }
+
+    pub fn simulate_fault(&self, fault: &AccountFault) -> Result<Self, AccountError> {
+        match fault {
+            AccountFault::SocketTimeout => Err(AccountError::SocketTimeout),
+            AccountFault::ConnectionReset => Err(AccountError::ConnectionReset),
+            AccountFault::RateLimitExceeded => {
+                Err(AccountError::RateLimitExceeded("429 RateLimitExceeded".to_string()))
+            }
+            AccountFault::TransientIo => {
+                Err(AccountError::TransientIo("Simulated transient I/O failure".to_string()))
+            }
+            AccountFault::CorruptedMetadata => {
+                Err(AccountError::CorruptedMetadata("Corrupted account metadata".to_string()))
+            }
+            AccountFault::ServiceUnavailable => Err(AccountError::ServiceUnavailable(
+                "Account service temporarily unavailable".to_string(),
+            )),
         }
     }
 }

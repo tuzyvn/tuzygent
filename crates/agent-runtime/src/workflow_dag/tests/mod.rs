@@ -10,6 +10,7 @@ pub(crate) fn test_workflow(nodes: serde_json::Value, edges: serde_json::Value) 
     .expect("Workflow JSON must deserialize into WorkflowDefinition")
 }
 
+mod consensus_gate_tests;
 mod node_executor_tests;
 mod orchestrator_tests;
 mod validation_tests;

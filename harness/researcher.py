@@ -45,11 +45,12 @@ def extract_backlog_items() -> List[Dict]:
                     "display": f"[{prio}] {title}",
                     "topic_id": topic_id,
                     "title": title,
+                    "priority": prio,
                 })
 
-    # If empty or all completed, auto-discover new topics!
+    # If empty or all completed, auto-discover and brainstorm new topics!
     if not items:
-        print("\n💡 Không còn đề tài pending. Đang tự động quét lại mã nguồn để sinh đợt đề tài mới...")
+        print("\n💡 Không còn đề tài pending. Đang tự động quét mã nguồn và kích hoạt Feature Brainstorming Engine...")
         subprocess.run(["python3", "harness/topic_generator.py"], check=False)
         if RESEARCH_BACKLOG.exists():
             content = RESEARCH_BACKLOG.read_text(encoding="utf-8")
@@ -66,7 +67,34 @@ def extract_backlog_items() -> List[Dict]:
                         "display": f"[{prio}] {title}",
                         "topic_id": topic_id,
                         "title": title,
+                        "priority": prio,
                     })
+
+    # If still empty, force brainstorm mode
+    if not items:
+        print("💡 Kích hoạt ép buộc Brainstorming mở rộng tính năng mới (--brainstorm)...")
+        subprocess.run(["python3", "harness/topic_generator.py", "--brainstorm"], check=False)
+        if RESEARCH_BACKLOG.exists():
+            content = RESEARCH_BACKLOG.read_text(encoding="utf-8")
+            blocks = re.split(r"\n(?=###\s+\[)", content)
+            for block in blocks:
+                if not block.strip().startswith("### ["):
+                    continue
+                if "COMPLETED" in block or "BLOCKED" in block:
+                    continue
+                match = re.search(r"^###\s+\[(P[0-2])\]\s+((TOPIC-[^:]+):\s+[^\n]+)", block, re.MULTILINE)
+                if match:
+                    prio, title, topic_id = match.group(1), match.group(2), match.group(3)
+                    items.append({
+                        "display": f"[{prio}] {title}",
+                        "topic_id": topic_id,
+                        "title": title,
+                        "priority": prio,
+                    })
+
+    # Always prioritize P0 (Urgent Bugfixes) first, then P1, then P2
+    prio_order = {"P0": 0, "P1": 1, "P2": 2}
+    items.sort(key=lambda x: prio_order.get(x.get("priority", "P1"), 9))
 
     return items
 
@@ -136,6 +164,11 @@ def run_continuous_research_loop(
     print(f"• Engine: {engine} | Sandbox: {sandbox}")
     print("==================================================")
 
+    agent_ctl_bin = Path("./target/release/agent-ctl")
+    if not dry_run and not agent_ctl_bin.exists():
+        print("🔨 Đang tự động biên dịch agent-ctl release binary...")
+        subprocess.run(["cargo", "build", "--release", "-p", "agent-cli", "--bin", "agent-ctl"], check=True)
+
     completed_count = 0
     failure_tracker: Dict[str, int] = {}
     total_target = 999999 if continuous else max_topics
@@ -196,6 +229,15 @@ def run_continuous_research_loop(
                     print("🚀 Benchmark đạt chuẩn 100%! Tự động build và cập nhật agent-ctl...")
                     subprocess.run(["cargo", "build", "--release", "-p", "agent-cli", "--bin", "agent-ctl"], check=False)
                     subprocess.run(["cp", "target/release/agent-ctl", str(Path.home() / ".local/bin/agent-ctl")], check=False)
+                else:
+                    print("\n🚨 [Gatekeeper] Benchmark phát hiện lỗi hồi quy! Đang tự động nạp đề tài P0 sửa lỗi ngay...")
+                    record_lesson(
+                        node_type="gatekeeper_benchmark",
+                        identifier=topic_id,
+                        error_pattern="Benchmark tests or clippy failed after mission completion",
+                        remediation_strategy="Chạy cargo test và cargo clippy để sửa triệt để lỗi hồi quy",
+                    )
+                    subprocess.run(["python3", "harness/topic_generator.py"], check=False)
 
                 if completed_count < total_target:
                     print("\n⏳ Nghỉ 3 giây trước khi tự động tiến sang đề tài tiếp theo...")
@@ -211,7 +253,10 @@ def run_continuous_research_loop(
                     remediation_strategy="Kiểm tra lại compilation errors và logic test",
                 )
                 if fails >= 2:
-                    mark_topic_blocked(topic_id, "Thất bại quá 2 lần liên tiếp")
+                    print(f"\n🚨 [Self-Healing Protocol] Đề tài {topic_id} gặp lỗi lặp lại ({fails} lần)! Tự động chuyển sang chế độ FIX LỖI...")
+                    mark_topic_blocked(topic_id, f"Thất bại {fails} lần liên tiếp - chuyển sang P0 Bugfix")
+                    # Tự động quét và nạp ngay đề tài P0 sửa lỗi hệ thống lặp lại vào Backlog!
+                    subprocess.run(["python3", "harness/topic_generator.py"], check=False)
                     time.sleep(2)
                 else:
                     time.sleep(3)

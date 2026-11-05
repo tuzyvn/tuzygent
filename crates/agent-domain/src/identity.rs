@@ -1,6 +1,105 @@
+use crate::audit_ledger::{AuditEventType, AuditLedger};
+use crate::guardrail::ActionSeverity;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
+
+#[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
+pub enum IdentityError {
+    #[error("Invalid identity structure: {0}")]
+    InvalidIdentity(String),
+    #[error("Simulated socket timeout during identity resolution")]
+    SocketTimeout,
+    #[error("Connection reset during identity resolution")]
+    ConnectionReset,
+    #[error("Transient I/O failure during identity operation: {0}")]
+    TransientIo(String),
+    #[error("Corrupted agent persona profile: {0}")]
+    CorruptedProfile(String),
+    #[error("Identity service temporarily unavailable: {0}")]
+    ServiceUnavailable(String),
+    #[error("Max retry attempts ({0}) exceeded during identity recovery")]
+    MaxRetriesExceeded(usize),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IdentityFault {
+    SocketTimeout,
+    ConnectionReset,
+    CorruptedProfile,
+    TransientIo,
+    ServiceUnavailable,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct IdentityFaultPolicy {
+    fault: Option<IdentityFault>,
+    fail_interval: Option<u32>,
+    max_injections: Option<usize>,
+    invocation_count: u32,
+    injected_count: usize,
+}
+
+impl IdentityFaultPolicy {
+    pub fn none() -> Self {
+        Self::default()
+    }
+
+    pub fn always(fault: IdentityFault) -> Self {
+        Self {
+            fault: Some(fault),
+            fail_interval: None,
+            max_injections: None,
+            invocation_count: 0,
+            injected_count: 0,
+        }
+    }
+
+    pub fn intermittent(fault: IdentityFault, interval: u32) -> Self {
+        Self {
+            fault: Some(fault),
+            fail_interval: Some(interval.max(1)),
+            max_injections: None,
+            invocation_count: 0,
+            injected_count: 0,
+        }
+    }
+
+    pub fn with_max_injections(mut self, max: usize) -> Self {
+        self.max_injections = Some(max);
+        self
+    }
+
+    pub fn should_inject(&mut self) -> Option<IdentityFault> {
+        let fault = self.fault.as_ref()?;
+
+        if let Some(max) = self.max_injections {
+            if self.injected_count >= max {
+                return None;
+            }
+        }
+
+        self.invocation_count = self.invocation_count.wrapping_add(1);
+
+        let inject = match self.fail_interval {
+            Some(interval) if interval > 0 => (self.invocation_count - 1).is_multiple_of(interval),
+            Some(_) => true,
+            None => true,
+        };
+
+        if inject {
+            self.injected_count += 1;
+            Some(fault.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.invocation_count = 0;
+        self.injected_count = 0;
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AgentId(pub String);
@@ -29,7 +128,7 @@ pub enum AutonomyLevel {
     ShadowMode,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AgentIdentity {
     pub id: AgentId,
     pub name: String,
@@ -38,7 +137,7 @@ pub struct AgentIdentity {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AgentRole {
     pub role_code: String,
     pub title: String,
@@ -113,7 +212,7 @@ impl Default for VoiceProfile {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AgentSoul {
     pub persona: String,
     pub tone_of_voice: String,
@@ -122,14 +221,14 @@ pub struct AgentSoul {
     pub voice_profile: Option<VoiceProfile>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AgentMission {
     pub high_level_objective: String,
     pub kpis: Vec<String>,
     pub constraints: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AgentPersonaProfile {
     pub identity: AgentIdentity,
     pub role: AgentRole,
@@ -138,6 +237,36 @@ pub struct AgentPersonaProfile {
 }
 
 impl AgentPersonaProfile {
+    pub fn validate(&self) -> Result<(), IdentityError> {
+        if self.identity.id.0.trim().is_empty() {
+            return Err(IdentityError::InvalidIdentity(
+                "Agent ID cannot be empty".to_string(),
+            ));
+        }
+        if self.identity.name.trim().is_empty() {
+            return Err(IdentityError::InvalidIdentity(
+                "Agent name cannot be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn simulate_fault(&self, fault: &IdentityFault) -> Result<Self, IdentityError> {
+        match fault {
+            IdentityFault::SocketTimeout => Err(IdentityError::SocketTimeout),
+            IdentityFault::ConnectionReset => Err(IdentityError::ConnectionReset),
+            IdentityFault::TransientIo => Err(IdentityError::TransientIo(
+                "Simulated transient I/O failure during identity resolution".to_string(),
+            )),
+            IdentityFault::CorruptedProfile => Err(IdentityError::CorruptedProfile(
+                "Agent persona profile corruption detected".to_string(),
+            )),
+            IdentityFault::ServiceUnavailable => Err(IdentityError::ServiceUnavailable(
+                "Identity service temporarily unavailable".to_string(),
+            )),
+        }
+    }
+
     pub fn build_system_prompt(&self) -> String {
         let mut prompt = String::new();
         prompt.push_str(&format!("# IDENTITY & PROFILE: {}\n", self.identity.name));
@@ -179,11 +308,210 @@ impl AgentPersonaProfile {
         for cap in &self.role.capabilities {
             prompt.push_str(&format!("  * {}\n", cap));
         }
+        if !self.mission.kpis.is_empty() {
+            prompt.push_str("- KPIs:\n");
+            for kpi in &self.mission.kpis {
+                prompt.push_str(&format!("  * {}\n", kpi));
+            }
+        }
         prompt.push_str("- Constraints & Red Lines:\n");
         for c in &self.mission.constraints {
             prompt.push_str(&format!("  * {}\n", c));
         }
         prompt
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ResilientIdentityManager {
+    fault_policy: IdentityFaultPolicy,
+    max_retries: usize,
+    resolved_count: usize,
+    recovered_count: usize,
+    rejected_count: usize,
+}
+
+impl ResilientIdentityManager {
+    pub fn new(fault_policy: IdentityFaultPolicy, max_retries: usize) -> Self {
+        Self {
+            fault_policy,
+            max_retries,
+            resolved_count: 0,
+            recovered_count: 0,
+            rejected_count: 0,
+        }
+    }
+
+    pub fn with_fault_policy(fault_policy: IdentityFaultPolicy) -> Self {
+        Self::new(fault_policy, 3)
+    }
+
+    pub fn resolved_count(&self) -> usize {
+        self.resolved_count
+    }
+
+    pub fn recovered_count(&self) -> usize {
+        self.recovered_count
+    }
+
+    pub fn rejected_count(&self) -> usize {
+        self.rejected_count
+    }
+
+    pub fn fault_policy(&self) -> &IdentityFaultPolicy {
+        &self.fault_policy
+    }
+
+    pub fn fault_policy_mut(&mut self) -> &mut IdentityFaultPolicy {
+        &mut self.fault_policy
+    }
+
+    pub fn max_retries(&self) -> usize {
+        self.max_retries
+    }
+
+    pub fn reset_counts(&mut self) {
+        self.resolved_count = 0;
+        self.recovered_count = 0;
+        self.rejected_count = 0;
+    }
+
+    pub fn resolve_identity(
+        &mut self,
+        profile: AgentPersonaProfile,
+    ) -> Result<AgentPersonaProfile, IdentityError> {
+        if let Err(err) = profile.validate() {
+            self.rejected_count += 1;
+            return Err(err);
+        }
+
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            if let Some(fault) = self.fault_policy.should_inject() {
+                match fault {
+                    IdentityFault::SocketTimeout
+                    | IdentityFault::ConnectionReset
+                    | IdentityFault::TransientIo
+                    | IdentityFault::ServiceUnavailable => {
+                        if attempt <= self.max_retries {
+                            self.recovered_count += 1;
+                            continue;
+                        } else {
+                            return match fault {
+                                IdentityFault::SocketTimeout => Err(IdentityError::SocketTimeout),
+                                IdentityFault::ConnectionReset => {
+                                    Err(IdentityError::ConnectionReset)
+                                }
+                                IdentityFault::TransientIo => Err(IdentityError::TransientIo(
+                                    "Simulated transient I/O failure during identity resolution"
+                                        .to_string(),
+                                )),
+                                IdentityFault::ServiceUnavailable => {
+                                    Err(IdentityError::ServiceUnavailable(
+                                        "Identity service temporarily unavailable".to_string(),
+                                    ))
+                                }
+                                _ => unreachable!(),
+                            };
+                        }
+                    }
+                    IdentityFault::CorruptedProfile => {
+                        return Err(IdentityError::CorruptedProfile(
+                            "Agent persona profile corruption detected".to_string(),
+                        ));
+                    }
+                }
+            } else {
+                self.resolved_count += 1;
+                return Ok(profile);
+            }
+        }
+    }
+
+    pub fn resolve_and_record(
+        &mut self,
+        ledger: &mut AuditLedger,
+        profile: AgentPersonaProfile,
+    ) -> Result<AgentPersonaProfile, IdentityError> {
+        if let Err(err) = profile.validate() {
+            self.rejected_count += 1;
+            ledger.record_event(
+                AuditEventType::CommandBlocked,
+                ActionSeverity::Destructive,
+                format!(
+                    "Agent identity rejected for agent '{}': {}",
+                    profile.identity.id, err
+                ),
+            );
+            return Err(err);
+        }
+
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            if let Some(fault) = self.fault_policy.should_inject() {
+                match fault {
+                    IdentityFault::SocketTimeout
+                    | IdentityFault::ConnectionReset
+                    | IdentityFault::TransientIo
+                    | IdentityFault::ServiceUnavailable => {
+                        if attempt <= self.max_retries {
+                            self.recovered_count += 1;
+                            continue;
+                        } else {
+                            let err = match fault {
+                                IdentityFault::SocketTimeout => IdentityError::SocketTimeout,
+                                IdentityFault::ConnectionReset => {
+                                    IdentityError::ConnectionReset
+                                }
+                                IdentityFault::TransientIo => IdentityError::TransientIo(
+                                    "Simulated transient I/O failure during identity resolution"
+                                        .to_string(),
+                                ),
+                                IdentityFault::ServiceUnavailable => {
+                                    IdentityError::ServiceUnavailable(
+                                        "Identity service temporarily unavailable".to_string(),
+                                    )
+                                }
+                                _ => unreachable!(),
+                            };
+                            ledger.record_event(
+                                AuditEventType::CommandException,
+                                ActionSeverity::HighImpact,
+                                format!(
+                                    "Identity resolution exception for agent '{}': {}",
+                                    profile.identity.id, err
+                                ),
+                            );
+                            return Err(err);
+                        }
+                    }
+                    IdentityFault::CorruptedProfile => {
+                        let err = IdentityError::CorruptedProfile(
+                            "Agent persona profile corruption detected".to_string(),
+                        );
+                        ledger.record_event(
+                            AuditEventType::CommandException,
+                            ActionSeverity::HighImpact,
+                            format!(
+                                "Identity resolution exception for agent '{}': {}",
+                                profile.identity.id, err
+                            ),
+                        );
+                        return Err(err);
+                    }
+                }
+            } else {
+                self.resolved_count += 1;
+                ledger.record_event(
+                    AuditEventType::CommandAllowed,
+                    ActionSeverity::Routine,
+                    format!("Identity resolved for agent '{}'", profile.identity.id),
+                );
+                return Ok(profile);
+            }
+        }
     }
 }
 

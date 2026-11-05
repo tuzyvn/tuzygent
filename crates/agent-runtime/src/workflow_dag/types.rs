@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorkflowNodeData {
     pub label: Option<String>,
     #[serde(rename = "personaId")]
@@ -35,6 +35,12 @@ pub struct WorkflowNodeData {
     pub healing_attempts: Option<u32>,
     #[serde(rename = "lessonLearned")]
     pub lesson_learned: Option<String>,
+    #[serde(default, alias = "required_votes", rename = "requiredVotes")]
+    pub required_votes: Option<usize>,
+    #[serde(default)]
+    pub reviewers: Option<Vec<String>>,
+    #[serde(default, alias = "quorum_threshold", rename = "quorumThreshold")]
+    pub quorum_threshold: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +49,43 @@ pub struct WorkflowNode {
     #[serde(rename = "type")]
     pub node_type: String,
     pub data: WorkflowNodeData,
+}
+
+impl WorkflowNode {
+    #[allow(non_snake_case)]
+    pub fn ConsensusGate(
+        id: impl Into<String>,
+        required_votes: usize,
+        reviewers: Vec<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            node_type: "consensusGateNode".to_string(),
+            data: WorkflowNodeData {
+                required_votes: Some(required_votes),
+                reviewers: Some(reviewers),
+                ..Default::default()
+            },
+        }
+    }
+
+    pub fn consensus_gate(
+        id: impl Into<String>,
+        required_votes: usize,
+        reviewers: Vec<String>,
+    ) -> Self {
+        Self::ConsensusGate(id, required_votes, reviewers)
+    }
+
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.data.label = Some(label.into());
+        self
+    }
+
+    pub fn with_quorum_threshold(mut self, threshold: f64) -> Self {
+        self.data.quorum_threshold = Some(threshold);
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +106,73 @@ pub struct WorkflowDefinition {
     pub version: Option<String>,
     pub nodes: Vec<WorkflowNode>,
     pub edges: Vec<WorkflowEdge>,
+}
+
+pub type WorkflowDag = WorkflowDefinition;
+
+impl WorkflowDefinition {
+    /// Render workflow DAG as a Mermaid diagram (`graph TD`).
+    pub fn to_mermaid(&self) -> String {
+        let mut out = String::from("graph TD\n");
+        for node in &self.nodes {
+            if let Some(label) = &node.data.label {
+                if !label.is_empty() {
+                    out.push_str(&format!("    {}[\"{}\"]\n", node.id, label));
+                } else {
+                    out.push_str(&format!("    {}\n", node.id));
+                }
+            } else {
+                out.push_str(&format!("    {}\n", node.id));
+            }
+        }
+        for edge in &self.edges {
+            if let Some(label) = &edge.label {
+                if !label.is_empty() {
+                    out.push_str(&format!(
+                        "    {} -->|{}| {}\n",
+                        edge.source, label, edge.target
+                    ));
+                } else {
+                    out.push_str(&format!("    {} --> {}\n", edge.source, edge.target));
+                }
+            } else {
+                out.push_str(&format!("    {} --> {}\n", edge.source, edge.target));
+            }
+        }
+        out
+    }
+
+    /// Render workflow DAG as a Graphviz DOT diagram (`digraph { ... }`).
+    pub fn to_dot(&self) -> String {
+        let mut out = String::from("digraph {\n");
+        for node in &self.nodes {
+            if let Some(label) = &node.data.label {
+                if !label.is_empty() {
+                    out.push_str(&format!("    {} [label=\"{}\"];\n", node.id, label));
+                } else {
+                    out.push_str(&format!("    {};\n", node.id));
+                }
+            } else {
+                out.push_str(&format!("    {};\n", node.id));
+            }
+        }
+        for edge in &self.edges {
+            if let Some(label) = &edge.label {
+                if !label.is_empty() {
+                    out.push_str(&format!(
+                        "    {} -> {} [label=\"{}\"];\n",
+                        edge.source, edge.target, label
+                    ));
+                } else {
+                    out.push_str(&format!("    {} -> {};\n", edge.source, edge.target));
+                }
+            } else {
+                out.push_str(&format!("    {} -> {};\n", edge.source, edge.target));
+            }
+        }
+        out.push('}');
+        out
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

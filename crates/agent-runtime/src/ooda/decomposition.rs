@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::{info, info_span, warn, Instrument};
 
 /// Dynamic goal planning and subtask decomposition.
 #[derive(Clone)]
@@ -47,7 +47,14 @@ impl GoalDecomposer {
         workdir: &Path,
         system_context: &str,
     ) -> Vec<SubTask> {
-        info!("🧠 [OODA Planner] Phân tích mục tiêu và phân rã Subtasks động qua LLM...");
+        let span = info_span!(
+            "ooda_phase",
+            task_id = "",
+            subtask_id = "",
+            execution_phase = super::OODA_PHASE_DECIDE,
+        );
+        async move {
+            info!("🧠 [OODA Planner] Phân tích mục tiêu và phân rã Subtasks động qua LLM...");
 
         let planning_prompt = format!(
             "You are an Autonomous AI System Architect and Planner.\n\
@@ -141,7 +148,10 @@ impl GoalDecomposer {
             }
         }
 
-        subtasks
+            subtasks
+        }
+        .instrument(span)
+        .await
     }
 
     /// Trích xuất và parse mảng JSON SubTask từ văn bản LLM

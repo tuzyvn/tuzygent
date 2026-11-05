@@ -689,3 +689,718 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 
 
+### [P1] TOPIC-20261105-144ec8: Tích hợp cơ chế Exponential Backoff & Jitter cho Engine Execution Retry
+- **Phân loại**: `Feature Expansion / Resilience & Fault Tolerance`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:07:14 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Hiện tại các LLM Engine khi gặp lỗi HTTP 429 (Rate Limit) hoặc 503 (Provider Unavailable) dễ làm đứt gãy luồng OODA. Cần bổ sung thuật toán Full Jitter Exponential Backoff trong `crates/agent-engine/` và `crates/agent-runtime/src/ooda/` để phục hồi mềm mại các sự cố tạm thời.
+- **Tiêu chuẩn nghiệm thu**: Cài đặt struct `BackoffPolicy` hỗ trợ cấu hình initial_interval, max_interval, multiplier và jitter; tích hợp vào vòng lặp gọi Engine; viết test TDD kiểm chứng khoảng thời gian chờ giữa các lần retry.
+
+### [P1] TOPIC-20261105-235208: Triển khai Dead-Letter Queue & Poison-Task Isolation trong TaskService
+- **Phân loại**: `Feature Expansion / Resilience & Fault Tolerance`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:07:19 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Khi một tác vụ liên tục gây lỗi không thể hồi phục hoặc làm treo worker, TaskService cần tự động cô lập tác vụ đó vào Dead-Letter Queue thay vì để nó làm nghẽn toàn bộ hàng đợi của các tác vụ khác.
+- **Tiêu chuẩn nghiệm thu**: Mở rộng `TaskService` với trạng thái `Quarantined` hoặc Dead-Letter Queue; bổ sung API tra cứu và giải phóng task bị cô lập; viết test TDD xác minh hàng đợi vẫn tiếp tục xử lý các task khác.
+
+### [P1] TOPIC-20261105-84f251: Tự động che mờ dữ liệu nhạy cảm (Secret Redaction) trong Tool Output Stream
+- **Phân loại**: `Feature Expansion / Security & Sandboxing`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:07:24 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Trong quá trình chạy lệnh hoặc engine streaming, output stdout/stderr có thể vô tình in ra API keys, private tokens, passwords. Cần bộ lọc Real-Time Secret Redaction tự động che mờ thành [REDACTED].
+- **Tiêu chuẩn nghiệm thu**: Xây dựng module `SecretRedactor` với các mẫu regex phổ biến (OpenAI, AWS, JWT, Bearer token); tích hợp vào stream reader trong `crates/agent-engine/src/process/stream.rs`; viết test TDD xác minh các key bị che mờ.
+
+### [P1] TOPIC-20261105-ccf623: Cơ chế In-flight Checkpointing & Resume State an toàn cho Long-Running Tasks
+- **Phân loại**: `Feature Expansion / Resilience & Fault Tolerance`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:07:29 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Với các tác vụ dài hơi gồm nhiều subtask, nếu server hoặc daemon bị restart đột ngột, task cần khả năng phục hồi chính xác từ subtask đã verified gần nhất thay vì chạy lại từ đầu.
+- **Tiêu chuẩn nghiệm thu**: Lưu checkpoint metadata vào `SqliteTaskStore` sau mỗi subtask hoàn tất; bổ sung phương thức `resume_task_from_checkpoint`; viết test TDD mô phỏng ngắt tiến trình giữa chừng và khôi phục an toàn.
+
+### [P1] TOPIC-20261105-45c29f: Cơ chế Adaptive Token-Budget Windowing & Rolling Context Compaction cho OODA Loop
+- **Phân loại**: `Feature Expansion / Adaptive Intelligence`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:07:34 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Khi working context tích lũy qua nhiều subtask vượt quá ngưỡng token an toàn của LLM, cần thuật toán Rolling Context Compaction tự động tóm tắt các bước cũ và giữ lại đầy đủ kết quả then chốt gần nhất.
+- **Tiêu chuẩn nghiệm thu**: Cài đặt hàm `compact_working_context_with_budget(ctx: &str, max_tokens: usize) -> String`; tích hợp vào `crates/agent-runtime/src/ooda/execution/runner/step/context.rs`; viết test TDD kiểm tra context được nén đúng ngưỡng.
+
+### [P1] TOPIC-20261105-08f162: Tích hợp Prometheus Metrics Exporter (/metrics) cho Agent Server & OODA Loop
+- **Phân loại**: `Feature Expansion / Observability & Telemetry`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:07:39 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Cung cấp endpoint HTTP `/metrics` theo chuẩn Prometheus trong `agent-server` để giám sát thời gian thực các chỉ số: tổng task, độ trễ OODA cycle, số lần remediation, tỷ lệ thành công của test.
+- **Tiêu chuẩn nghiệm thu**: Thêm endpoint `/metrics` trong Axum router; xuất bản các chỉ số `agent_tasks_total`, `agent_ooda_duration_seconds`, `agent_remediations_total`; viết test HTTP integration kiểm chứng định dạng text/plain.
+
+### [P1] TOPIC-20261105-74e5c5: Circuit Breaker Failover tự động chuyển đổi LLM Provider khi Engine chính gặp sự cố
+- **Phân loại**: `Feature Expansion / Resilience & Fault Tolerance`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:07:44 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Hỗ trợ cấu hình Fallback Engine (ví dụ: Antigravity -> Claude -> Codex hoặc Mock) khi primary engine bị cạn quota (HTTP 402/429) hoặc connection timeout liên tục.
+- **Tiêu chuẩn nghiệm thu**: Xây dựng `EngineFailoverCoordinator` quản lý danh sách engine ưu tiên; tự động chuyển sang fallback provider khi primary ném `EngineError::QuotaExhausted` hoặc lỗi kết nối; có test TDD xác minh.
+
+### [P1] TOPIC-20261105-72d828: Mở rộng InterAgentBus hỗ trợ Topic-Based Publish/Subscribe Channels
+- **Phân loại**: `Feature Expansion / Multi-Agent Collaboration`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:07:49 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Hiện tại `InterAgentBus` phát broadcast toàn bộ thông điệp. Cần bổ sung phân luồng theo Topic (Topic-based Pub/Sub) để các agent chuyên môn hóa (Security, QA, Developer) chỉ nhận sự kiện phù hợp.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung `subscribe_topic(topic_pattern)` và `publish_topic(topic, event)` trong `InterAgentBus`; hỗ trợ wildcard matching; viết test TDD kiểm thử gửi nhận thông điệp có lọc chủ đề đa luồng an toàn.
+
+### [P2] TOPIC-20261105-e1d80f: Xây dựng Multi-Agent Consensus Voting Gate trong Workflow DAG
+- **Phân loại**: `Feature Expansion / Multi-Agent Collaboration`
+- **Trạng thái**: `COMPLETED` ✅
+- **Lý do cần nghiên cứu**: Thêm loại node thẩm định đồng thuận (Consensus Gate Node) trong đồ thị Workflow DAG đòi hỏi tỷ lệ biểu quyết tán thành (Quorum Threshold, ví dụ >= 66%) từ các Agent Reviewer trước khi chuyển bước nhạy cảm.
+- **Tiêu chuẩn nghiệm thu**: Định nghĩa `WorkflowNode::ConsensusGate` với trường `required_votes` và danh sách reviewer; cập nhật bộ thực thi DAG để thu thập votes; viết test TDD kiểm thử kịch bản đủ phiếu và không đủ phiếu.
+
+### [P2] TOPIC-20261105-77d895: Giao thức phân quyền và Scoped Scratchpad Isolation cho Sub-Agent Delegation
+- **Phân loại**: `Feature Expansion / Multi-Agent Collaboration`
+- **Trạng thái**: `COMPLETED` ✅
+- **Lý do cần nghiên cứu**: Khi root agent phân rã nhiệm vụ cho sub-agent, cần cơ chế cô lập ngữ cảnh bộ nhớ tạm (Scoped Scratchpad), tránh việc sub-agent ghi đè hoặc đọc trộm dữ liệu nhạy cảm của parent task.
+- **Tiêu chuẩn nghiệm thu**: Cài đặt `ScopedScratchpad` phân cấp với quyền ReadOnly/ReadWrite cục bộ cho sub-agent; tự động dọn dẹp hoặc gộp kết quả khi sub-agent hoàn tất; có test TDD kiểm chứng tính cô lập.
+
+### [P2] TOPIC-20261105-9b68a1: Cơ chế Ephemeral OverlayFS / Tmpfs Workspace Isolation cho Sandbox Drivers
+- **Phân loại**: `Feature Expansion / Security & Sandboxing`
+- **Trạng thái**: `COMPLETED` ✅
+- **Lý do cần nghiên cứu**: Khi chạy các lệnh không tin cậy hoặc bước kiểm thử trong Sandbox, cần tùy chọn gắn kết filesystem tạm thời (Tmpfs / OverlayFS) để tự động xóa sạch các tệp rác sinh ra nếu bước thực thi bị thất bại hoặc rollback.
+- **Tiêu chuẩn nghiệm thu**: Thêm tùy chọn `ephemeral_overlay: bool` trong `SandboxSpec`; cập nhật bubblewrap và docker driver để thiết lập read-only base kèm writable tmpfs upper; viết test kiểm chứng.
+
+### [P2] TOPIC-20261105-169a18: Bổ sung Structured OpenTelemetry Tracing Spans cho OODA Lifecycle
+- **Phân loại**: `Feature Expansion / Observability & Telemetry`
+- **Trạng thái**: `COMPLETED` ✅
+- **Lý do cần nghiên cứu**: Gắn các tracing span có cấu trúc với task_id, subtask_id, và execution_phase cho từng bước (Observe, Orient, Decide, Act, Remediate) giúp trực quan hóa timeline thực thi và định vị nút thắt cổ chai.
+- **Tiêu chuẩn nghiệm thu**: Tích hợp `tracing::info_span!` xuyên suốt các module trong `crates/agent-runtime/src/ooda/`; viết test TDD kiểm tra các span metadata được kích hoạt đúng thứ tự.
+
+### [P2] TOPIC-20261105-0ca51e: Xây dựng Immutable Audit Trail Ledger có mã băm toàn vẹn cho Guardrail Actions
+- **Phân loại**: `Feature Expansion / Observability & Telemetry`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 15:42:00 UTC)
+- **Lý do cần nghiên cứu**: Mọi quyết định của Guardrail (chặn lệnh nguy hiểm, phê duyệt ngoại lệ, shell command) cần được ghi nhận vào nhật ký kiểm toán bất biến có chuỗi băm (SHA256 hash chaining) chống giả mạo.
+- **Tiêu chuẩn nghiệm thu**: Cài đặt cấu trúc `AuditLedger` với `prev_hash` liên kết từng sự kiện; cung cấp phương thức `verify_integrity()`; viết test TDD phát hiện can thiệp sửa đổi trái phép.
+- **Kết quả thực hiện**: Cài đặt hoàn chỉnh module `audit` (`AuditLedger`, `AuditEntry`, `AuditIntegrityError`) với SHA-256 hash chaining, hằng số `GENESIS_HASH`, liên kết chặt chẽ với `GuardrailPolicy` qua `evaluate_and_record` và `record_guardrail_check`. Bộ kiểm thử TDD xác thực phát hiện chính xác mọi hành vi can thiệp sửa đổi trái phép (tamper payload, broken hash chain, sequence mismatch). Toàn bộ 279 bài kiểm thử workspace và Clippy đạt 100% PASS.
+
+### [P2] TOPIC-20261105-f5dd9c: Bổ sung lệnh CLI 'agent-ctl inspect' tra cứu Task & Memory chuyên sâu
+- **Phân loại**: `Feature Expansion / Developer Ergonomics`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:08:19 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Cung cấp lệnh CLI trực quan `agent-ctl inspect [task-id|memory|dag]` hiển thị bảng trạng thái, các subtask đã thực hiện, timeline và dữ liệu memory mà không cần dùng sqlite3 thủ công.
+- **Tiêu chuẩn nghiệm thu**: Thêm subcommand `inspect` vào `crates/agent-cli/`; hỗ trợ xuất ra định dạng bảng terminal màu hoặc JSON (`--format json`); viết test CLI argument parser.
+
+### [P2] TOPIC-20261105-f434ff: Chức năng xuất sơ đồ Workflow DAG sang định dạng Mermaid / Graphviz
+- **Phân loại**: `Feature Expansion / Developer Ergonomics`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 16:24:00 UTC)
+- **Lý do cần nghiên cứu**: Giúp kỹ sư và tài liệu dự án dễ dàng trực quan hóa các đồ thị Workflow DAG phức tạp bằng cách xuất cấu trúc DAG sang mã Mermaid (`graph TD ...`) hoặc DOT format.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung phương thức `to_mermaid(&self) -> String` và `to_dot(&self) -> String` trên `WorkflowDag`; viết test TDD kiểm chứng cú pháp Mermaid sinh ra hợp lệ và đầy đủ các node/edge.
+- **Kết quả thực hiện**: Đã thiết lập type alias `pub type WorkflowDag = WorkflowDefinition;`, hiện thực hóa hai phương thức `to_mermaid(&self) -> String` và `to_dot(&self) -> String` trên `WorkflowDefinition` trong `crates/agent-runtime/src/workflow_dag/types.rs`, và export `WorkflowDag` qua facade module. Bổ sung test TDD `dag_visualization_tests.rs` xác thực định dạng Mermaid (`graph TD`, node label, edge condition) và Graphviz DOT (`digraph`). Toàn bộ 292 bài kiểm thử workspace và Clippy đạt 100% PASS.
+
+### [P2] TOPIC-20261105-944337: Cơ chế Dynamic Skill Hot-Reloading & Schema Validation trong AgentMemory
+- **Phân loại**: `Feature Expansion / Developer Ergonomics`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 16:37:00 UTC)
+- **Lý do cần nghiên cứu**: Cho phép daemon và runner tự động phát hiện các skill mới được thêm vào thư mục `skills/` và nạp lại vào bộ nhớ runtime mà không cần khởi động lại toàn bộ tiến trình.
+- **Tiêu chuẩn nghiệm thu**: Cài đặt phương thức `reload_skills(&mut self)` trong `crates/agent-memory/src/skills.rs`; xác thực schema frontmatter; viết test TDD kiểm thử thêm skill mới khi runtime đang chạy.
+- **Kết quả thực hiện**: Đã triển khai cấu trúc `SkillFrontmatter`, enum lỗi `SkillValidationError`, cơ chế in-memory cache `skills_cache`, các phương thức `reload_skills(&mut self)`, `validate_frontmatter`, `validate_skill_file`, `cached_skills`, `get_cached_skill` trong `crates/agent-memory/src/skills.rs`. Xây dựng bộ test tích hợp TDD toàn diện tại `crates/agent-memory/tests/skills_hot_reload_tests.rs` kiểm chứng nạp skill động, xác thực schema, lọc bỏ file sai định dạng, cập nhật/xóa skill và phòng chống Path Traversal ở runtime. Toàn bộ 298 tests và Clippy lints đạt 100% PASS.
+
+### [P2] TOPIC-20261105-d9881e: Chaos Engineering & Fault Injection Test cho module agent-domain::event
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 16:53:00 UTC)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::event` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-domain::event phục hồi an toàn.
+- **Kết quả thực hiện**: Đã triển khai các mô hình Fault Injection (`EventFault::SocketTimeout`, `ConnectionReset`, `CorruptedPayload`, `Dropped`, `Duplicate`) và `ResilientEventProcessor` tự động phục hồi lỗi ngắt quãng qua retry/deduplication trong `crates/agent-domain/src/event.rs`. Bộ test TDD `crates/agent-domain/tests/event_chaos_tests.rs` kiểm chứng 8 kịch bản chaos, bảo đảm an toàn hệ thống với 0 panic.
+
+### [P2] TOPIC-20261105-781ba7: Chaos Engineering & Fault Injection Test cho module agent-domain::guardrail
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 17:07:00 UTC)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::guardrail` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-domain::guardrail phục hồi an toàn.
+- **Kết quả thực hiện**: Đã hoàn thiện kiến trúc Chaos Engineering & Fault Injection cho module `agent-domain::guardrail` bao gồm `GuardrailFault` (`SocketTimeout`, `ConnectionReset`, `CorruptedRule`, `TransientIo`, `ServiceUnavailable`), `GuardrailFaultPolicy`, `GuardrailError`, `simulate_fault`, và `ResilientGuardrailEvaluator` với cơ chế retry tự phục hồi lỗi ngắt quãng và ghi nhận exception vào `AuditLedger`. Bộ test TDD `crates/agent-domain/tests/guardrail_chaos_tests.rs` (10 tests) và reproduction test đạt 100% PASS.
+
+### [P2] TOPIC-20261105-e81332: Chaos Engineering & Fault Injection Test cho module agent-domain::identity
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 17:25:00 UTC)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::identity` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-domain::identity phục hồi an toàn.
+- **Kết quả thực hiện**: Đã hoàn thiện kiến trúc Chaos Engineering & Fault Injection cho module `agent-domain::identity` bao gồm `IdentityFault` (`SocketTimeout`, `ConnectionReset`, `TransientIo`, `CorruptedProfile`, `ServiceUnavailable`), `IdentityFaultPolicy`, `IdentityError`, `simulate_fault`, và `ResilientIdentityManager` với cơ chế retry loop tự phục hồi lỗi ngắt quãng và ghi nhận exception vào `AuditLedger`. Bộ test TDD `crates/agent-domain/tests/identity_chaos_tests.rs` (10/10 PASS) bảo đảm hệ thống bền vững.
+
+### [P2] TOPIC-20261105-cec948: Chaos Engineering & Fault Injection Test cho module agent-engine::accounts
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:08:49 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::accounts` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-engine::accounts phục hồi an toàn.
+
+### [P2] TOPIC-20261105-c1b123: Chaos Engineering & Fault Injection Test cho module agent-engine::api
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:08:54 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::api` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-engine::api phục hồi an toàn.
+
+### [P2] TOPIC-20261105-b47366: Chaos Engineering & Fault Injection Test cho module agent-engine::cli
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Triệt tiêu lỗi, hoàn tất ResilientCliEngine & integration tests)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::cli` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-engine::cli phục hồi an toàn.
+
+### [P2] TOPIC-20261105-d71323: Chaos Engineering & Fault Injection Test cho module agent-memory::context_builder
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Hoàn tất ResilientContextBuilder, fault injection policies & integration tests)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::context_builder` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-memory::context_builder phục hồi an toàn.
+
+### [P2] TOPIC-20261105-c109f7: Chaos Engineering & Fault Injection Test cho module agent-memory::durable
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Hoàn tất ResilientDurableMemoryStore, fault injection policies & integration tests)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::durable` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-memory::durable phục hồi an toàn.
+
+### [P2] TOPIC-20261105-029ae0: Chaos Engineering & Fault Injection Test cho module agent-memory::persona
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Hoàn tất ResilientPersonaLoader, fault injection policies, audit ledger integration & persona_chaos_tests)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::persona` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-memory::persona phục hồi an toàn.
+
+### [P2] TOPIC-20261105-31d780: Chaos Engineering & Fault Injection Test cho module agent-runtime::bus
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Giải quyết hoàn toàn qua TOPIC-20261105-ff99fb)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::bus` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-runtime::bus phục hồi an toàn.
+
+### [P2] TOPIC-20261105-b635d0: Chaos Engineering & Fault Injection Test cho module agent-runtime::execution
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:09:24 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::execution` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-runtime::execution phục hồi an toàn.
+
+### [P2] TOPIC-20261105-1c6920: Chaos Engineering & Fault Injection Test cho module agent-runtime::harness
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:09:29 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::harness` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-runtime::harness phục hồi an toàn.
+
+### [P2] TOPIC-20261105-a26029: Chaos Engineering & Fault Injection Test cho module agent-cli::cli
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:09:34 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-cli::cli` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-cli::cli phục hồi an toàn.
+
+### [P2] TOPIC-20261105-cc6303: Chaos Engineering & Fault Injection Test cho module agent-cli::commands
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:09:39 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-cli::commands` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-cli::commands phục hồi an toàn.
+
+### [P2] TOPIC-20261105-1111c4: Chaos Engineering & Fault Injection Test cho module agent-cli::update
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:09:44 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-cli::update` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-cli::update phục hồi an toàn.
+
+### [P2] TOPIC-20261105-f3bf35: Chaos Engineering & Fault Injection Test cho module agent-server::auth
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:09:49 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::auth` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-server::auth phục hồi an toàn.
+
+### [P2] TOPIC-20261105-376fb5: Chaos Engineering & Fault Injection Test cho module agent-server::dashboard_html
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:09:54 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::dashboard_html` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-server::dashboard_html phục hồi an toàn.
+
+### [P2] TOPIC-20261105-dde2fc: Chaos Engineering & Fault Injection Test cho module agent-server::gateway
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:09:59 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::gateway` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-server::gateway phục hồi an toàn.
+
+### [P2] TOPIC-20261105-243a67: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::event
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:04 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::event` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-b4f9b6: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::guardrail
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:09 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::guardrail` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-744860: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::identity
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:14 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::identity` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-31f26a: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::accounts
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:19 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::accounts` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-ad1a54: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::api
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:24 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::api` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-bec5af: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::cli
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:29 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::cli` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-d85ca9: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::context_builder
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:35 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::context_builder` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-b493ca: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::durable
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:40 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::durable` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-7e124f: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::persona
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:45 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::persona` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-6e89b1: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::bus
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:50 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::bus` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-04c010: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::execution
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:10:55 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::execution` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-80bc76: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::harness
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:00 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::harness` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-968db4: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-cli::cli
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:05 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-cli::cli` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-d26a5b: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-cli::commands
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:10 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-cli::commands` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-159c25: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-cli::update
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:15 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-cli::update` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-2dc00a: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::auth
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:20 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::auth` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-42d5da: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::dashboard_html
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:25 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::dashboard_html` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261105-85282b: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::gateway
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:30 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::gateway` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P0] TOPIC-20261105-bb59c8: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-144ec8)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:35 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-144ec8`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-144ec8 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-d5c120: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-235208)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:40 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-235208`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-235208 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-873135: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-84f251)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:45 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-84f251`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-84f251 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-a03347: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-ccf623)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:50 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-ccf623`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-ccf623 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-9a6549: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-45c29f)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:11:55 UTC - Thất bại quá 2 lần liên tiếp)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-45c29f`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-45c29f để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-866e83: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-08f162)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:12:05 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-08f162`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-08f162 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-0dcb3b: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-74e5c5)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:12:10 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-74e5c5`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-74e5c5 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-758427: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-72d828)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-05 14:12:15 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-72d828`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-72d828 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-3567ac: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-e1d80f)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-e1d80f`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-e1d80f để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-49e098: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-77d895)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-77d895`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-77d895 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-4ba9cf: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-9b68a1)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-9b68a1`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-9b68a1 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-6d28f0: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-169a18)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-169a18`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-169a18 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+- **Kết quả thực hiện**: Triệt tiêu hoàn toàn lỗi biên dịch và logic khởi tạo `AutonomousOodaLoop` trong bài kiểm thử OODA tracing. Đã bổ sung test case TDD `test_topic_169a18_ooda_tracing_spans` trong `crates/agent-runtime/tests/lint_rules_test.rs` kiểm chứng đầy đủ chu trình lifecycle spans (`Observe` -> `Orient` -> `Decide` -> `Act` -> `Remediate`), builder methods và hằng số OODA phase. Toàn bộ 272 bài kiểm thử workspace và Clippy đạt 100% PASS.
+
+### [P0] TOPIC-20261105-f6a8fc: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-0ca51e)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 15:59:45 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-0ca51e`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-0ca51e để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+- **Kết quả thực hiện**: Triệt tiêu hoàn toàn nguyên nhân lỗi thiếu module `AuditLedger` và `AuditEntry` trong `crates/agent-domain`. Đã thiết kế hoàn thiện module audit với `prev_hash` (SHA-256), `verify_integrity()`, tích hợp trực tiếp vào `GuardrailPolicy` và hoàn tất bộ kiểm thử TDD `crates/agent-domain/tests/audit_ledger_tests.rs`. Benchmark đạt chuẩn 100% (284/284 tests PASS, Clippy 0 warnings, 4/4 scenarios pass).
+
+### [P0] TOPIC-20261105-efcd3d: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-f5dd9c)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 16:17:54 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-f5dd9c`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-f5dd9c để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-542902: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-f434ff)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 16:24:00 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-f434ff`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-f434ff để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+- **Kết quả thực hiện**: Triệt tiêu hoàn toàn nguyên nhân lỗi thiếu phương thức xuất Mermaid / DOT và type alias `WorkflowDag`. Đã hiện thực hóa `to_mermaid` và `to_dot` trên `WorkflowDefinition` / `WorkflowDag`, kiểm thử TDD `dag_visualization_tests.rs` đạt 100% PASS và toàn bộ benchmark workspace đạt 100% (292/292 tests pass, Clippy 0 warnings, 4/4 scenarios pass).
+
+### [P0] TOPIC-20261105-d869b4: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-944337)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 16:40:00 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-944337`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-944337 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+- **Kết quả thực hiện**: Triệt tiêu hoàn toàn nguyên nhân lỗi trong tác vụ nạp động skill runtime. Đã hiện thực hóa `reload_skills(&mut self)`, schema frontmatter validation, xử lý file lỗi/không hợp lệ an toàn, phòng chống Path Traversal và cơ chế cache `skills_cache` trong `crates/agent-memory/src/skills.rs`. Bộ test TDD `skills_hot_reload_tests.rs` đạt 6/6 PASS, toàn bộ test suite workspace đạt 298/298 tests PASS, Clippy 0 warnings và 4/4 benchmark scenarios PASS (100%).
+
+### [P0] TOPIC-20261105-cae92b: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-d9881e)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 16:53:00 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-d9881e`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-d9881e để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+- **Kết quả thực hiện**: Đã giải quyết tận gốc nguyên nhân lỗi: bổ sung kiến trúc Chaos Engineering & Fault Injection toàn diện cho module `agent-domain::event` với `EventFault`, `EventFaultPolicy`, `EventError`, và `ResilientEventProcessor` tự động khắc phục lỗi kết nối/socket timeout, deduplication và loại bỏ payload hỏng. Xây dựng bộ test TDD `crates/agent-domain/tests/event_chaos_tests.rs` (8/8 ca kiểm thử đạt PASS). Benchmark hệ thống đạt 306/306 tests PASS (100%), Clippy 0 warnings, và 4/4 kịch bản benchmark đạt chuẩn.
+
+### [P0] TOPIC-20261105-1d2ebc: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-781ba7)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 17:07:00 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-781ba7`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-781ba7 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+- **Kết quả thực hiện**: Triệt tiêu hoàn toàn nguyên nhân lỗi lặp lại tại `TOPIC-20261105-781ba7`. Đã bổ sung đầy đủ hệ thống Fault Injection và khả năng tự phục hồi lỗi ngắt quãng trong `crates/agent-domain/src/guardrail.rs`. Bộ test TDD `guardrail_chaos_tests.rs` (10/10 PASS) và `reproduction_test.rs` (2/2 PASS) xác minh toàn diện. Benchmark hệ thống đạt 318/318 unit tests PASS (100%), Clippy 0 warnings, và 4/4 benchmark scenarios PASS.
+
+### [P0] TOPIC-20261105-5ff791: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-e81332)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 17:25:00 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-e81332`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-e81332 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+- **Kết quả thực hiện**: Triệt tiêu hoàn toàn nguyên nhân lỗi lặp lại tại `TOPIC-20261105-e81332`. Đã bổ sung đầy đủ hệ thống Fault Injection và khả năng tự phục hồi lỗi ngắt quãng trong `crates/agent-domain/src/identity.rs`. Bộ test TDD `crates/agent-domain/tests/identity_chaos_tests.rs` (10/10 PASS). Benchmark hệ thống đạt 328/328 unit tests PASS (100%), Clippy 0 warnings, và 4/4 benchmark scenarios PASS.
+
+### [P0] TOPIC-20261105-babe57: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-cec948)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 17:40:39 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-cec948`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-cec948 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-0ae8a5: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-c1b123)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-05 18:14:54 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-c1b123`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-c1b123 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-f61535: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-b47366)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Đã phân tích nguyên nhân gốc rễ, hoàn thiện agent-engine::cli::chaos và cli_chaos_tests, benchmark 100% PASS)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-b47366`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-b47366 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-83ce28: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-d71323)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Đã phân tích nguyên nhân gốc rễ, hoàn thiện agent-memory::context_builder chaos resilience và context_builder_chaos_tests, benchmark 100% PASS)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-d71323`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-d71323 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-d1ef61: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-c109f7)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Đã phân tích nguyên nhân gốc rễ, hoàn thiện agent-memory::durable chaos resilience và durable_chaos_tests, benchmark 100% PASS)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-c109f7`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-c109f7 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-b9f62c: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-029ae0)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Đã phân tích nguyên nhân gốc rễ, hoàn thiện agent-memory::persona chaos resilience và persona_chaos_tests, benchmark 100% PASS)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-029ae0`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-029ae0 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-ff99fb: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-31d780)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 - Đã phân tích nguyên nhân gốc rễ, hoàn thiện agent-runtime::bus chaos resilience và bus_chaos_tests, benchmark 100% PASS)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-31d780`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-31d780 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+- **Kết quả thực hiện**: Triệt tiêu hoàn toàn nguyên nhân lỗi lặp lại tại `TOPIC-20261105-31d780`. Đã bổ sung đầy đủ hệ thống Fault Injection (`BusFault`, `BusFaultPolicy`, `BusError`, `simulate_bus_fault`), `ResilientInterAgentBus` với retry tự động và Audit Ledger tracing trong `crates/agent-runtime/src/bus.rs`. Bộ test TDD `crates/agent-runtime/tests/bus_chaos_tests.rs` (10/10 PASS). Benchmark hệ thống đạt 431/431 unit tests PASS (100%), Clippy 0 warnings, và 4/4 benchmark scenarios PASS.
+
+### [P0] TOPIC-20261105-5a31cd: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-b635d0)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-b635d0`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-b635d0 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-d49a97: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-1c6920)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-1c6920`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-1c6920 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-8b5788: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-a26029)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-a26029`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-a26029 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-98994f: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-cc6303)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-cc6303`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-cc6303 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-aa4d82: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-1111c4)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-1111c4`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-1111c4 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-bac54f: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-f3bf35)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-f3bf35`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-f3bf35 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-ad213f: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-376fb5)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-376fb5`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-376fb5 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-61e62e: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-dde2fc)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-dde2fc`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-dde2fc để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-52d2a0: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-243a67)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-243a67`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-243a67 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-ddd866: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-b4f9b6)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-b4f9b6`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-b4f9b6 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-a30f60: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-744860)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-744860`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-744860 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-b974be: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-31f26a)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-31f26a`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-31f26a để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-0893f8: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-ad1a54)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-ad1a54`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-ad1a54 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-1823d4: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-bec5af)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-bec5af`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-bec5af để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-9c90cb: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-d85ca9)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-d85ca9`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-d85ca9 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-b86f27: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-b493ca)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-b493ca`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-b493ca để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-8c43f7: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-7e124f)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-7e124f`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-7e124f để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-aa275b: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-6e89b1)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-6e89b1`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-6e89b1 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-884ce9: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-04c010)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-04c010`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-04c010 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-50baad: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-80bc76)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-80bc76`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-80bc76 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-78c7b4: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-968db4)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-968db4`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-968db4 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-ed30f7: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-d26a5b)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-d26a5b`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-d26a5b để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P1] TOPIC-20261105-cec4f5: Củng cố và phòng ngừa lỗi (clippy::lint_rules)
+- **Phân loại**: `Self-Healing Root Cause`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Ghi nhận mẫu lỗi đơn lẻ: 'ved.unwrap());
+    |
+
+    Checking agent-core v0.1.0 (/home/fox/tuzygent/crates/'. Giải pháp tạm thời: 'Fix warnings or explicitly allow with #[allow(...)] and inline justification'. Cần củng cố cấu trúc xử lý lỗi.
+- **Tiêu chuẩn nghiệm thu**: Refactor mã nguồn xử lý lint_rules để tăng cường khả năng tự phục hồi.
+
+### [P1] TOPIC-20261105-a60060: Củng cố và phòng ngừa lỗi (clippy::lint_rules)
+- **Phân loại**: `Self-Healing Root Cause`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Ghi nhận mẫu lỗi đơn lẻ: '`-D warnings`
+   = help: to override `-D warnings` add `#[allow(ambiguous_glob_r'. Giải pháp tạm thời: 'Fix warnings or explicitly allow with #[allow(...)] and inline justification'. Cần củng cố cấu trúc xử lý lỗi.
+- **Tiêu chuẩn nghiệm thu**: Refactor mã nguồn xử lý lint_rules để tăng cường khả năng tự phục hồi.
+
+### [P1] TOPIC-20261105-7b43f7: Củng cố và phòng ngừa lỗi (clippy::lint_rules)
+- **Phân loại**: `Self-Healing Root Cause`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Ghi nhận mẫu lỗi đơn lẻ: 'rmation visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#clo'. Giải pháp tạm thời: 'Fix warnings or explicitly allow with #[allow(...)] and inline justification'. Cần củng cố cấu trúc xử lý lỗi.
+- **Tiêu chuẩn nghiệm thu**: Refactor mã nguồn xử lý lint_rules để tăng cường khả năng tự phục hồi.
+
+### [P1] TOPIC-20261105-7fe3cf: Củng cố và phòng ngừa lỗi (cargo_test::workspace)
+- **Phân loại**: `Self-Healing Root Cause`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Ghi nhận mẫu lỗi đơn lẻ: 'bose` to show all linker arguments
+  = note: collect2: fatal error: ld terminate'. Giải pháp tạm thời: 'Run cargo test -p <failed_crate> with verbose logging to isolate regression'. Cần củng cố cấu trúc xử lý lỗi.
+- **Tiêu chuẩn nghiệm thu**: Refactor mã nguồn xử lý workspace để tăng cường khả năng tự phục hồi.
+
+### [P0] TOPIC-20261105-7b40b9: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-866e83)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 3 lần tại `research_mission::TOPIC-20261105-866e83`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-866e83 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-ea8add: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-159c25)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-159c25`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-159c25 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-7d7878: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-2dc00a)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-2dc00a`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-2dc00a để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-0c42a5: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-42d5da)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-42d5da`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-42d5da để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-7b2efb: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-85282b)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-85282b`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-85282b để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-79664f: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-bb59c8)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-bb59c8`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-bb59c8 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-e3fab6: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-d5c120)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-d5c120`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-d5c120 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-84e83d: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-873135)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-873135`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-873135 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-8b2363: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-a03347)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-a03347`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-a03347 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-59c2f5: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-9a6549)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-9a6549`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-9a6549 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-4c136f: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-0dcb3b)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-0dcb3b`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-0dcb3b để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261105-891d71: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261105-758427)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 2 lần tại `research_mission::TOPIC-20261105-758427`: 'Mission exited with non-zero code 2'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến TOPIC-20261105-758427 để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+

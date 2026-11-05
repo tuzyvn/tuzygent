@@ -28,6 +28,10 @@ case "${MODE}" in
     # Tự động quét mã nguồn và sinh đề tài nghiên cứu mới vào RESEARCH_BACKLOG.md
     python3 harness/topic_generator.py "${@:2}"
     ;;
+  --brainstorm)
+    # Tự động brainstorm đề tài tính năng mới dựa trên năng lực hệ thống hiện có
+    python3 harness/topic_generator.py --brainstorm "${@:2}"
+    ;;
   --research|-r)
     # Kích hoạt Agent tự nghiên cứu (hỗ trợ --continuous, --max-topics N)
     python3 harness/researcher.py "${@:2}"

@@ -1,9 +1,151 @@
 use agent_domain::{
-    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel,
+    ActionSeverity, AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole,
+    AgentSoul, AuditEventType, AuditLedger, AutonomyLevel,
 };
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
+use thiserror::Error;
 use tokio::fs;
+
+#[derive(Debug, Error)]
+pub enum PersonaError {
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("YAML parsing error: {0}")]
+    Yaml(#[from] serde_yaml_ng::Error),
+    #[error("JSON parsing error: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("Socket timeout while accessing persona profile store")]
+    SocketTimeout,
+    #[error("Connection reset by peer during persona profile synchronization")]
+    ConnectionReset,
+    #[error("Transient I/O failure: {0}")]
+    TransientIo(String),
+    #[error("Corrupted persona profile: {0}")]
+    CorruptedProfile(String),
+    #[error("Invalid persona identity: {0}")]
+    InvalidIdentity(String),
+    #[error("Persona file lock failure")]
+    LockFailure,
+    #[error("Max retry attempts ({0}) exceeded during persona operation")]
+    MaxRetriesExceeded(usize),
+    #[error("Persona directory not found: {0}")]
+    NotFound(String),
+    #[error("Persona error: {0}")]
+    Other(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PersonaFault {
+    SocketTimeout,
+    ConnectionReset,
+    TransientIo,
+    CorruptedProfile,
+    InvalidIdentity,
+    LockFailure,
+}
+
+impl PersonaFault {
+    pub fn to_error(&self) -> PersonaError {
+        match self {
+            Self::SocketTimeout => PersonaError::SocketTimeout,
+            Self::ConnectionReset => PersonaError::ConnectionReset,
+            Self::TransientIo => PersonaError::TransientIo(
+                "Simulated transient I/O failure while accessing persona profile".to_string(),
+            ),
+            Self::CorruptedProfile => PersonaError::CorruptedProfile(
+                "Simulated corrupted persona profile file or invalid format".to_string(),
+            ),
+            Self::InvalidIdentity => PersonaError::InvalidIdentity(
+                "Simulated invalid or unauthenticated persona identity".to_string(),
+            ),
+            Self::LockFailure => PersonaError::LockFailure,
+        }
+    }
+
+    pub fn simulate_fault(&self) -> std::result::Result<(), PersonaError> {
+        Err(self.to_error())
+    }
+}
+
+pub fn simulate_persona_fault(fault: &PersonaFault) -> std::result::Result<(), PersonaError> {
+    fault.simulate_fault()
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct PersonaFaultPolicy {
+    fault: Option<PersonaFault>,
+    fail_interval: Option<u32>,
+    max_injections: Option<usize>,
+    invocation_count: u32,
+    injected_count: usize,
+}
+
+impl PersonaFaultPolicy {
+    pub fn none() -> Self {
+        Self::default()
+    }
+
+    pub fn always(fault: PersonaFault) -> Self {
+        Self {
+            fault: Some(fault),
+            fail_interval: None,
+            max_injections: None,
+            invocation_count: 0,
+            injected_count: 0,
+        }
+    }
+
+    pub fn intermittent(fault: PersonaFault, interval: u32) -> Self {
+        Self {
+            fault: Some(fault),
+            fail_interval: Some(interval.max(1)),
+            max_injections: None,
+            invocation_count: 0,
+            injected_count: 0,
+        }
+    }
+
+    pub fn with_max_injections(mut self, max: usize) -> Self {
+        self.max_injections = Some(max);
+        self
+    }
+
+    pub fn should_inject(&mut self) -> Option<PersonaFault> {
+        let fault = self.fault.as_ref()?;
+
+        if let Some(max) = self.max_injections {
+            if self.injected_count >= max {
+                return None;
+            }
+        }
+
+        self.invocation_count = self.invocation_count.wrapping_add(1);
+
+        let inject = match self.fail_interval {
+            Some(interval) if interval > 0 => (self.invocation_count - 1).is_multiple_of(interval),
+            Some(_) => true,
+            None => true,
+        };
+
+        if inject {
+            self.injected_count += 1;
+            Some(fault.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn injected_count(&self) -> usize {
+        self.injected_count
+    }
+
+    pub fn reset(&mut self) {
+        self.invocation_count = 0;
+        self.injected_count = 0;
+    }
+}
 
 pub struct PersonaLoader;
 
@@ -315,5 +457,304 @@ impl PersonaLoader {
         fs::write(dir.join("MISSION.md"), mission_md).await?;
 
         Ok(())
+    }
+}
+
+pub type ResilientPersona = ResilientPersonaLoader;
+
+#[derive(Debug, Clone)]
+pub struct ResilientPersonaLoader {
+    policy: PersonaFaultPolicy,
+    max_retries: usize,
+    loaded_count: usize,
+    saved_count: usize,
+    recovered_count: usize,
+    rejected_count: usize,
+}
+
+impl Default for ResilientPersonaLoader {
+    fn default() -> Self {
+        Self {
+            policy: PersonaFaultPolicy::none(),
+            max_retries: 3,
+            loaded_count: 0,
+            saved_count: 0,
+            recovered_count: 0,
+            rejected_count: 0,
+        }
+    }
+}
+
+impl ResilientPersonaLoader {
+    pub fn new(policy: PersonaFaultPolicy, max_retries: usize) -> Self {
+        Self {
+            policy,
+            max_retries,
+            loaded_count: 0,
+            saved_count: 0,
+            recovered_count: 0,
+            rejected_count: 0,
+        }
+    }
+
+    pub fn with_policy(mut self, policy: PersonaFaultPolicy) -> Self {
+        self.policy = policy;
+        self
+    }
+
+    pub fn with_max_retries(mut self, max_retries: usize) -> Self {
+        self.max_retries = max_retries;
+        self
+    }
+
+    pub fn policy(&self) -> &PersonaFaultPolicy {
+        &self.policy
+    }
+
+    pub fn policy_mut(&mut self) -> &mut PersonaFaultPolicy {
+        &mut self.policy
+    }
+
+    pub fn set_policy(&mut self, policy: PersonaFaultPolicy) {
+        self.policy = policy;
+    }
+
+    pub fn max_retries(&self) -> usize {
+        self.max_retries
+    }
+
+    pub fn set_max_retries(&mut self, max_retries: usize) {
+        self.max_retries = max_retries;
+    }
+
+    pub fn loaded_count(&self) -> usize {
+        self.loaded_count
+    }
+
+    pub fn saved_count(&self) -> usize {
+        self.saved_count
+    }
+
+    pub fn recovered_count(&self) -> usize {
+        self.recovered_count
+    }
+
+    pub fn rejected_count(&self) -> usize {
+        self.rejected_count
+    }
+
+    fn check_fault_injection(&mut self, attempt: usize) -> std::result::Result<Option<()>, PersonaError> {
+        if let Some(fault) = self.policy.should_inject() {
+            match fault {
+                PersonaFault::SocketTimeout
+                | PersonaFault::ConnectionReset
+                | PersonaFault::TransientIo
+                | PersonaFault::LockFailure => {
+                    if attempt <= self.max_retries {
+                        self.recovered_count += 1;
+                        Ok(Some(()))
+                    } else {
+                        Err(fault.to_error())
+                    }
+                }
+                PersonaFault::CorruptedProfile | PersonaFault::InvalidIdentity => {
+                    self.rejected_count += 1;
+                    Err(fault.to_error())
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn load_from_dir<P: AsRef<Path>>(
+        &mut self,
+        dir_path: P,
+    ) -> std::result::Result<AgentPersonaProfile, PersonaError> {
+        let dir = dir_path.as_ref();
+        if !dir.exists() {
+            self.rejected_count += 1;
+            return Err(PersonaError::NotFound(dir.display().to_string()));
+        }
+
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            if let Some(()) = self.check_fault_injection(attempt)? {
+                continue;
+            }
+
+            match PersonaLoader::load_from_dir(dir).await {
+                Ok(profile) => {
+                    if profile.identity.name.trim().is_empty() {
+                        self.rejected_count += 1;
+                        return Err(PersonaError::InvalidIdentity("Persona name is empty".to_string()));
+                    }
+                    self.loaded_count += 1;
+                    return Ok(profile);
+                }
+                Err(err) => {
+                    let err_str = err.to_string();
+                    if err_str.contains("corrupt") || err_str.contains("Failed to parse") {
+                        self.rejected_count += 1;
+                        return Err(PersonaError::CorruptedProfile(err_str));
+                    }
+                    if attempt <= self.max_retries {
+                        self.recovered_count += 1;
+                        continue;
+                    }
+                    return Err(PersonaError::Other(err_str));
+                }
+            }
+        }
+    }
+
+    pub async fn load_from_markdown_files<P: AsRef<Path>>(
+        &mut self,
+        dir_path: P,
+    ) -> std::result::Result<AgentPersonaProfile, PersonaError> {
+        let dir = dir_path.as_ref();
+        if !dir.exists() {
+            self.rejected_count += 1;
+            return Err(PersonaError::NotFound(dir.display().to_string()));
+        }
+
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            if let Some(()) = self.check_fault_injection(attempt)? {
+                continue;
+            }
+
+            match PersonaLoader::load_from_markdown_files(dir).await {
+                Ok(profile) => {
+                    if profile.identity.name.trim().is_empty() {
+                        self.rejected_count += 1;
+                        return Err(PersonaError::InvalidIdentity("Persona name is empty".to_string()));
+                    }
+                    self.loaded_count += 1;
+                    return Ok(profile);
+                }
+                Err(err) => {
+                    let err_str = err.to_string();
+                    if err_str.contains("corrupt") || err_str.contains("Failed to parse") {
+                        self.rejected_count += 1;
+                        return Err(PersonaError::CorruptedProfile(err_str));
+                    }
+                    if attempt <= self.max_retries {
+                        self.recovered_count += 1;
+                        continue;
+                    }
+                    return Err(PersonaError::Other(err_str));
+                }
+            }
+        }
+    }
+
+    pub async fn export_to_dir<P: AsRef<Path>>(
+        &mut self,
+        profile: &AgentPersonaProfile,
+        dir_path: P,
+    ) -> std::result::Result<(), PersonaError> {
+        if profile.identity.name.trim().is_empty() {
+            self.rejected_count += 1;
+            return Err(PersonaError::InvalidIdentity("Persona name cannot be empty".to_string()));
+        }
+
+        let dir = dir_path.as_ref();
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            if let Some(()) = self.check_fault_injection(attempt)? {
+                continue;
+            }
+
+            match PersonaLoader::export_to_dir(profile, dir).await {
+                Ok(()) => {
+                    self.saved_count += 1;
+                    return Ok(());
+                }
+                Err(err) => {
+                    if attempt <= self.max_retries {
+                        self.recovered_count += 1;
+                        continue;
+                    }
+                    return Err(PersonaError::Other(err.to_string()));
+                }
+            }
+        }
+    }
+
+    pub async fn load_from_dir_and_record<P: AsRef<Path>>(
+        &mut self,
+        ledger: &mut AuditLedger,
+        dir_path: P,
+    ) -> std::result::Result<AgentPersonaProfile, PersonaError> {
+        let p = dir_path.as_ref();
+        match self.load_from_dir(p).await {
+            Ok(profile) => {
+                ledger.record_event(
+                    AuditEventType::CommandAllowed,
+                    ActionSeverity::Routine,
+                    format!("Persona profile successfully loaded: '{}'", profile.identity.name),
+                );
+                Ok(profile)
+            }
+            Err(err) => {
+                let severity = match &err {
+                    PersonaError::CorruptedProfile(_) | PersonaError::InvalidIdentity(_) => {
+                        ActionSeverity::Destructive
+                    }
+                    _ => ActionSeverity::HighImpact,
+                };
+                let event_type = match &err {
+                    PersonaError::InvalidIdentity(_) => AuditEventType::CommandBlocked,
+                    _ => AuditEventType::CommandException,
+                };
+                ledger.record_event(
+                    event_type,
+                    severity,
+                    format!("Persona load failure for '{}': {}", p.display(), err),
+                );
+                Err(err)
+            }
+        }
+    }
+
+    pub async fn export_to_dir_and_record<P: AsRef<Path>>(
+        &mut self,
+        ledger: &mut AuditLedger,
+        profile: &AgentPersonaProfile,
+        dir_path: P,
+    ) -> std::result::Result<(), PersonaError> {
+        let p = dir_path.as_ref();
+        match self.export_to_dir(profile, p).await {
+            Ok(()) => {
+                ledger.record_event(
+                    AuditEventType::CommandAllowed,
+                    ActionSeverity::Routine,
+                    format!("Persona profile successfully exported: '{}'", profile.identity.name),
+                );
+                Ok(())
+            }
+            Err(err) => {
+                let severity = match &err {
+                    PersonaError::CorruptedProfile(_) | PersonaError::InvalidIdentity(_) => {
+                        ActionSeverity::Destructive
+                    }
+                    _ => ActionSeverity::HighImpact,
+                };
+                let event_type = match &err {
+                    PersonaError::InvalidIdentity(_) => AuditEventType::CommandBlocked,
+                    _ => AuditEventType::CommandException,
+                };
+                ledger.record_event(
+                    event_type,
+                    severity,
+                    format!("Persona export failure for '{}': {}", profile.identity.name, err),
+                );
+                Err(err)
+            }
+        }
     }
 }

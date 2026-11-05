@@ -17,6 +17,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Inspect task, memory, or workflow DAG details
+    Inspect(InspectArgs),
     /// Manage project-scoped persona memory
     Memory(MemoryArgs),
     /// Build and install the latest AgentCore main from GitHub (requires Git and Cargo)
@@ -179,5 +181,66 @@ pub enum RigAction {
         snapshot: PathBuf,
         #[arg(short, long, default_value = ".")]
         workspace: String,
+    },
+}
+
+#[derive(clap::Args, Debug, Clone)]
+pub struct InspectArgs {
+    /// Output format: table (default) or json
+    #[arg(long, value_enum, default_value = "table", global = true)]
+    pub format: OutputFormat,
+
+    /// Target workspace root path
+    #[arg(long, default_value = ".", global = true)]
+    pub workspace: PathBuf,
+
+    /// Inspection target: task | memory | dag
+    #[command(subcommand)]
+    pub target: InspectTarget,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OutputFormat {
+    #[default]
+    Table,
+    Json,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum InspectTarget {
+    /// Inspect task state, subtasks execution details, and result
+    #[command(alias = "task-id")]
+    Task {
+        /// Optional Task ID (positional)
+        id: Option<String>,
+        /// Optional Task ID (via flag --id)
+        #[arg(long = "id")]
+        flag_id: Option<String>,
+        /// Filter by task status
+        #[arg(long)]
+        status: Option<String>,
+        /// Max number of tasks to inspect/list
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
+    /// Inspect agent persona memory records and retrieved lessons
+    Memory {
+        /// Optional Memory ID or semantic query
+        id_or_query: Option<String>,
+        /// Project scope
+        #[arg(long, default_value = "default")]
+        project: String,
+        /// Persona name
+        #[arg(long, default_value = "default")]
+        persona: String,
+    },
+    /// Inspect workflow DAG definition, nodes, edges, or execution run report
+    Dag {
+        /// Optional workflow ID or run ID
+        id: Option<String>,
+        /// Path to workflow catalog JSON
+        #[arg(long, default_value = "workflows/catalog.json")]
+        catalog_path: String,
     },
 }
