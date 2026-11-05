@@ -7,3 +7,4 @@
 /memory
 .worktrees/
 
+__pycache__/

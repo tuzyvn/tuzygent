@@ -13,6 +13,9 @@ impl InterAgentBus {
     }
 
     pub fn publish(&self, event: InterAgentEvent) -> Result<usize, String> {
+        if self.sender.receiver_count() == 0 {
+            return Ok(0);
+        }
         self.sender
             .send(event)
             .map_err(|e| format!("Failed to publish inter-agent event: {}", e))

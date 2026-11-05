@@ -25,7 +25,8 @@ pub struct SqliteTaskStore {
 impl SqliteTaskStore {
     pub fn new(workspace_dir: impl AsRef<Path>) -> Result<Self> {
         let storage_dir = workspace_dir.as_ref().join("storage");
-        let _ = std::fs::create_dir_all(&storage_dir);
+        std::fs::create_dir_all(&storage_dir)
+            .map_err(|e| anyhow!("Failed to create storage dir {:?}: {}", storage_dir, e))?;
         let db_path = storage_dir.join("tasks.db");
 
         let conn = Connection::open(&db_path)
@@ -224,7 +225,7 @@ impl TaskStore for SqliteTaskStore {
                 result.task_id.0,
                 status_json,
                 result.summary,
-                result.duration_ms as i64,
+                i64::try_from(result.duration_ms).unwrap_or(i64::MAX),
                 raw_json,
                 now
             ],

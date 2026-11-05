@@ -179,3 +179,25 @@ fn retrieval_benchmark_30_labeled_cases() {
     }
     assert_eq!(hits, 30);
 }
+
+#[test]
+fn test_modular_persona_memory_schema_and_metadata_accessors() {
+    let w = Workspace::new();
+    let m = w.store("test-proj", "test-agent");
+    assert_eq!(m.project(), "test-proj");
+    assert_eq!(m.persona(), "test-agent");
+    assert!(m.path().ends_with("storage/persona_memory/memory.sqlite3"));
+
+    // Verify schema initialization and connect helpers directly from schema submodule
+    let conn = agent_memory::persona_memory::schema::connect_db(m.path()).unwrap();
+    agent_memory::persona_memory::schema::init_schema(&conn).unwrap();
+
+    // Verify record episode and lifecycle work with modular service
+    let ep_id = m.record_episode("t1", "modular memory check", true).unwrap();
+    let l_id = m.propose_lesson("modular lesson", "cond1", &ep_id).unwrap();
+    m.activate(&l_id).unwrap();
+
+    let record = m.show(&l_id).unwrap();
+    assert_eq!(record.content, "modular lesson");
+    assert_eq!(record.status, "active");
+}

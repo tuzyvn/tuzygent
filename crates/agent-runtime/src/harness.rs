@@ -94,8 +94,10 @@ impl HarnessMemoryStore {
             return Ok(saved);
         }
 
+        let uuid_str = Uuid::new_v4().to_string();
+        let short_id = uuid_str.get(..8).unwrap_or(&uuid_str);
         let new_lesson = HarnessLesson {
-            id: format!("les-{}", &Uuid::new_v4().to_string()[..8]),
+            id: format!("les-{}", short_id),
             node_type: node_type.to_string(),
             identifier: identifier.to_string(),
             error_pattern: error_pattern.to_string(),
@@ -135,12 +137,14 @@ impl HarnessMemoryStore {
             .map_err(|e| anyhow!("Lỗi serialize harness lessons: {}", e))?;
 
         let temp_path = self.memory_path.with_extension(format!("tmp.{}", Uuid::new_v4().simple()));
-        tokio::fs::write(&temp_path, &json_data)
-            .await
-            .map_err(|e| anyhow!("Không ghi được file tạm harness lessons: {}", e))?;
-        tokio::fs::rename(&temp_path, &self.memory_path)
-            .await
-            .map_err(|e| anyhow!("Không thể rename atomic file harness lessons: {}", e))?;
+        if let Err(e) = tokio::fs::write(&temp_path, &json_data).await {
+            let _ = tokio::fs::remove_file(&temp_path).await;
+            return Err(anyhow!("Không ghi được file tạm harness lessons: {}", e));
+        }
+        if let Err(e) = tokio::fs::rename(&temp_path, &self.memory_path).await {
+            let _ = tokio::fs::remove_file(&temp_path).await;
+            return Err(anyhow!("Không thể rename atomic file harness lessons: {}", e));
+        }
         Ok(())
     }
 }
@@ -202,7 +206,7 @@ impl HarnessSelfHealer {
         if stderr_lower.contains("no such file or directory") || stderr_lower.contains("not found")
         {
             if let Some(pos) = original_cmd.find("--output-dir ") {
-                let rest = &original_cmd[pos + 13..];
+                let rest = original_cmd.get(pos + 13..).unwrap_or("");
                 let out_dir = rest.split_whitespace().next().unwrap_or("storage");
                 return Some(format!("mkdir -p {} && {}", out_dir, original_cmd));
             }

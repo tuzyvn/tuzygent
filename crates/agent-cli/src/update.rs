@@ -131,29 +131,25 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     #[test]
-    fn validates_before_replacing_and_cleans_staging() {
-        let directory = TemporaryDirectory::new(&std::env::temp_dir()).unwrap();
+    fn validates_before_replacing_and_cleans_staging() -> Result<(), Box<dyn std::error::Error>> {
+        let directory = TemporaryDirectory::new(&std::env::temp_dir())?;
         let destination = directory.0.join("installed");
         let candidate = directory.0.join("candidate");
-        fs::write(&destination, "old binary").unwrap();
+        fs::write(&destination, "old binary")?;
         fs::write(
             &candidate,
             "#!/bin/sh\necho 'agent-ctl 0.1.0'\necho 'Commit: wrong'\n",
-        )
-        .unwrap();
-        fs::set_permissions(&candidate, fs::Permissions::from_mode(0o755)).unwrap();
+        )?;
+        fs::set_permissions(&candidate, fs::Permissions::from_mode(0o755))?;
         assert!(install(&candidate, &destination, "abc1234").is_err());
-        assert_eq!(fs::read_to_string(&destination).unwrap(), "old binary");
+        assert_eq!(fs::read_to_string(&destination)?, "old binary");
         fs::write(
             &candidate,
             "#!/bin/sh\necho 'agent-ctl 0.1.0'\necho 'Commit: abc1234'\n",
-        )
-        .unwrap();
-        install(&candidate, &destination, "abc1234").unwrap();
-        assert_eq!(
-            fs::read(&destination).unwrap(),
-            fs::read(&candidate).unwrap()
-        );
-        assert_eq!(fs::read_dir(&directory.0).unwrap().count(), 2);
+        )?;
+        install(&candidate, &destination, "abc1234")?;
+        assert_eq!(fs::read(&destination)?, fs::read(&candidate)?);
+        assert_eq!(fs::read_dir(&directory.0)?.count(), 2);
+        Ok(())
     }
 }

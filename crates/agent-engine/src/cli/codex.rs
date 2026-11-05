@@ -126,11 +126,17 @@ impl CodexEngine {
             let event: Value = match serde_json::from_str(line) {
                 Ok(event) => event,
                 Err(_) => {
-                    received.lock().unwrap().invalid_json = true;
+                    received
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .invalid_json = true;
                     return;
                 }
             };
-            let text = received.lock().unwrap().accept(&event);
+            let text = received
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .accept(&event);
             if let Some(callback) = &events {
                 callback(&event);
             }
@@ -166,7 +172,9 @@ impl CodexEngine {
             Some(callback),
         )
         .await?;
-        let mut state = state.lock().unwrap();
+        let mut state = state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut exit_code = output.status.code().unwrap_or(-1);
         let mut failure = state.failure.take();
         if exit_code == 0 {

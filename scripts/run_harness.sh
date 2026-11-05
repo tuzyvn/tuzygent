@@ -20,12 +20,16 @@ chmod +x harness/evaluators/benchmark.py harness/memory_bridge.py harness/orches
 MODE="${1:---all}"
 
 case "${MODE}" in
+  --continuous|-c)
+    # Vòng lặp tự nghiên cứu liên tục xuyên suốt (Autonomous Continuous Pipeline)
+    python3 harness/researcher.py --continuous "${@:2}"
+    ;;
   --discover|-d)
     # Tự động quét mã nguồn và sinh đề tài nghiên cứu mới vào RESEARCH_BACKLOG.md
     python3 harness/topic_generator.py "${@:2}"
     ;;
   --research|-r)
-    # Kích hoạt Agent tự nghiên cứu theo đề tài trong RESEARCH_BACKLOG.md
+    # Kích hoạt Agent tự nghiên cứu (hỗ trợ --continuous, --max-topics N)
     python3 harness/researcher.py "${@:2}"
     ;;
   --benchmark|-b)

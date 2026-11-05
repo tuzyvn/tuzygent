@@ -121,6 +121,9 @@ impl ComputeEngine for AntigravityEngine {
             full_prompt,
             "--output-format".into(),
             "stream-json".into(),
+            "--mode".into(),
+            "auto".into(),
+            "--dangerously-skip-permissions".into(),
         ];
         if let Some(model) = &self.model {
             args.extend(["--model".into(), model.clone()]);

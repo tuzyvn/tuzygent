@@ -77,8 +77,14 @@ impl TerminalReportStore {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
         // Ghi nguyên tử qua file tạm rồi rename (Atomic Write)
-        fs::write(&temp_path, &data).await?;
-        fs::rename(&temp_path, &target_path).await?;
+        if let Err(e) = fs::write(&temp_path, &data).await {
+            let _ = fs::remove_file(&temp_path).await;
+            return Err(e);
+        }
+        if let Err(e) = fs::rename(&temp_path, &target_path).await {
+            let _ = fs::remove_file(&temp_path).await;
+            return Err(e);
+        }
 
         info!(
             "💾 [ReportStore] Enqueued terminal report for task '{}' at {:?}",

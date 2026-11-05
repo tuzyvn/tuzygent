@@ -43,3 +43,10 @@ agent-engine = { path = "crates/agent-engine" }
 agent-memory = { path = "crates/agent-memory" }
 agent-runtime = { path = "crates/agent-runtime" }
 agent-core = { path = "crates/agent-core" }
+
+[workspace.lints.rust]
+ambiguous_glob_reexports = "deny"
+
+[workspace.lints.clippy]
+all = "warn"
+

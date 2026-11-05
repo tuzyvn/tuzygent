@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
+
 [dependencies]
 agent-domain.workspace = true
 tokio.workspace = true

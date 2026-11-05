@@ -56,18 +56,32 @@ Hệ thống tự động phân tích tĩnh cây mã nguồn Rust để tìm cá
 ./scripts/run_harness.sh -d
 ```
 
-### 2.2. Kích hoạt Agent tự nghiên cứu theo đề tài
-Lệnh này sẽ tự động đọc các mục chưa giải quyết trong `RESEARCH_BACKLOG.md` (nếu backlog trống sẽ tự động gọi máy quét sinh mới), kết hợp với các bài học lỗi trong quá khứ, và khởi động Agent tự nghiên cứu:
-```bash
-# Xem trước kế hoạch nghiên cứu mà không tốn token (dry-run):
-./scripts/run_harness.sh --research --dry-run
+### 2.2. Kích hoạt Chế độ Tự Nghiên Cứu Liên Tục (Autonomous Continuous Loop)
+Để hệ thống **tự động chạy liên tục từ đề tài này sang đề tài khác mà không dừng lại sau mỗi bài**, sử dụng cờ `--continuous` (hoặc `-c`):
 
-# Kích hoạt Agent bắt đầu nghiên cứu và sửa code (mặc định dùng antigravity, sandbox host):
+```bash
+# Chạy liên tục xuyên suốt qua đêm (xong đề tài 1 -> tự nhảy sang đề tài 2, 3,...):
+./scripts/run_harness.sh --continuous
+
+# Hoặc giới hạn số lượng đề tài cần hoàn thành trong một phiên (ví dụ 5 đề tài rồi nghỉ):
+./scripts/run_harness.sh --research --max-topics 5
+
+# Chạy đơn lẻ 1 đề tài rồi dừng:
 ./scripts/run_harness.sh --research
 
-# Hoặc chỉ định rõ engine, sandbox và chủ đề nghiên cứu:
-./scripts/run_harness.sh --research --engine antigravity --sandbox host --topic "Refactor 47 lệnh unwrap() tại crates/agent-server/src/main.rs"
+# Xem trước kế hoạch nghiên cứu mà không tốn token (dry-run):
+./scripts/run_harness.sh --research --dry-run
 ```
+
+#### Quy trình tự hành trong chế độ Continuous:
+1. **Lấy đề tài P0 tiếp theo** từ [`RESEARCH_BACKLOG.md`](file:///home/fox/tuzygent/RESEARCH_BACKLOG.md).
+2. **Khởi chạy Agent** tự phân tích, viết test TDD và refactor code.
+3. **Gatekeeper đo lường**: Chạy toàn bộ 68+ tests và clippy.
+4. **Tự động thẩm định & Cập nhật**:
+   - Đánh dấu đề tài là `COMPLETED ✅` trong backlog.
+   - Tự động build release và thay thế binary `agent-ctl`.
+5. **Nghỉ 3 giây và tự động chuyển sang đề tài tiếp theo** mà không cần người dùng gõ lệnh lại.
+6. **Bảo vệ chống kẹt (Circuit Breaker)**: Nếu một đề tài thất bại 2 lần liên tiếp, hệ thống tự động ghi bài học lỗi, đánh dấu `BLOCKED ⚠️` và tiếp tục các đề tài khác để không bị treo vòng lặp.
 
 ### 2.3. Chạy đánh giá toàn diện & Tự động nâng cấp binary
 Chạy toàn bộ bộ test, clippy, kịch bản scenario. Nếu đạt 100%, hệ thống tự động build bản release và thay thế binary `agent-ctl`:

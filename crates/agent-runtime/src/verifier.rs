@@ -50,12 +50,16 @@ impl<'a> TaskVerifier<'a> {
                     path: cleaned_path.to_string(),
                 });
             } else if lower.starts_with("contains:") {
-                let parts: Vec<&str> = line.split_once(':').map(|(_, rest)| rest).unwrap_or("").split('|').collect();
-                if parts.len() >= 2 {
-                    specs.push(VerificationSpec::ContentContains {
-                        path: parts[0].trim().to_string(),
-                        pattern: parts[1].trim().to_string(),
-                    });
+                let rest = line.split_once(':').map(|(_, r)| r.trim()).unwrap_or("");
+                if let Some((path, pattern)) = rest.split_once('|') {
+                    let path = path.trim();
+                    let pattern = pattern.trim();
+                    if !path.is_empty() && !pattern.is_empty() {
+                        specs.push(VerificationSpec::ContentContains {
+                            path: path.to_string(),
+                            pattern: pattern.to_string(),
+                        });
+                    }
                 }
             } else {
                 specs.push(VerificationSpec::Custom {
@@ -173,12 +177,20 @@ impl<'a> TaskVerifier<'a> {
                 cmd.arg("-c").arg(command);
                 cmd.current_dir(self.workspace_dir);
 
-                match cmd.output().await {
+                match crate::processtree::ProcessTreeController::run_bounded(
+                    cmd,
+                    std::time::Duration::from_secs(60),
+                    std::time::Duration::from_secs(2),
+                )
+                .await
+                {
                     Ok(output) => {
                         let actual_code = output.status.code().unwrap_or(-1);
                         let passed = actual_code == *expected_exit_code;
-                        let stdout_tail: String = String::from_utf8_lossy(&output.stdout).chars().rev().take(500).collect::<String>().chars().rev().collect();
-                        let stderr_tail: String = String::from_utf8_lossy(&output.stderr).chars().rev().take(500).collect::<String>().chars().rev().collect();
+                        let stdout_lossy = String::from_utf8_lossy(&output.stdout);
+                        let stderr_lossy = String::from_utf8_lossy(&output.stderr);
+                        let stdout_tail = take_tail_chars(&stdout_lossy, 500);
+                        let stderr_tail = take_tail_chars(&stderr_lossy, 500);
                         VerificationResult {
                             passed,
                             spec: spec.clone(),
@@ -192,7 +204,7 @@ impl<'a> TaskVerifier<'a> {
                     Err(e) => VerificationResult {
                         passed: false,
                         spec: spec.clone(),
-                        details: format!("Failed to spawn verification command '{}': {}", command, e),
+                        details: format!("Verification command '{}' failed: {}", command, e),
                         executed_at: now,
                     },
                 }
@@ -232,5 +244,44 @@ fn spec_description(spec: &VerificationSpec) -> String {
         VerificationSpec::JsonValid { path } => format!("JsonValid '{}'", path),
         VerificationSpec::ContentContains { path, pattern } => format!("ContentContains in '{}' pattern '{}'", path, pattern),
         VerificationSpec::Custom { description } => format!("Custom '{}'", description),
+    }
+}
+
+fn take_tail_chars(s: &str, n: usize) -> String {
+    let count = s.chars().count();
+    if count > n {
+        s.chars().skip(count - n).collect()
+    } else {
+        s.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_verify_command_spec_failure_handled_gracefully() {
+        let temp_dir = std::env::temp_dir();
+        let verifier = TaskVerifier::new(&temp_dir);
+        let spec = VerificationSpec::Command {
+            command: "exit 42".to_string(),
+            expected_exit_code: 0,
+        };
+        let res = verifier.verify_spec(&spec).await;
+        assert!(!res.passed);
+        assert!(res.details.contains("42"));
+    }
+
+    #[tokio::test]
+    async fn test_verify_command_nonexistent_handled_gracefully() {
+        let temp_dir = std::env::temp_dir();
+        let verifier = TaskVerifier::new(&temp_dir);
+        let spec = VerificationSpec::Command {
+            command: "non_existent_binary_xyz_12345".to_string(),
+            expected_exit_code: 0,
+        };
+        let res = verifier.verify_spec(&spec).await;
+        assert!(!res.passed);
     }
 }

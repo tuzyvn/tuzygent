@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
+#[derive(Debug, Clone)]
 pub struct ScratchpadManager {
     file_path: PathBuf,
 }

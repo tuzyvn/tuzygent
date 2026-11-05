@@ -196,3 +196,43 @@ async fn test_ooda_verification_gate_blocks_completion_without_evidence() {
 
     let _ = std::fs::remove_dir_all(&ws);
 }
+
+struct PanickingEngine;
+
+#[async_trait]
+impl ComputeEngine for PanickingEngine {
+    async fn execute(&self, _input: &EngineInput) -> Result<EngineOutput, EngineError> {
+        panic!("Simulated critical compute engine crash!");
+    }
+    fn engine_kind(&self) -> EngineKind {
+        EngineKind::Mock
+    }
+}
+
+#[tokio::test]
+async fn test_task_service_dispatch_recovers_from_worker_panic() {
+    let ws = unique_temp_dir();
+    let store = Arc::new(SqliteTaskStore::new(&ws).unwrap());
+    let service = TaskService::new(store.clone(), &ws, 2, None, None);
+
+    let task_id = service
+        .submit_task("Panic Job", "This engine will panic", Priority::Normal)
+        .await
+        .unwrap();
+
+    let engine = Arc::new(PanickingEngine);
+    service.dispatch(task_id.clone(), engine);
+
+    // Wait briefly for the background worker to execute and fail gracefully
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+    let task = service.get_task(&task_id).await.unwrap().expect("Task should exist");
+    // Verify task did NOT remain stuck in Executing, but transitioned to Failed
+    assert!(
+        matches!(task.status, TaskStatus::Failed { ref error } if error.contains("panicked")),
+        "Task status should transition to Failed on worker panic: {:?}",
+        task.status
+    );
+
+    let _ = std::fs::remove_dir_all(&ws);
+}

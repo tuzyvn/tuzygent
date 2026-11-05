@@ -6,6 +6,10 @@ authors.workspace = true
 license.workspace = true
 description = "Standalone REST & WebSocket Daemon Server for AgentCore"
 
+[lints]
+workspace = true
+
+
 [[bin]]
 name = "agent-server"
 path = "src/main.rs"

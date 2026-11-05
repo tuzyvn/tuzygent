@@ -15,6 +15,7 @@ pub struct StructuredLesson {
     pub success: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct DurableMemoryStore {
     memory_file: PathBuf,
     user_file: PathBuf,

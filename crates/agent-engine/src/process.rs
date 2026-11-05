@@ -258,13 +258,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn drains_stderr_while_stdout_is_open() {
+    async fn drains_stderr_while_stdout_is_open() -> Result<(), Box<dyn std::error::Error>> {
         let engine = shell("i=0; while [ $i -lt 10000 ]; do printf 'a long diagnostic message to fill stderr\\n' >&2; i=$((i+1)); done; printf done".into());
         let mut input = EngineInput::new("", "/tmp");
         input.timeout_seconds = 5;
-        let result = engine.execute(&input).await.unwrap();
+        let result = engine.execute(&input).await?;
         assert_eq!(result.exit_code, 0);
         assert_eq!(result.stdout_content, "done");
+        Ok(())
     }
 
     #[tokio::test]
@@ -300,7 +301,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn every_cli_uses_the_wrapper_and_never_falls_back_to_host() {
+    async fn every_cli_uses_the_wrapper_and_never_falls_back_to_host() -> Result<(), Box<dyn std::error::Error>> {
         let engines: Vec<Arc<dyn ComputeEngine>> = vec![
             Arc::new(shell("exit 0".into())),
             Arc::new(ClaudeCodeEngine::new(Some("/bin/true".into()), None)),
@@ -316,18 +317,19 @@ mod tests {
                 working_dir: "/workspace".into(),
                 container_name: None,
             });
-            assert_eq!(engine.execute(&input).await.unwrap().exit_code, 42);
-            input.command_sandbox.as_mut().unwrap().program = "/missing-tuzygent-sandbox".into();
+            assert_eq!(engine.execute(&input).await?.exit_code, 42);
+            input.command_sandbox.as_mut().ok_or("missing command_sandbox")?.program = "/missing-tuzygent-sandbox".into();
             assert!(engine.execute(&input).await.is_err());
         }
+        Ok(())
     }
 
     #[tokio::test]
-    async fn antigravity_enforces_timeout_and_drains_stderr() {
+    async fn antigravity_enforces_timeout_and_drains_stderr() -> Result<(), Box<dyn std::error::Error>> {
         use std::os::unix::fs::PermissionsExt;
         let script = marker("agy-script");
-        std::fs::write(&script, "#!/bin/sh\nsleep 2\n").unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::write(&script, "#!/bin/sh\nsleep 2\n")?;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700))?;
         let engine = AntigravityEngine::new(Some(script.to_string_lossy().into()), None);
         let mut input = EngineInput::new("test", "/tmp");
         input.timeout_seconds = 1;
@@ -335,9 +337,10 @@ mod tests {
             engine.execute(&input).await,
             Err(EngineError::Timeout)
         ));
-        std::fs::write(&script, "#!/bin/sh\ni=0; while [ $i -lt 10000 ]; do printf 'diagnostic diagnostic diagnostic\\n' >&2; i=$((i+1)); done\nprintf '%s\\n' '{\"event\":\"result\",\"result\":{\"response\":\"ok\"}}'\n").unwrap();
+        std::fs::write(&script, "#!/bin/sh\ni=0; while [ $i -lt 10000 ]; do printf 'diagnostic diagnostic diagnostic\\n' >&2; i=$((i+1)); done\nprintf '%s\\n' '{\"event\":\"result\",\"result\":{\"response\":\"ok\"}}'\n")?;
         input.timeout_seconds = 5;
-        assert_eq!(engine.execute(&input).await.unwrap().stdout_content, "ok");
-        std::fs::remove_file(script).unwrap();
+        assert_eq!(engine.execute(&input).await?.stdout_content, "ok");
+        std::fs::remove_file(script)?;
+        Ok(())
     }
 }

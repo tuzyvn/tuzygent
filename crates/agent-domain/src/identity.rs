@@ -256,8 +256,12 @@ mod tests {
         let deserialized: AgentPersonaProfile =
             serde_json::from_str(&serialized).expect("Must deserialize");
         assert_eq!(
-            deserialized.soul.voice_profile.unwrap().voice_id,
-            "vp_miku_01"
+            deserialized
+                .soul
+                .voice_profile
+                .as_ref()
+                .map(|vp| vp.voice_id.as_str()),
+            Some("vp_miku_01")
         );
     }
 }
