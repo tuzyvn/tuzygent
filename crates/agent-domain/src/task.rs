@@ -166,6 +166,9 @@ pub struct Task {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
     pub assigned_agent: Option<crate::identity::AgentId>,
+    /// Configured engine name retained for safe recovery of queued tasks.
+    #[serde(default)]
+    pub engine_name: Option<String>,
 }
 
 impl Task {
@@ -181,6 +184,7 @@ impl Task {
             created_at: now,
             updated_at: now,
             assigned_agent: None,
+            engine_name: None,
         }
     }
 }

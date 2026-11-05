@@ -17,6 +17,7 @@ pub struct RunArgs {
     pub sandbox: Option<String>,
     pub persona_path: Option<String>,
     pub timeout: Option<u64>,
+    pub auto_approve: bool,
 }
 
 pub async fn handle(args: RunArgs) -> anyhow::Result<()> {
@@ -28,6 +29,7 @@ pub async fn handle(args: RunArgs) -> anyhow::Result<()> {
         sandbox,
         persona_path,
         timeout,
+        auto_approve,
     } = args;
 
     println!("🚀 Dispatching goal to Agent [{}]: {}", agent_id, goal);
@@ -92,7 +94,8 @@ pub async fn handle(args: RunArgs) -> anyhow::Result<()> {
         AutonomousOodaLoop::new(compute_engine, guardrail, scratchpad, durable, &workspace)
             .with_timeout_seconds(timeout_secs)
             .with_sandbox_config(sandbox_cfg)
-            .with_bus(cli_bus);
+            .with_bus(cli_bus)
+            .with_auto_approve(auto_approve);
     let ooda = if let Some(profile) = profile { ooda.with_persona(profile) } else { ooda };
 
     let mut task = Task::new(&goal, &goal, Priority::High);

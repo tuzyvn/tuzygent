@@ -12,7 +12,7 @@ use anyhow::Context;
 use clap::Parser;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
-use tracing::{info, warn};
+use tracing::info;
 
 pub mod auth;
 pub mod dashboard_html;
@@ -48,29 +48,30 @@ async fn main() -> anyhow::Result<()> {
         token: Arc::new(cli.api_token),
         allowed_origins: allowed_origins.clone(),
     };
+    let addr: SocketAddr = format!("{}:{}", cli.host, cli.port).parse()?;
+    let listener = tokio::net::TcpListener::bind(addr).await?;
 
     let bus = InterAgentBus::new(200);
     let supervisor = Arc::new(AgentSupervisor::new(bus.clone()));
     let vault = Arc::new(agent_engine::AccountVault::new());
-    let task_store = match agent_runtime::SqliteTaskStore::new(&cli.workspace) {
-        Ok(store) => store,
-        Err(err) => {
-            warn!(
-                "Failed to initialize SQLite task store at {:?}: {err}, falling back to in-memory store",
-                cli.workspace
-            );
-            agent_runtime::SqliteTaskStore::memory()
-                .context("Failed to initialize fallback in-memory SQLite task store")?
-        }
-    };
+    let storage_dir = std::path::Path::new(&cli.workspace).join("storage");
+    std::fs::create_dir_all(&storage_dir)?;
+    let daemon_lock = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(storage_dir.join("daemon.lock"))?;
+    daemon_lock.try_lock().context("Another daemon owns this workspace's task store")?;
+    let task_store = agent_runtime::SqliteTaskStore::new(&cli.workspace)
+        .context("Failed to initialize durable task store")?;
     let task_store = Arc::new(task_store);
+    let engines_config = EnginesConfig::load_hierarchical(Some(std::path::Path::new(&cli.workspace)));
+    let sandbox_config = SandboxConfig::from_engines_config(&engines_config)
+        .context("Invalid sandbox configuration")?;
     let task_service = Arc::new(agent_runtime::TaskService::new(
         task_store,
         &cli.workspace,
         4,
         None,
-        None,
+        Some(sandbox_config),
     ));
+    task_service.recover_after_restart().await.context("Failed to recover task state")?;
 
     let state = AppState {
         supervisor,
@@ -82,13 +83,11 @@ async fn main() -> anyhow::Result<()> {
 
     let app = build_app(state, auth);
 
-    let addr: SocketAddr = format!("{}:{}", cli.host, cli.port).parse()?;
     info!("🚀 AgentCore Daemon Server listening on http://{}", addr);
     info!("🤖 OpenAI-Compatible Gateway active at http://{}/v1/chat/completions", addr);
     info!("🌐 Web Account Management Dashboard active at http://{}/dashboard", addr);
     info!("📡 WebSocket stream active at ws://{}/api/v1/ws", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
 
     Ok(())
@@ -101,6 +100,7 @@ pub fn build_app(state: AppState, auth: AuthState) -> Router {
         .allow_headers([
             axum::http::header::AUTHORIZATION,
             axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderName::from_static("idempotency-key"),
         ]);
 
     let gateway = Router::new()
@@ -141,6 +141,7 @@ pub fn build_app(state: AppState, auth: AuthState) -> Router {
         .route("/api/v1/tasks/{id}", get(get_task_handler))
         .route("/api/v1/tasks/{id}/cancel", post(cancel_task_handler))
         .route("/api/v1/tasks/{id}/approve", post(approve_task_handler))
+        .route("/api/v1/tasks/{id}/review", post(review_task_handler))
         .route("/api/v1/ws", get(ws_handler))
         .merge(gateway)
         .route_layer(middleware::from_fn_with_state(auth, require_auth));

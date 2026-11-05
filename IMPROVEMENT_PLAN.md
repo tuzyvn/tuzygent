@@ -131,10 +131,10 @@ Broadcast có chủ đích bỏ sự kiện cũ khi receiver chậm; tăng dung 
 
 | Đợt | Phạm vi | Điều kiện hoàn tất | Trạng thái thực tế |
 |---|---|---|---|
-| 1 | Sửa schema memory, đường dẫn/context riêng task; gateway áp dụng sandbox, engine registry và account isolation | Các test hồi quy của mục 1–2 pass | **HOÀN THÀNH** ✅ (Tách `structured_lessons.json` & `harness_lessons.json`, backup corrupt, atomic write, task-scoped scratchpad, gateway model whitelist & sandbox, secret masking) |
-| 2 | Verifier, TaskResult, giới hạn policy và output | Không báo Completed khi thiếu bằng chứng; CLI/API trả kết quả có cấu trúc | **HOÀN THÀNH** ✅ (`VerificationSpec`, `TaskVerifier`, OODA `SelfChecking` gate, buffer cap 10MB chống OOM, error classification) |
-| 3 | TaskStore, submit 202, queue giới hạn, checkpoint, approval/resume/cancel | Qua test restart, idempotency và cancel; không chạy trùng bước đã xác nhận | **HOÀN THÀNH** ✅ (`SqliteTaskStore` chuẩn WAL mode, `TaskService` concurrency semaphore, REST `POST /api/v1/tasks` 202 Accepted, cancel & approve resume) |
-| 4 | Replay sự kiện, SSE backpressure, ContextBuilder, benchmark/CI mở rộng | Client chậm vẫn theo dõi đúng; có số liệu chất lượng trước/sau | **HOÀN THÀNH** ✅ (`ContextBuilder`, CLI live verification report, tests phủ 100% các ca kiểm thử) |
+| 1 | Sửa schema memory, đường dẫn/context riêng task; gateway áp dụng sandbox, engine registry và account isolation | Các test hồi quy của mục 1–2 pass | **Đang triển khai:** đã tách schema, khóa ghi lessons và dùng execution service ở các đường gọi chính; cần xác minh toàn bộ cô lập context và credential. |
+| 2 | Verifier, TaskResult, giới hạn policy và output | Không báo Completed khi thiếu bằng chứng; CLI/API trả kết quả có cấu trúc | **Đang triển khai:** có verifier và TaskResult; cần kiểm tra đầy đủ giới hạn output và đường gọi. |
+| 3 | TaskStore, submit 202, queue giới hạn, checkpoint, approval/resume/cancel | Qua test restart, idempotency và cancel; không chạy trùng bước đã xác nhận | **Đang triển khai:** có SQLite store và task service; chưa chứng minh restart, idempotency và resume an toàn. |
+| 4 | Replay sự kiện, SSE backpressure, ContextBuilder, benchmark/CI mở rộng | Client chậm vẫn theo dõi đúng; có số liệu chất lượng trước/sau | **Chưa hoàn tất:** cần event replay, kiểm thử stream chậm và benchmark trước/sau. |
 
 ## Kết quả nghiệm thu thực tế (04/11/2026)
 

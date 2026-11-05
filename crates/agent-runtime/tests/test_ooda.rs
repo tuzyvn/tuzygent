@@ -26,6 +26,7 @@ impl TestEnv {
             uuid::Uuid::new_v4().simple()
         ));
         std::fs::create_dir_all(&dir).expect("failed to create test env dir");
+        std::fs::write(dir.join("verified_fixture"), "test evidence").unwrap();
         Self { dir }
     }
 
@@ -253,9 +254,9 @@ async fn test_subtask_queue_successful_flow_and_context_updates() -> Result<(), 
     let (executor, scratchpad, _durable) = setup_test_executor(engine, None, workdir);
 
     let mut task = Task::new("Setup Service", "Prepare database and initial seed", Priority::Normal);
-    task.subtasks.push(SubTask::new("ST-1", "Init Database", "init-db", "DB ready"));
-    task.subtasks.push(SubTask::new("ST-2", "Run Migrations", "run-migrations", "Migrations applied"));
-    task.subtasks.push(SubTask::new("ST-3", "Seed Records", "seed-records", "Data populated"));
+    task.subtasks.push(SubTask::new("ST-1", "Init Database", "init-db", "file: verified_fixture"));
+    task.subtasks.push(SubTask::new("ST-2", "Run Migrations", "run-migrations", "file: verified_fixture"));
+    task.subtasks.push(SubTask::new("ST-3", "Seed Records", "seed-records", "file: verified_fixture"));
 
     let mut all_verifications: Vec<VerificationResult> = Vec::new();
     let mut working_context = String::new();
@@ -348,7 +349,7 @@ async fn test_subtask_queue_backtracking_and_remediation() -> Result<(), Box<dyn
                 "id": "ST-BUILD-FIX-1",
                 "title": "Install missing OpenSSL dependency",
                 "command_or_prompt": "apt-get install -y libssl-dev",
-                "expected_verification": "libssl headers available"
+                "expected_verification": "file: verified_fixture"
             });
             Ok(EngineOutput {
                 stdout_content: rem_json.to_string(),
@@ -402,8 +403,8 @@ async fn test_subtask_queue_backtracking_and_remediation() -> Result<(), Box<dyn
     let (executor, _scratchpad, durable) = setup_test_executor(engine, None, workdir);
 
     let mut task = Task::new("Build Service", "Compile release binaries", Priority::High);
-    task.subtasks.push(SubTask::new("ST-PRE", "Prepare workspace", "git status", "Clean workspace"));
-    task.subtasks.push(SubTask::new("ST-BUILD", "Build Binary", "cargo build --release", "Binary compiled"));
+    task.subtasks.push(SubTask::new("ST-PRE", "Prepare workspace", "git status", "file: verified_fixture"));
+    task.subtasks.push(SubTask::new("ST-BUILD", "Build Binary", "cargo build --release", "file: verified_fixture"));
 
     let mut all_verifications = Vec::new();
     let mut working_context = String::new();
@@ -476,7 +477,7 @@ async fn test_subtask_queue_verification_failure_backtracking() -> Result<(), Bo
                 "id": "ST-GEN-FIX-1",
                 "title": "Create build output json",
                 "command_or_prompt": "generate-build-output-json",
-                "expected_verification": "build_output.json exists"
+                "expected_verification": "file: build_output.json"
             });
             Ok(EngineOutput {
                 stdout_content: rem_json.to_string(),
@@ -569,7 +570,7 @@ async fn test_subtask_queue_backtracking_exhausted_retries() -> Result<(), Box<d
                 "id": "ST-FAIL-RETRY",
                 "title": "Attempt fix",
                 "command_or_prompt": "apply-fix",
-                "expected_verification": "Error mitigated"
+                "expected_verification": "file: verified_fixture"
             });
             Ok(EngineOutput {
                 stdout_content: rem_json.to_string(),

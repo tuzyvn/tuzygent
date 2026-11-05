@@ -4,6 +4,17 @@ use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
+/// Serialize read-modify-write operations across processes sharing a workspace.
+/// The lock file must remain in place so all writers lock the same inode.
+pub async fn lock_memory_file(path: &Path) -> std::io::Result<std::fs::File> {
+    let lock_path = path.with_extension("lock");
+    tokio::task::spawn_blocking(move || {
+        let file = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(lock_path)?;
+        file.lock()?;
+        Ok(file)
+    }).await.map_err(std::io::Error::other)?
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructuredLesson {
     pub id: String,
@@ -208,13 +219,6 @@ impl DurableMemoryStore {
         if self.legacy_lessons_file.exists() {
             if let Ok(content) = fs::read_to_string(&self.legacy_lessons_file).await {
                 if let Ok(legacy_lessons) = serde_json::from_str::<Vec<StructuredLesson>>(&content) {
-                    // Save to new structured_lessons.json atomically
-                    if let Some(parent) = self.lessons_json_file.parent() {
-                        let _ = fs::create_dir_all(parent).await;
-                    }
-                    if let Ok(json_data) = serde_json::to_string_pretty(&legacy_lessons) {
-                        let _ = fs::write(&self.lessons_json_file, json_data).await;
-                    }
                     return Ok(legacy_lessons);
                 }
             }
@@ -231,7 +235,8 @@ impl DurableMemoryStore {
         if let Some(parent) = self.lessons_json_file.parent() {
             fs::create_dir_all(parent).await?;
         }
-        let mut lessons = self.load_structured_lessons().await.unwrap_or_default();
+        let _lock = lock_memory_file(&self.lessons_json_file).await?;
+        let mut lessons = self.load_structured_lessons().await?;
         // Giữ tối đa 100 bài học gần nhất, bài học mới xếp lên đầu
         lessons.retain(|l| l.id != lesson.id);
         lessons.insert(0, lesson.clone());

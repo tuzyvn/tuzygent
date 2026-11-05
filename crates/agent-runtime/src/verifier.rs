@@ -4,11 +4,17 @@ use tracing::{debug, info, warn};
 
 pub struct TaskVerifier<'a> {
     workspace_dir: &'a Path,
+    sandbox: crate::sandbox::SandboxConfig,
+    guardrail: agent_domain::GuardrailPolicy,
 }
 
 impl<'a> TaskVerifier<'a> {
     pub fn new(workspace_dir: &'a Path) -> Self {
-        Self { workspace_dir }
+        Self { workspace_dir, sandbox: Default::default(), guardrail: agent_domain::GuardrailPolicy::default_enterprise() }
+    }
+
+    pub fn with_policy(workspace_dir: &'a Path, sandbox: crate::sandbox::SandboxConfig, guardrail: agent_domain::GuardrailPolicy) -> Self {
+        Self { workspace_dir, sandbox, guardrail }
     }
 
     /// Automatically parse string description of expected verification into concrete specifications
@@ -173,17 +179,15 @@ impl<'a> TaskVerifier<'a> {
             }
             VerificationSpec::Command { command, expected_exit_code } => {
                 info!("Executing verification command: {}", command);
-                let mut cmd = tokio::process::Command::new("sh");
-                cmd.arg("-c").arg(command);
-                cmd.current_dir(self.workspace_dir);
-
-                match crate::processtree::ProcessTreeController::run_bounded(
-                    cmd,
-                    std::time::Duration::from_secs(60),
-                    std::time::Duration::from_secs(2),
-                )
-                .await
-                {
+                if !self.guardrail.allow_shell_execution || self.guardrail.check_command_safety(command).is_err() {
+                    return VerificationResult { passed: false, spec: spec.clone(), details: "Verification command rejected by policy".into(), executed_at: now };
+                }
+                let mut input = agent_engine::EngineInput::new(command, self.workspace_dir.to_string_lossy().as_ref());
+                input.timeout_seconds = 60;
+                input.max_output_bytes = Some(self.guardrail.max_output_bytes);
+                input.command_sandbox = crate::sandbox::SandboxEnvironment::with_config(self.workspace_dir, self.sandbox.clone())
+                    .command_sandbox(self.workspace_dir);
+                match agent_engine::process::run_command(&input, "sh", &["-c".into(), command.clone()], &std::collections::HashMap::new(), None).await {
                     Ok(output) => {
                         let actual_code = output.status.code().unwrap_or(-1);
                         let passed = actual_code == *expected_exit_code;
@@ -212,9 +216,9 @@ impl<'a> TaskVerifier<'a> {
             VerificationSpec::Custom { description } => {
                 debug!("Custom verification note: {}", description);
                 VerificationResult {
-                    passed: true,
+                    passed: false,
                     spec: spec.clone(),
-                    details: format!("Custom verification acknowledged: {}", description),
+                    details: format!("Manual review required: {}", description),
                     executed_at: now,
                 }
             }
@@ -224,7 +228,7 @@ impl<'a> TaskVerifier<'a> {
     /// Verifies all specifications for a subtask
     pub async fn verify_all(&self, specs: &[VerificationSpec]) -> (bool, Vec<VerificationResult>) {
         let mut results = Vec::new();
-        let mut all_passed = true;
+        let mut all_passed = !specs.is_empty();
         for spec in specs {
             let res = self.verify_spec(spec).await;
             if !res.passed {

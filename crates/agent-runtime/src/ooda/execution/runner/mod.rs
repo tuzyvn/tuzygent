@@ -52,7 +52,21 @@ pub async fn execute_queue(
             break;
         }
 
-        match execute_single_step(
+        let mut before_step = task.clone();
+        before_step.subtasks[subtask_index].status = TaskStatus::Executing;
+        executor.checkpoint(&before_step).await?;
+        let action = tokio::select! {
+            biased;
+            _ = crate::ooda::wait_for_cancellation(&executor.cancellation_token) => {
+                let reason = "Canceled by user request".to_string();
+                if let Some(subtask) = task.subtasks.get_mut(subtask_index) {
+                    subtask.status = TaskStatus::Canceled { reason: reason.clone() };
+                }
+                task.status = TaskStatus::Canceled { reason: reason.clone() };
+                executor.checkpoint(task).await?;
+                return Ok(QueueExecutionOutcome::Canceled { reason });
+            }
+            result = execute_single_step(
             executor,
             task,
             subtask_index,
@@ -61,9 +75,10 @@ pub async fn execute_queue(
             working_context,
             all_verifications,
             &mut total_remediations_spawned,
-        )
-        .await?
-        {
+            ) => result?,
+        };
+        executor.checkpoint(task).await?;
+        match action {
             StepAction::Advance => subtask_index += 1,
             StepAction::Backtrack => continue,
             StepAction::Halt(outcome) => return Ok(outcome),

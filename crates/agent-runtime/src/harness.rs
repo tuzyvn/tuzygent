@@ -40,19 +40,29 @@ impl HarnessMemoryStore {
 
     /// Đọc tất cả các bài học kinh nghiệm đã tích lũy
     pub async fn load_lessons(&self) -> Vec<HarnessLesson> {
+        match self.try_load_lessons().await {
+            Ok(lessons) => lessons,
+            Err(err) => {
+                tracing::error!("Cannot load harness lessons: {err:#}");
+                Vec::new()
+            }
+        }
+    }
+
+    async fn try_load_lessons(&self) -> Result<Vec<HarnessLesson>> {
         if self.memory_path.exists() {
             match tokio::fs::read(&self.memory_path).await {
                 Ok(bytes) => match serde_json::from_slice::<Vec<HarnessLesson>>(&bytes) {
-                    Ok(lessons) => return lessons,
+                    Ok(lessons) => return Ok(lessons),
                     Err(err) => {
                         let ts = chrono::Utc::now().timestamp();
                         let corrupt = self.memory_path.with_extension(format!("corrupt.{}.json", ts));
                         let _ = tokio::fs::copy(&self.memory_path, &corrupt).await;
                         tracing::error!("Harness lessons corrupt, backup saved to {:?}: {}", corrupt, err);
-                        return Vec::new();
+                        return Err(anyhow!("Invalid harness lessons: {}", err));
                     }
                 },
-                Err(_) => return Vec::new(),
+                Err(err) => return Err(err.into()),
             }
         }
 
@@ -60,13 +70,12 @@ impl HarnessMemoryStore {
         if self.legacy_path.exists() {
             if let Ok(bytes) = tokio::fs::read(&self.legacy_path).await {
                 if let Ok(lessons) = serde_json::from_slice::<Vec<HarnessLesson>>(&bytes) {
-                    let _ = self.save_all(&lessons).await;
-                    return lessons;
+                    return Ok(lessons);
                 }
             }
         }
 
-        Vec::new()
+        Ok(Vec::new())
     }
 
     /// Ghi nhận hoặc tăng điểm thành công cho bài học kinh nghiệm
@@ -77,7 +86,11 @@ impl HarnessMemoryStore {
         error_pattern: &str,
         remediation_strategy: &str,
     ) -> Result<HarnessLesson> {
-        let mut lessons = self.load_lessons().await;
+        if let Some(parent) = self.memory_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        let _lock = agent_memory::lock_memory_file(&self.memory_path).await?;
+        let mut lessons = self.try_load_lessons().await?;
         let now_str = Utc::now().to_rfc3339();
 
         // Kiểm tra xem bài học tương tự đã có chưa
@@ -223,3 +236,36 @@ impl HarnessSelfHealer {
         None
     }
 }
+
+#[cfg(test)]
+mod persistence_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn corrupt_lessons_are_not_overwritten() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = std::env::temp_dir().join(format!("harness-corrupt-{}", Uuid::new_v4()));
+        let store = HarnessMemoryStore::new(dir.to_str().ok_or("invalid path")?);
+        tokio::fs::write(&store.memory_path, b"invalid json").await?;
+        assert!(store.record_lesson("agent", "a", "error", "fix").await.is_err());
+        assert_eq!(tokio::fs::read(&store.memory_path).await?, b"invalid json");
+        let _ = tokio::fs::remove_dir_all(dir).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn concurrent_writers_preserve_all_lessons() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = std::env::temp_dir().join(format!("harness-concurrent-{}", Uuid::new_v4()));
+        let mut tasks = Vec::new();
+        for i in 0..32 {
+            let store = HarnessMemoryStore::new(dir.to_str().ok_or("invalid path")?);
+            tasks.push(tokio::spawn(async move {
+                store.record_lesson("agent", &i.to_string(), "error", "fix").await
+            }));
+        }
+        for task in tasks { task.await??; }
+        assert_eq!(HarnessMemoryStore::new(dir.to_str().ok_or("invalid path")?).try_load_lessons().await?.len(), 32);
+        let _ = tokio::fs::remove_dir_all(dir).await;
+        Ok(())
+    }
+}
+

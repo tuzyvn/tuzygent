@@ -1,9 +1,7 @@
 use super::super::helpers::update_working_context;
 use super::types::{is_auth_or_quota_message, QueueExecutionOutcome, StepAction};
 use crate::ooda::execution::remediation::{attempt_remediation_retry, RemediationFailureKind};
-use crate::ooda::execution::verification::{
-    execute_subtask_verification, finalize_subtask_completion, SubtaskVerificationOutcome,
-};
+use crate::ooda::execution::verification::{finalize_subtask_completion, SubtaskVerificationOutcome};
 use crate::ooda::execution::SubtaskExecutor;
 use agent_domain::{SubTask, Task, TaskStatus, VerificationResult};
 use agent_engine::{EngineError, EngineOutput};
@@ -29,7 +27,7 @@ pub async fn handle_subtask_execution_result(
             let excerpt: String = output.stdout_content.chars().take(2000).collect();
             update_working_context(working_context, &subtask.id, &excerpt);
 
-            match execute_subtask_verification(&mut subtask, active_workdir, all_verifications).await
+            match executor.execute_subtask_verification(&mut subtask, active_workdir, all_verifications).await
             {
                 SubtaskVerificationOutcome::Passed { verif_results } => {
                     finalize_subtask_completion(
@@ -59,6 +57,14 @@ pub async fn handle_subtask_execution_result(
                     )
                     .await;
                     Ok(outcome.into())
+                }
+                SubtaskVerificationOutcome::NeedsReview { reason, verif_results } => {
+                    subtask.output_excerpt = Some(excerpt);
+                    subtask.verification_result = verif_results.into_iter().find(|r| !r.passed);
+                    subtask.status = TaskStatus::WaitingApproval { reason: reason.clone() };
+                    if let Some(slot) = task.subtasks.get_mut(subtask_index) { *slot = subtask; }
+                    task.status = TaskStatus::WaitingApproval { reason: reason.clone() };
+                    Ok(StepAction::Halt(QueueExecutionOutcome::BlockedWaitingApproval { reason }))
                 }
             }
         }

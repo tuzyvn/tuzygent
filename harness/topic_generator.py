@@ -151,8 +151,12 @@ def analyze_runtime_lessons() -> List[Dict]:
 
     lesson_topics = []
     for lesson in lessons:
-        success_count = lesson.get("success_count", 1)
         node_type = lesson.get("node_type", "unknown")
+        # Research mission outcomes are harness execution events, not code-level defects
+        if node_type == "research_mission":
+            continue
+
+        success_count = lesson.get("success_count", 1)
         identifier = lesson.get("identifier", "unknown")
         error_pattern = lesson.get("error_pattern", "")
         remediation = lesson.get("remediation_strategy", "")

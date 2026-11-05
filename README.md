@@ -103,7 +103,12 @@ cargo run -p agent-server -- --host 127.0.0.1 --port 8080 --workspace .
 - **`GET /api/v1/agents`**: Lấy danh sách nhân viên số đang hoạt động.
 - **`POST /api/v1/agents`**: Đăng ký agent mới.
 - **`POST /api/v1/tasks/run`**: Giao mục tiêu cho Agent thực thi tự chủ OODA loop (chọn engine & sandbox).
+- **`POST /api/v1/tasks`**: Gửi task chạy nền và nhận ID theo dõi. Có thể gửi header `Idempotency-Key` (1–128 ký tự ASCII hiển thị): gửi lại cùng title, goal, priority và engine trả cùng ID; dùng cùng khóa cho nội dung khác trả HTTP 409. Khóa được lưu trong SQLite và không tự hết hạn.
+- **`GET /api/v1/tasks/{id}`**: Xem trạng thái và kết quả task.
+- **`POST /api/v1/tasks/{id}/review`**: Duyệt hoặc từ chối bước đã chạy đang chờ xác minh thủ công. Lấy `review_revision` từ GET, xem output và gửi JSON `{"revision":"...","reviewer":"operator","approved":true}`. Phiên bản cũ bị từ chối; bước đã duyệt không chạy lại.
 - **`GET /api/v1/ws`**: Kênh WebSocket stream thời gian thực toàn bộ sự kiện từ `InterAgentBus`.
+
+Khi daemon khởi động lại, task còn `Queued` và có engine hợp lệ được đưa lại vào hàng đợi. Checkpoint ghi kế hoạch và trạng thái trước/sau từng bước, giúp xem bước nào đã hoàn thành và bước nào đang thực thi. Task đã bắt đầu chạy được chuyển sang chờ đối soát vì side effect có thể đã xảy ra; hệ thống không tự chạy lại. Chỉ một daemon được sở hữu workspace tại một thời điểm. Task cũ thiếu thông tin engine cần được xử lý thủ công. Review sau crash và phê duyệt hành động bị policy chặn chưa được hỗ trợ. Review kết quả thủ công hiện chỉ hỗ trợ workspace local; output trong task là trích đoạn. API dùng token chung nên `reviewer` là nhãn tự khai, không phải danh tính được xác thực.
 
 ---
 

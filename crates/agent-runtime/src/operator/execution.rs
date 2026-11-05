@@ -46,6 +46,8 @@ impl KernelOperator {
         engine_override: Option<&str>,
     ) -> Result<RigExecutionSummary, String> {
         let started_at = Utc::now();
+        let execution = crate::execution::ExecutionService::from_workspace(&self.workspace_dir)
+            .map_err(|e| e.to_string())?;
         info!(
             "🎯 [KernelOperator] Received goal for Rig '{}': {}",
             self.spec.rig.name, goal
@@ -150,7 +152,7 @@ impl KernelOperator {
                     max_tokens: None,
                     max_output_bytes: None,
                 };
-                match engine.execute(&input).await {
+                match execution.execute(engine, &input).await {
                     Ok(result) => {
                         assignment.status = if result.exit_code == 0 {
                             "Completed"
@@ -248,7 +250,7 @@ impl KernelOperator {
                         max_tokens: None,
                         max_output_bytes: None,
                     };
-                    match engine.execute(&input).await {
+                    match execution.execute(engine, &input).await {
                         Ok(result) => {
                             ch_assign.status = if result.exit_code == 0 {
                                 "Completed"

@@ -1,10 +1,9 @@
 use crate::bus::InterAgentBus;
-use crate::sandbox::{SandboxConfig, SandboxEnvironment};
+use crate::sandbox::SandboxConfig;
 use crate::supplement::InFlightSupplementController;
 use agent_domain::GuardrailPolicy;
 use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineOutput};
 use agent_memory::{DurableMemoryStore, ScratchpadManager};
-use std::path::Path;
 use std::sync::Arc;
 
 pub const MAX_SUBTASK_RETRIES: u32 = 3;
@@ -51,6 +50,8 @@ pub struct SubtaskExecutor {
     pub(crate) bus: Option<InterAgentBus>,
     pub(crate) timeout_seconds: u64,
     pub(crate) cancellation_token: Option<Arc<AtomicBool>>,
+    pub(crate) checkpoint_store: Option<Arc<dyn crate::task_store::TaskStore>>,
+    pub(crate) auto_approve: bool,
 }
 
 impl SubtaskExecutor {
@@ -77,7 +78,14 @@ impl SubtaskExecutor {
             bus,
             timeout_seconds,
             cancellation_token: None,
+            checkpoint_store: None,
+            auto_approve: false,
         }
+    }
+
+    pub fn with_auto_approve(mut self, auto_approve: bool) -> Self {
+        self.auto_approve = auto_approve;
+        self
     }
 
     pub fn with_cancellation_token(mut self, token: Arc<AtomicBool>) -> Self {
@@ -85,15 +93,24 @@ impl SubtaskExecutor {
         self
     }
 
+    pub fn with_checkpoint_store(mut self, store: Arc<dyn crate::task_store::TaskStore>) -> Self {
+        self.checkpoint_store = Some(store);
+        self
+    }
+
+    pub async fn checkpoint(&self, task: &agent_domain::Task) -> Result<(), String> {
+        if let Some(store) = &self.checkpoint_store {
+            store.save_checkpoint(&task.id, &task.subtasks).await.map_err(|e| format!("Failed to persist task checkpoint: {e}"))?;
+        }
+        Ok(())
+    }
+
     pub async fn execute_engine(
         &self,
         input: &EngineInput,
     ) -> Result<EngineOutput, EngineError> {
-        let mut input = input.clone();
-        let config = self.sandbox_config.clone().unwrap_or_default();
-        input.command_sandbox = SandboxEnvironment::with_config(&self.workspace_dir, config)
-            .command_sandbox(Path::new(&input.working_dir));
-        self.engine.execute(&input).await
+        crate::execution::ExecutionService::new(&self.workspace_dir, self.sandbox_config.clone(), Some(self.guardrail.clone()))
+            .execute(self.engine.clone(), input).await
     }
 }
 

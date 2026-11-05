@@ -15,6 +15,7 @@ pub enum SubtaskVerificationOutcome {
         error: String,
         verif_results: Vec<VerificationResult>,
     },
+    NeedsReview { reason: String, verif_results: Vec<VerificationResult> },
 }
 
 /// Thực thi quy trình kiểm tra TaskVerifier đối với subtask vừa hoàn tất lệnh exit code 0
@@ -23,11 +24,20 @@ pub async fn execute_subtask_verification(
     active_workdir: &Path,
     all_verifications: &mut Vec<VerificationResult>,
 ) -> SubtaskVerificationOutcome {
+    execute_with_verifier(subtask, active_workdir, all_verifications, TaskVerifier::new(active_workdir), false).await
+}
+
+async fn execute_with_verifier(
+    subtask: &mut SubTask,
+    _active_workdir: &Path,
+    all_verifications: &mut Vec<VerificationResult>,
+    verifier: TaskVerifier<'_>,
+    auto_approve: bool,
+) -> SubtaskVerificationOutcome {
     // Chuyển trạng thái sang SelfChecking
     subtask.status = TaskStatus::SelfChecking;
     info!("🔍 [OODA] SubTask {} in SelfChecking phase", subtask.id);
 
-    let verifier = TaskVerifier::new(active_workdir);
     let specs = if let Some(ref spec) = subtask.verification_spec {
         vec![spec.clone()]
     } else {
@@ -37,7 +47,15 @@ pub async fn execute_subtask_verification(
     let (verified_ok, verif_results) = verifier.verify_all(&specs).await;
     all_verifications.extend(verif_results.clone());
 
-    if verified_ok {
+    let failed_automatic = verif_results.iter().any(|r| !r.passed && !matches!(r.spec, agent_domain::VerificationSpec::Custom { .. }));
+    if !failed_automatic && (specs.is_empty() || verif_results.iter().any(|r| matches!(r.spec, agent_domain::VerificationSpec::Custom { .. }))) {
+        if auto_approve {
+            info!("✅ [OODA] Auto-approving custom/unspecified verification for subtask {}", subtask.id);
+            SubtaskVerificationOutcome::Passed { verif_results }
+        } else {
+            SubtaskVerificationOutcome::NeedsReview { reason: "Manual verification required".into(), verif_results }
+        }
+    } else if verified_ok {
         SubtaskVerificationOutcome::Passed { verif_results }
     } else {
         let failure_details = verif_results
@@ -131,7 +149,8 @@ impl SubtaskExecutor {
         active_workdir: &Path,
         all_verifications: &mut Vec<VerificationResult>,
     ) -> SubtaskVerificationOutcome {
-        execute_subtask_verification(subtask, active_workdir, all_verifications).await
+        let verifier = TaskVerifier::with_policy(active_workdir, self.sandbox_config.clone().unwrap_or_default(), self.guardrail.clone());
+        execute_with_verifier(subtask, active_workdir, all_verifications, verifier, self.auto_approve).await
     }
 
     #[allow(clippy::too_many_arguments)]

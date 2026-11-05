@@ -25,7 +25,13 @@ pub async fn handle_socket(socket: WebSocket, state: AppState) {
         loop {
             let event = match bus_rx.recv().await {
                 Ok(event) => event,
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    let notice = serde_json::json!({"type": "stream.lagged", "skipped": skipped});
+                    if sender.send(Message::Text(notice.to_string().into())).await.is_err() {
+                        break;
+                    }
+                    continue;
+                }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
             };
             if let Ok(json_str) = serde_json::to_string(&event) {

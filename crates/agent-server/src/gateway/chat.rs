@@ -1,6 +1,6 @@
 use std::convert::Infallible;
-use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -9,8 +9,8 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use uuid::Uuid;
 
-use agent_engine::{AccountRotatedEngine, ComputeEngine, EngineInput};
-use agent_runtime::sandbox::{IsolationMode, SandboxEnvironment};
+use agent_engine::{AccountRotatedEngine, EngineInput};
+use agent_runtime::ExecutionService;
 
 use super::types::{format_prompt_from_messages, parse_model_spec, ChatCompletionRequest};
 use crate::AppState;
@@ -37,12 +37,16 @@ pub async fn chat_completions_handler(
     };
     let (system_ctx, prompt) = format_prompt_from_messages(&payload.messages);
 
-    let engine = AccountRotatedEngine::new(
+    let execution = match ExecutionService::from_workspace(&state.workspace) {
+        Ok(service) => service,
+        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
+    };
+    let engine = Arc::new(AccountRotatedEngine::new(
         state.vault.clone(),
         engine_kind,
         None,
         model_override,
-    );
+    ));
 
     let completion_id = format!("chatcmpl-{}", Uuid::new_v4().simple());
     let created_ts = chrono::Utc::now().timestamp();
@@ -66,6 +70,8 @@ pub async fn chat_completions_handler(
         let _ = tx.try_send(Ok(Event::default().data(initial_chunk.to_string())));
 
         let tx_mutex = Arc::new(std::sync::Mutex::new(tx.clone()));
+        let overflow = Arc::new(AtomicBool::new(false));
+        let callback_overflow = overflow.clone();
         let cid = completion_id.clone();
         let mname = model_name.clone();
 
@@ -82,7 +88,11 @@ pub async fn chat_completions_handler(
                 }]
             });
             if let Ok(mut tx_guard) = tx_mutex.lock() {
-                let _ = tx_guard.try_send(Ok(Event::default().data(chunk_data.to_string())));
+                if tx_guard.try_send(Ok(Event::default().data(chunk_data.to_string()))).is_err() {
+                    callback_overflow.store(true, Ordering::SeqCst);
+                }
+            } else {
+                callback_overflow.store(true, Ordering::SeqCst);
             }
         });
 
@@ -92,13 +102,30 @@ pub async fn chat_completions_handler(
         }
         input.temperature = payload.temperature;
         input.max_tokens = payload.max_tokens;
-        let sandbox = SandboxEnvironment::new(&state.workspace, IsolationMode::LocalDirectory);
-        input.command_sandbox = sandbox.command_sandbox(Path::new(&input.working_dir));
         input.on_stream_chunk = Some(stream_cb);
 
         tokio::spawn(async move {
-            match engine.execute(&input).await {
-                Ok(_output) => {
+            let outcome = {
+            let run = execution.execute(engine, &input);
+            tokio::pin!(run);
+            loop {
+                tokio::select! {
+                    result = &mut run => break Some(result),
+                    _ = tokio::time::sleep(std::time::Duration::from_millis(25)) => {
+                        if tx.is_closed() { break None; }
+                        if overflow.load(Ordering::SeqCst) {
+                            break Some(Err(agent_engine::EngineError::ProcessFailed("Stream buffer exhausted; output is incomplete".into())));
+                        }
+                    }
+                }
+            }
+            };
+            let Some(outcome) = outcome else { return; };
+            let outcome = if overflow.load(Ordering::SeqCst) {
+                Err(agent_engine::EngineError::ProcessFailed("Stream buffer exhausted; output is incomplete".into()))
+            } else { outcome };
+            match outcome {
+                Ok(output) if output.exit_code == 0 => {
                     let stop_chunk = serde_json::json!({
                         "id": &completion_id,
                         "object": "chat.completion.chunk",
@@ -113,13 +140,17 @@ pub async fn chat_completions_handler(
                     let _ = tx.send(Ok(Event::default().data(stop_chunk.to_string()))).await;
                     let _ = tx.send(Ok(Event::default().data("[DONE]"))).await;
                 }
-                Err(err) => {
+                result => {
+                    let message = match result {
+                        Ok(output) => format!("Engine exited with code {}", output.exit_code),
+                        Err(err) => err.to_string(),
+                    };
                     let err_chunk = serde_json::json!({
                         "id": &completion_id,
                         "object": "chat.completion.chunk",
                         "created": created_ts,
                         "model": &model_name,
-                        "error": { "message": err.to_string() }
+                        "error": { "message": message }
                     });
                     let _ = tx.send(Ok(Event::default().data(err_chunk.to_string()))).await;
                     let _ = tx.send(Ok(Event::default().data("[DONE]"))).await;
@@ -135,11 +166,8 @@ pub async fn chat_completions_handler(
         }
         input.temperature = payload.temperature;
         input.max_tokens = payload.max_tokens;
-        let sandbox = SandboxEnvironment::new(&state.workspace, IsolationMode::LocalDirectory);
-        input.command_sandbox = sandbox.command_sandbox(Path::new(&input.working_dir));
-
-        match engine.execute(&input).await {
-            Ok(output) => {
+        match execution.execute(engine, &input).await {
+            Ok(output) if output.exit_code == 0 => {
                 let resp = serde_json::json!({
                     "id": completion_id,
                     "object": "chat.completion",
@@ -153,19 +181,15 @@ pub async fn chat_completions_handler(
                         },
                         "finish_reason": "stop"
                     }],
-                    "usage": {
-                        "prompt_tokens": 0,
-                        "completion_tokens": 0,
-                        "total_tokens": 0
-                    }
+                    "usage": null
                 });
                 Json(resp).into_response()
             }
-            Err(err) => (
+            result => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
                     "error": {
-                        "message": err.to_string(),
+                        "message": match result { Ok(output) => format!("Engine exited with code {}", output.exit_code), Err(err) => err.to_string() },
                         "type": "engine_error"
                     }
                 })),

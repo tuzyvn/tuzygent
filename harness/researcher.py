@@ -179,6 +179,7 @@ def run_continuous_research_loop(
                 "--goal", mission,
                 "--engine", engine,
                 "--sandbox", sandbox,
+                "--auto-approve",
             ]
 
             proc = subprocess.run(cmd)

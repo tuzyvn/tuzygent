@@ -92,12 +92,12 @@ async fn browser_preflight_is_allowed_only_for_configured_origins() -> Result<()
     for origin in ["https://dashboard.example", "https://evil.example"] {
         let request = Request::builder()
             .method("OPTIONS")
-            .uri("/api/v1/tasks/run")
+            .uri("/api/v1/tasks")
             .header("origin", origin)
             .header("access-control-request-method", "POST")
             .header(
                 "access-control-request-headers",
-                "authorization,content-type",
+                "authorization,content-type,idempotency-key",
             )
             .body(Body::empty())?;
         let response = app()?.oneshot(request).await?;
@@ -107,6 +107,9 @@ async fn browser_preflight_is_allowed_only_for_configured_origins() -> Result<()
                 .contains_key("access-control-allow-origin"),
             origin == "https://dashboard.example"
         );
+        if origin == "https://dashboard.example" {
+            assert!(response.headers().get("access-control-allow-headers").unwrap().to_str()?.contains("idempotency-key"));
+        }
     }
     Ok(())
 }

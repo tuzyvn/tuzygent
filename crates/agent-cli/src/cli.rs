@@ -52,6 +52,9 @@ pub enum Commands {
         persona_path: Option<String>,
         #[arg(short, long)]
         timeout: Option<u64>,
+        /// Automatically approve custom/unspecified verification if execution succeeds with exit code 0
+        #[arg(long, default_value_t = true)]
+        auto_approve: bool,
     },
     /// List, inspect or test configured AI CLI engines
     Engines {

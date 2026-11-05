@@ -1,7 +1,7 @@
 use agent_core::prelude::*;
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
 };
@@ -26,6 +26,13 @@ pub struct SubmitTaskReq {
     pub engine: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ReviewTaskReq {
+    pub revision: String,
+    pub reviewer: String,
+    pub approved: bool,
+}
+
 pub async fn run_task_handler(
     State(state): State<AppState>,
     Json(payload): Json<RunTaskReq>,
@@ -44,7 +51,9 @@ pub async fn run_task_handler(
         }
     };
 
-    let scratchpad = ScratchpadManager::new(&state.workspace);
+    let mut task = Task::new(&payload.goal, &payload.goal, Priority::High);
+    task.assigned_agent = Some(AgentId::from_str(&payload.agent_id));
+    let scratchpad = ScratchpadManager::for_task(&state.workspace, &task.id.0);
     let durable = DurableMemoryStore::new(&state.workspace);
     let guardrails = GuardrailPolicy::default_enterprise();
 
@@ -83,9 +92,6 @@ pub async fn run_task_handler(
         }
     } else { ooda };
 
-    let mut task = Task::new(&payload.goal, &payload.goal, Priority::High);
-    task.assigned_agent = Some(AgentId::from_str(&payload.agent_id));
-
     match ooda.run_goal(&mut task).await {
         Ok(final_status) => (
             StatusCode::OK,
@@ -110,8 +116,19 @@ pub async fn run_task_handler(
 
 pub async fn submit_task_handler(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<SubmitTaskReq>,
 ) -> impl IntoResponse {
+    let ws_path = std::path::Path::new(&state.workspace);
+    let config = EnginesConfig::load_hierarchical(Some(ws_path));
+    let engine_name = payload.engine.as_deref().unwrap_or(&config.defaults.engine);
+    let engine = match agent_engine::configured_engine(&config, engine_name, None) {
+        Ok(engine) => engine,
+        Err(error) => return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": error.to_string()})),
+        ).into_response(),
+    };
     let priority = match payload.priority.as_deref().unwrap_or("normal") {
         "low" => Priority::Low,
         "high" => Priority::High,
@@ -119,20 +136,39 @@ pub async fn submit_task_handler(
         _ => Priority::Normal,
     };
 
-    match state.task_service.submit_task(&payload.title, &payload.goal, priority).await {
-        Ok(task_id) => {
-            let ws_path = std::path::Path::new(&state.workspace);
-            let config = EnginesConfig::load_hierarchical(Some(ws_path));
-            let engine_name = payload.engine.as_deref().unwrap_or(&config.defaults.engine);
-            if let Ok(engine) = agent_engine::configured_engine(&config, engine_name, None) {
-                state.task_service.dispatch(task_id.clone(), engine);
-            }
+    let key = match headers.get("idempotency-key") {
+        None => None,
+        Some(value) => match value.to_str() {
+            Ok(key) if !key.is_empty() && key.len() <= 128 && key.bytes().all(|b| b.is_ascii_graphic()) => Some(key),
+            _ => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Invalid Idempotency-Key"}))).into_response(),
+        },
+    };
+    let submission = if let Some(key) = key {
+        state.task_service.submit_task_idempotent(&payload.title, &payload.goal, priority, engine_name, key).await
+    } else {
+        state.task_service.submit_task_with_engine(&payload.title, &payload.goal, priority, engine_name).await.map(agent_runtime::IdempotentSubmission::Created)
+    };
+    match submission {
+        Ok(agent_runtime::IdempotentSubmission::Conflict) => (StatusCode::CONFLICT, Json(serde_json::json!({"error": "Idempotency-Key was already used for a different request"}))).into_response(),
+        Ok(submission) => {
+            let (task_id, replayed) = match submission {
+                agent_runtime::IdempotentSubmission::Created(id) => (id, false),
+                agent_runtime::IdempotentSubmission::Existing(id) => (id, true),
+                agent_runtime::IdempotentSubmission::Conflict => unreachable!(),
+            };
+            if !replayed { state.task_service.dispatch(task_id.clone(), engine); }
+            let status = match state.task_service.get_task(&task_id).await {
+                Ok(Some(task)) => task.status,
+                Ok(None) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Submitted task not found"}))).into_response(),
+                Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": err.to_string()}))).into_response(),
+            };
 
             (
                 StatusCode::ACCEPTED,
                 Json(serde_json::json!({
                     "task_id": task_id.to_string(),
-                    "status": "queued",
+                    "status": if replayed { serde_json::to_value(status).unwrap_or(serde_json::Value::Null) } else { serde_json::json!("queued") },
+                    "replayed": replayed,
                     "tracking_url": format!("/api/v1/tasks/{}", task_id),
                 })),
             ).into_response()
@@ -156,19 +192,35 @@ pub async fn get_task_handler(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let task_id = TaskId(id);
-    match state.task_service.get_task(&task_id).await {
-        Ok(Some(task)) => {
-            let result = state.task_service.get_result(&task_id).await.unwrap_or(None);
+    match state.task_service.get_task_and_result(&task_id).await {
+        Ok(Some((task, result))) => {
+            let review_revision = match state.task_service.review_revision(&task) {
+                Ok(revision) => revision,
+                Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": err.to_string() }))).into_response(),
+            };
             (
                 StatusCode::OK,
                 Json(serde_json::json!({
                     "task": task,
                     "result": result,
+                    "review_revision": review_revision,
                 })),
             ).into_response()
         }
         Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Task not found" }))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.to_string() }))).into_response(),
+    }
+}
+
+pub async fn review_task_handler(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(payload): Json<ReviewTaskReq>,
+) -> impl IntoResponse {
+    match state.task_service.review_task(&TaskId(id), &payload.revision, &payload.reviewer, payload.approved).await {
+        Ok(true) => (StatusCode::OK, Json(serde_json::json!({"reviewed": true}))).into_response(),
+        Ok(false) => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Task not found"}))).into_response(),
+        Err(err) => (StatusCode::CONFLICT, Json(serde_json::json!({"error": err.to_string()}))).into_response(),
     }
 }
 

@@ -16,6 +16,7 @@ impl Workspace {
         let path =
             std::env::temp_dir().join(format!("tuzygent-regression-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(path.join("verified_fixture"), "test evidence").unwrap();
         Self(path)
     }
     fn path(&self) -> &str {
@@ -41,7 +42,7 @@ impl ComputeEngine for RetryEngine {
         {
             (
                 0,
-                r#"{"id":"fix","title":"fix","command_or_prompt":"fix","expected_verification":"fixed"}"#,
+                r#"{"id":"fix","title":"fix","command_or_prompt":"fix","expected_verification":"file: verified_fixture"}"#,
             )
         } else if input.prompt_or_command == "original" {
             let count = self.executions.fetch_add(1, Ordering::SeqCst);
@@ -92,7 +93,7 @@ async fn remediation_retries_original_for_exit_and_transport_failures() {
             .with_sandbox_config(sandbox);
             let mut task = Task::new("retry", "retry", Priority::High);
             task.subtasks
-                .push(SubTask::new("original", "original", "original", "done"));
+                .push(SubTask::new("original", "original", "original", "file: verified_fixture"));
             let result = ooda.run_goal(&mut task).await.unwrap();
             let original = task.subtasks.iter().find(|s| s.id == "original").unwrap();
             if always_fail {
@@ -202,10 +203,10 @@ async fn sandbox_context_reaches_planning_actions_and_remediation() {
             let call = self.calls.fetch_add(1, Ordering::SeqCst);
             let text = if call == 0 {
                 assert!(input.prompt_or_command.contains("Planner"));
-                r#"[{"id":"a","title":"a","command_or_prompt":"action","expected_verification":"done"}]"#
+                r#"[{"id":"a","title":"a","command_or_prompt":"action","expected_verification":"file: verified_fixture"}]"#
             } else if call == 2 {
                 assert!(input.prompt_or_command.contains("Problem Solver"));
-                r#"{"id":"fix","title":"fix","command_or_prompt":"fix","expected_verification":"fixed"}"#
+                r#"{"id":"fix","title":"fix","command_or_prompt":"fix","expected_verification":"file: verified_fixture"}"#
             } else {
                 "ok"
             };

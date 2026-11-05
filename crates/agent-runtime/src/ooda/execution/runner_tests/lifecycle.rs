@@ -38,7 +38,7 @@ async fn test_execute_queue_resumes_completed_subtask() -> Result<(), Box<dyn st
     task.subtasks.push(subtask_1);
 
     // Subtask 2: Pending/Queued step needing execution
-    let subtask_2 = SubTask::new("2", "Pending step", "echo step2", "Custom check");
+    let subtask_2 = SubTask::new("2", "Pending step", "echo step2", "file: verified_fixture");
     task.subtasks.push(subtask_2);
 
     let mut verifs = Vec::new();
@@ -127,7 +127,7 @@ async fn test_execute_queue_successful_execution() -> Result<(), Box<dyn std::er
     let executor = setup_test_executor(engine, None, workdir);
 
     let mut task = Task::new("Success Task", "Task that completes smoothly", Priority::Normal);
-    let st = SubTask::new("ST-OK", "Create artifact", "make build", "Custom validation acknowledged");
+    let st = SubTask::new("ST-OK", "Create artifact", "make build", "file: verified_fixture");
     task.subtasks.push(st);
 
     let mut verifs = Vec::new();

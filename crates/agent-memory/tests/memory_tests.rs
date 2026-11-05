@@ -6,6 +6,40 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 static COUNTER: AtomicU64 = AtomicU64::new(1);
 
+#[tokio::test]
+async fn corrupt_structured_lessons_are_not_overwritten() {
+    let dir = create_temp_dir("corrupt_structured");
+    let path = dir.join("storage/harness_memory/structured_lessons.json");
+    tokio::fs::create_dir_all(path.parent().unwrap()).await.unwrap();
+    tokio::fs::write(&path, b"invalid json").await.unwrap();
+    let lesson = agent_memory::durable::StructuredLesson {
+        id: "1".into(), timestamp: "now".into(), task_title: "test".into(),
+        trigger_error: None, remediation_applied: None, general_insight: "test".into(), success: true,
+    };
+    assert!(DurableMemoryStore::new(&dir).save_structured_lesson(&lesson).await.is_err());
+    assert_eq!(tokio::fs::read(&path).await.unwrap(), b"invalid json");
+    let _ = tokio::fs::remove_dir_all(dir).await;
+}
+
+#[tokio::test]
+async fn concurrent_structured_lesson_writers_preserve_updates() {
+    let dir = create_temp_dir("concurrent_structured");
+    let mut tasks = Vec::new();
+    for i in 0..32 {
+        let store = DurableMemoryStore::new(&dir);
+        tasks.push(tokio::spawn(async move {
+            let lesson = agent_memory::StructuredLesson {
+                id: i.to_string(), timestamp: "now".into(), task_title: "test".into(),
+                trigger_error: None, remediation_applied: None, general_insight: "test".into(), success: true,
+            };
+            store.save_structured_lesson(&lesson).await.unwrap();
+        }));
+    }
+    for task in tasks { task.await.unwrap(); }
+    assert_eq!(DurableMemoryStore::new(&dir).load_structured_lessons().await.unwrap().len(), 32);
+    let _ = tokio::fs::remove_dir_all(dir).await;
+}
+
 fn create_temp_dir(prefix: &str) -> PathBuf {
     let id = COUNTER.fetch_add(1, Ordering::SeqCst);
     let nanos = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0);

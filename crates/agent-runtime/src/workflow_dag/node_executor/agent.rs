@@ -26,6 +26,7 @@ pub async fn execute_agent_node(
     let engine_name = node.data.engine.as_deref().unwrap_or(&engine_config.defaults.engine);
     let model_name = node.data.model.as_deref().filter(|m| !m.trim().is_empty());
     let engine = orchestrator.resolve_engine(Some(engine_name), model_name)?;
+    let execution = crate::execution::ExecutionService::from_workspace(&orchestrator.workspace_dir)?;
     let engine_used = Some(match model_name {
         Some(m) => format!("{} ({})", engine_name, m),
         None => engine_name.to_string(),
@@ -94,8 +95,8 @@ pub async fn execute_agent_node(
             max_output_bytes: None,
         };
 
-        match tokio::time::timeout(std::time::Duration::from_secs(input.timeout_seconds), engine.execute(&input)).await {
-            Ok(Ok(out)) => {
+        match execution.execute(engine.clone(), &input).await {
+            Ok(out) => {
                 let stdout_trimmed = out.stdout_content.trim().to_string();
                 if out.exit_code == 0 && !stdout_trimmed.is_empty() {
                     node_output = serde_json::json!({ "stdout": stdout_trimmed, "exit_code": out.exit_code });
@@ -128,7 +129,7 @@ pub async fn execute_agent_node(
                     });
                 }
             }
-            Ok(Err(ref e))
+            Err(ref e)
                 if e.is_auth_or_quota()
                     || matches!(
                         e,
@@ -140,8 +141,7 @@ pub async fn execute_agent_node(
                 status = "failed".to_string();
                 break;
             }
-            Ok(Err(e)) => node_error = Some(e.to_string()),
-            Err(_) => node_error = Some(format!("Engine execution timed out after {}s", input.timeout_seconds)),
+            Err(e) => node_error = Some(e.to_string()),
         }
 
         attempt += 1;

@@ -28,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
             sandbox,
             persona_path,
             timeout,
+            auto_approve,
         } => {
             commands::run::handle(commands::run::RunArgs {
                 agent_id,
@@ -37,6 +38,7 @@ async fn main() -> anyhow::Result<()> {
                 sandbox,
                 persona_path,
                 timeout,
+                auto_approve,
             })
             .await?
         }

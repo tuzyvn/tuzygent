@@ -24,7 +24,8 @@ text=CODEX_DELEGATED
 if [ "${CODEX_TEST_CASE:-}" = ooda ]; then
     case "$last" in
         *'Autonomous AI System Architect and Planner'*)
-            text='[{\"id\":\"ST-1\",\"title\":\"delegate\",\"command_or_prompt\":\"do the delegated task\",\"expected_verification\":\"done\"}]' ;;
+            text='[{\"id\":\"ST-1\",\"title\":\"delegate\",\"command_or_prompt\":\"do the delegated task\",\"expected_verification\":\"file: codex_test_artifact\"}]' ;;
+        *'do the delegated task'*) printf '%s\n' 'fixture result' > codex_test_artifact ;;
     esac
 fi
 printf '%s\n' '{"type":"item.completed","item":{"type":"agent_message","phase":"commentary","text":"working"}}'

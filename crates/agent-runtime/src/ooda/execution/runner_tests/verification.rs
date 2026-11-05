@@ -10,7 +10,7 @@ fn mock_remediation(id: &str, title: &str, cmd: &str) -> EngineOutput {
         "id": id,
         "title": title,
         "command_or_prompt": cmd,
-        "expected_verification": "check passed"
+        "expected_verification": "file: verified_fixture"
     });
     EngineOutput {
         stdout_content: rem_json.to_string(),
@@ -42,7 +42,7 @@ async fn test_execute_queue_triggers_remediation_on_verification_failure() -> Re
         if input.prompt_or_command.contains("Autonomous AI Problem Solver") {
             Ok(mock_remediation("ST-FAIL-FIX-1", "Create artifact file", "generate-artifact"))
         } else if input.prompt_or_command == "generate-artifact" {
-            std::fs::write(&target_file_clone, "artifact content").expect("failed to write file");
+            let _ = std::fs::write(&target_file_clone, "artifact content");
             Ok(mock_ok("Generated artifact file successfully"))
         } else {
             Ok(mock_ok(&format!("Normal execution attempt {}", count)))
@@ -149,7 +149,7 @@ async fn test_execute_queue_recovers_from_exit_code_failure_via_remediation() ->
 
     let executor = setup_test_executor(engine, None, workdir);
     let mut task = Task::new("Build Task", "Compile mission artifact", Priority::Normal);
-    task.subtasks.push(SubTask::new("ST-BUILD", "Build project", "compile-project", "exit 0"));
+    task.subtasks.push(SubTask::new("ST-BUILD", "Build project", "compile-project", "file: verified_fixture"));
 
     let mut verifs = Vec::new();
     let mut context = String::new();
@@ -266,7 +266,7 @@ async fn test_execute_queue_recovers_from_engine_error_via_remediation() -> Resu
 
     let executor = setup_test_executor(engine, None, workdir);
     let mut task = Task::new("Daemon Connection Task", "Connect to local socket", Priority::Normal);
-    task.subtasks.push(SubTask::new("ST-DAEMON", "Connect to daemon", "connect-daemon", "exit 0"));
+    task.subtasks.push(SubTask::new("ST-DAEMON", "Connect to daemon", "connect-daemon", "file: verified_fixture"));
 
     let mut verifs = Vec::new();
     let mut context = String::new();
@@ -330,7 +330,11 @@ async fn test_execute_queue_exhausts_retries_and_fails() -> Result<(), Box<dyn s
         _ => return Err(format!("Expected QueueExecutionOutcome::Failed, got: {:?}", outcome).into()),
     }
     assert!(matches!(task.status, TaskStatus::Failed { .. }));
-    let failed_subtask = task.subtasks.iter().find(|s| s.id == "ST-DOOMED").expect("subtask should exist");
+    let failed_subtask = task
+        .subtasks
+        .iter()
+        .find(|s| s.id == "ST-DOOMED")
+        .ok_or("subtask ST-DOOMED should exist")?;
     assert!(matches!(failed_subtask.status, TaskStatus::Failed { .. }));
     assert_eq!(failed_subtask.retry_count, 1);
 

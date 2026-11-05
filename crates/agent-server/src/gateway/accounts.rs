@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::sync::Arc;
 
 use axum::extract::State;
@@ -6,7 +5,7 @@ use axum::http::StatusCode;
 use axum::Json;
 
 use agent_engine::{AccountEngineKind, ComputeEngine, EngineInput, SafeAccountProfile};
-use agent_runtime::sandbox::{IsolationMode, SandboxEnvironment};
+use agent_runtime::ExecutionService;
 
 use super::types::AddAccountReq;
 use crate::AppState;
@@ -96,22 +95,21 @@ pub async fn verify_account_handler(
         AccountEngineKind::Claude => {
             Arc::new(agent_engine::ClaudeCodeEngine::new(None, None).with_env(env))
         }
-        AccountEngineKind::Generic(ref name) => Arc::new(agent_engine::GenericCliEngine::new(
-            name.clone(),
-            name.clone(),
-            vec![],
-            env,
-            None,
-        )),
+        AccountEngineKind::Generic(_) => return Json(serde_json::json!({
+            "success": false,
+            "error": "Account verification is unavailable for generic engines"
+        })),
     };
 
-    let mut input = EngineInput::new("echo verify", &state.workspace);
-    let sandbox = SandboxEnvironment::new(&state.workspace, IsolationMode::LocalDirectory);
-    input.command_sandbox = sandbox.command_sandbox(Path::new(&input.working_dir));
+    let input = EngineInput::new("echo verify", &state.workspace);
+    let execution = match ExecutionService::from_workspace(&state.workspace) {
+        Ok(service) => service,
+        Err(err) => return Json(serde_json::json!({"success": false, "error": err.to_string()})),
+    };
 
     let start = std::time::Instant::now();
-    match engine_impl.execute(&input).await {
-        Ok(output) => {
+    match execution.execute(engine_impl, &input).await {
+        Ok(output) if output.exit_code == 0 => {
             let latency = start.elapsed().as_millis();
             state.vault.record_success(&engine_kind, &id);
             Json(serde_json::json!({
@@ -120,13 +118,17 @@ pub async fn verify_account_handler(
                 "output": output.stdout_content.trim()
             }))
         }
-        Err(err) => {
+        result => {
+            let error = match result {
+                Ok(output) => format!("Engine exited with code {}", output.exit_code),
+                Err(err) => err.to_string(),
+            };
             state
                 .vault
-                .mark_cooldown(&engine_kind, &id, 60, &err.to_string());
+                .mark_cooldown(&engine_kind, &id, 60, &error);
             Json(serde_json::json!({
                 "success": false,
-                "error": err.to_string()
+                "error": error
             }))
         }
     }

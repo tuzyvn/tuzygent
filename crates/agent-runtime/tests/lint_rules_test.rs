@@ -314,3 +314,2001 @@ fn test_topic_c658ea_runner_tests_modularization() {
 }
 
 
+/// TDD test case for TOPIC-20261105-2e7a49:
+/// Verifies that `crates/agent-runtime/src/ooda/mod.rs` has been decomposed from a monolithic 446-line file
+/// into modular, single-responsibility submodules under `src/ooda/`,
+/// with every submodule strictly under the 350-line P90 limit.
+#[test]
+fn test_topic_2e7a49_ooda_mod_modularization() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let ooda_dir = manifest_dir.join("src/ooda");
+    assert!(ooda_dir.is_dir(), "src/ooda must exist as a directory");
+
+    let mod_path = ooda_dir.join("mod.rs");
+    assert!(mod_path.is_file(), "src/ooda/mod.rs must exist");
+
+    let mod_content = std::fs::read_to_string(&mod_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", mod_path.display()));
+    let mod_lines = mod_content.lines().count();
+    assert!(
+        mod_lines <= 350,
+        "src/ooda/mod.rs has {} lines, which exceeds P90 limit (350 lines)",
+        mod_lines
+    );
+
+    let lifecycle_path = ooda_dir.join("lifecycle.rs");
+    assert!(
+        lifecycle_path.is_file(),
+        "src/ooda/lifecycle.rs must exist as a dedicated lifecycle submodule"
+    );
+
+    let lifecycle_content = std::fs::read_to_string(&lifecycle_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", lifecycle_path.display()));
+    let lifecycle_lines = lifecycle_content.lines().count();
+    assert!(
+        lifecycle_lines <= 350,
+        "src/ooda/lifecycle.rs has {} lines, which exceeds P90 limit (350 lines)",
+        lifecycle_lines
+    );
+
+    let context_path = ooda_dir.join("context.rs");
+    assert!(
+        context_path.is_file(),
+        "src/ooda/context.rs must exist as a dedicated context & environment submodule"
+    );
+
+    let context_content = std::fs::read_to_string(&context_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", context_path.display()));
+    let context_lines = context_content.lines().count();
+    assert!(
+        context_lines <= 350,
+        "src/ooda/context.rs has {} lines, which exceeds P90 limit (350 lines)",
+        context_lines
+    );
+}
+
+/// TDD test case for TOPIC-20261105-8cf437:
+/// Verifies that `crates/agent-runtime/src/execution.rs` contains ZERO `.unwrap()` calls,
+/// adhering strictly to safe error handling guidelines.
+#[test]
+fn test_topic_8cf437_no_unwrap_in_execution_rs() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let execution_path = manifest_dir.join("src/execution.rs");
+    assert!(execution_path.is_file(), "src/execution.rs must exist");
+
+    let content = std::fs::read_to_string(&execution_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", execution_path.display()));
+
+    let unwrap_calls: Vec<(usize, &str)> = content
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains(".unwrap()"))
+        .map(|(i, line)| (i + 1, line.trim()))
+        .collect();
+
+    assert!(
+        unwrap_calls.is_empty(),
+        "Found {} unwrap() calls in src/execution.rs:\n{:#?}",
+        unwrap_calls.len(),
+        unwrap_calls
+    );
+}
+
+/// TDD test case for TOPIC-20261105-c02a0d:
+/// Verifies that `crates/agent-runtime/src/ooda/execution/runner_tests/fixtures.rs` contains ZERO `.unwrap()` calls,
+/// adhering strictly to safe error handling guidelines.
+#[test]
+fn test_topic_c02a0d_no_unwrap_in_runner_tests_fixtures_rs() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixtures_path = manifest_dir.join("src/ooda/execution/runner_tests/fixtures.rs");
+    assert!(
+        fixtures_path.is_file(),
+        "src/ooda/execution/runner_tests/fixtures.rs must exist"
+    );
+
+    let content = std::fs::read_to_string(&fixtures_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", fixtures_path.display()));
+
+    let unwrap_calls: Vec<(usize, &str)> = content
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains(".unwrap()"))
+        .map(|(i, line)| (i + 1, line.trim()))
+        .collect();
+
+    assert!(
+        unwrap_calls.is_empty(),
+        "Found {} unwrap() calls in src/ooda/execution/runner_tests/fixtures.rs:\n{:#?}",
+        unwrap_calls.len(),
+        unwrap_calls
+    );
+}
+
+/// TDD test case for TOPIC-20261105-513a07:
+/// Verifies that `crates/agent-runtime/src/task_service.rs` has been decomposed from a monolithic 409-line file
+/// into modular, single-responsibility submodules under `src/task_service/`,
+/// with every submodule strictly under the 350-line P90 limit.
+#[test]
+fn test_topic_513a07_task_service_modularization() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let task_service_dir = manifest_dir.join("src/task_service");
+    assert!(
+        task_service_dir.is_dir(),
+        "src/task_service must exist as a directory"
+    );
+
+    let legacy_file = manifest_dir.join("src/task_service.rs");
+    assert!(
+        !legacy_file.exists(),
+        "src/task_service.rs monolithic file must be removed and replaced by src/task_service/ module"
+    );
+
+    let required_submodules = [
+        "mod.rs",
+        "dispatch.rs",
+        "review.rs",
+    ];
+
+    for submodule in required_submodules {
+        let submodule_path = task_service_dir.join(submodule);
+        assert!(
+            submodule_path.is_file(),
+            "Required submodule src/task_service/{} must exist",
+            submodule
+        );
+
+        let content = std::fs::read_to_string(&submodule_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", submodule_path.display()));
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "Submodule src/task_service/{} has {} lines, which exceeds P90 limit (350 lines)",
+            submodule,
+            line_count
+        );
+    }
+}
+
+/// TDD test case for TOPIC-20261105-697d3d:
+/// Verifies that `crates/agent-runtime/src/task_store.rs` has been decomposed from a monolithic 408-line file
+/// into modular, single-responsibility submodules under `src/task_store/`,
+/// with every submodule strictly under the 350-line P90 limit.
+#[test]
+fn test_topic_697d3d_task_store_modularization() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let task_store_dir = manifest_dir.join("src/task_store");
+    assert!(
+        task_store_dir.is_dir(),
+        "src/task_store must exist as a directory"
+    );
+
+    let legacy_file = manifest_dir.join("src/task_store.rs");
+    assert!(
+        !legacy_file.exists(),
+        "src/task_store.rs monolithic file must be removed and replaced by src/task_store/ module"
+    );
+
+    let required_submodules = [
+        "mod.rs",
+        "crud.rs",
+        "lifecycle.rs",
+        "schema.rs",
+    ];
+
+    for submodule in required_submodules {
+        let submodule_path = task_store_dir.join(submodule);
+        assert!(
+            submodule_path.is_file(),
+            "Required submodule src/task_store/{} must exist",
+            submodule
+        );
+
+        let content = std::fs::read_to_string(&submodule_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", submodule_path.display()));
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "Submodule src/task_store/{} has {} lines, which exceeds P90 limit (350 lines)",
+            submodule,
+            line_count
+        );
+    }
+}
+
+/// TDD test case for TOPIC-20261105-65d398:
+/// Verifies that `crates/agent-engine/src/process.rs` has been decomposed from a monolithic 359-line file
+/// into modular, single-responsibility submodules under `src/process/`,
+/// with every submodule strictly under the 350-line P90 limit.
+#[test]
+fn test_topic_65d398_process_modularization() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let agent_engine_src = manifest_dir.parent().unwrap().join("agent-engine/src");
+    let process_dir = agent_engine_src.join("process");
+    assert!(
+        process_dir.is_dir(),
+        "crates/agent-engine/src/process must exist as a directory"
+    );
+
+    let legacy_file = agent_engine_src.join("process.rs");
+    assert!(
+        !legacy_file.exists(),
+        "crates/agent-engine/src/process.rs monolithic file must be removed and replaced by process/ module"
+    );
+
+    let required_submodules = [
+        "mod.rs",
+        "builder.rs",
+        "runner.rs",
+        "stream.rs",
+    ];
+
+    for submodule in required_submodules {
+        let submodule_path = process_dir.join(submodule);
+        assert!(
+            submodule_path.is_file(),
+            "Required submodule src/process/{} must exist",
+            submodule
+        );
+
+        let content = std::fs::read_to_string(&submodule_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", submodule_path.display()));
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "Submodule src/process/{} has {} lines, which exceeds P90 limit (350 lines)",
+            submodule,
+            line_count
+        );
+    }
+}
+
+/// TDD test case for TOPIC-20261105-b998f4:
+/// Permanently eliminates recurring mission failure in TOPIC-20261105-8cf437.
+/// Verifies that `crates/agent-runtime/src/execution.rs` and `ExecutionService` adhere to:
+/// 1. Zero .unwrap() calls and strict P90 line limits (<= 350 lines).
+/// 2. Graceful fallback for timeout_seconds == 0 (no immediate zero-duration timeout).
+/// 3. Strict output bounding and UTF-8 safe truncation for oversized engine responses.
+/// 4. Policy enforcement before engine execution (rejects prohibited commands).
+/// 5. Cooperative cancellation support via AtomicBool token.
+/// 6. Complete and ergonomic builder methods (with_guardrail, with_sandbox_config, with_cancellation_token, with_workspace_dir).
+#[tokio::test]
+async fn test_topic_b998f4_root_cause_eliminated_for_execution_service() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let execution_path = manifest_dir.join("src/execution.rs");
+    assert!(execution_path.is_file(), "src/execution.rs must exist");
+
+    let content = std::fs::read_to_string(&execution_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", execution_path.display()));
+
+    let unwrap_calls: Vec<(usize, &str)> = content
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains(".unwrap()"))
+        .map(|(i, line)| (i + 1, line.trim()))
+        .collect();
+
+    assert!(
+        unwrap_calls.is_empty(),
+        "Found {} unwrap() calls in src/execution.rs:\n{:#?}",
+        unwrap_calls.len(),
+        unwrap_calls
+    );
+
+    let line_count = content.lines().count();
+    assert!(
+        line_count <= 350,
+        "src/execution.rs has {} lines, exceeding P90 limit (350 lines)",
+        line_count
+    );
+
+    // Mock engine for behavior testing
+    use agent_domain::GuardrailPolicy;
+    use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+    use async_trait::async_trait;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    struct TestEngine {
+        output_text: String,
+    }
+
+    #[async_trait]
+    impl ComputeEngine for TestEngine {
+        async fn execute(&self, _input: &EngineInput) -> Result<EngineOutput, EngineError> {
+            Ok(EngineOutput {
+                stdout_content: self.output_text.clone(),
+                exit_code: 0,
+                execution_duration_ms: 10,
+                engine_used: EngineKind::Mock,
+                session_id: None,
+            })
+        }
+        fn engine_kind(&self) -> EngineKind {
+            EngineKind::Mock
+        }
+    }
+
+    // 1. Test builder methods
+    let base_service = ExecutionService::new("/tmp", None, None);
+    let guardrail = GuardrailPolicy::default_enterprise();
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+    let service = base_service
+        .with_guardrail(guardrail)
+        .with_workspace_dir("/tmp/test_workspace")
+        .with_cancellation_token(cancel_flag.clone());
+
+    assert_eq!(service.workspace_dir(), std::path::Path::new("/tmp/test_workspace"));
+    assert!(service.cancellation_token().is_some());
+
+    // 2. Test graceful fallback for timeout_seconds == 0
+    let engine = Arc::new(TestEngine {
+        output_text: "success with zero timeout".to_string(),
+    });
+    let mut zero_timeout_input = EngineInput::new("echo hello", "/tmp/test_workspace");
+    zero_timeout_input.timeout_seconds = 0;
+    let res = service.execute(engine.clone(), &zero_timeout_input).await;
+    assert!(
+        res.is_ok(),
+        "ExecutionService must gracefully handle timeout_seconds == 0 instead of timing out immediately"
+    );
+    let out = res.expect("Should succeed");
+    assert_eq!(out.stdout_content, "success with zero timeout");
+
+    // 3. Test strict UTF-8 safe output bounding and truncation
+    let long_multibyte_text = "Tiếng Việt có dấu kiểm tra UTF-8 boundary cắt tỉa an toàn không lỗi panic ".repeat(50);
+    let oversized_engine = Arc::new(TestEngine {
+        output_text: long_multibyte_text,
+    });
+    let mut bounded_input = EngineInput::new("echo verbose", "/tmp/test_workspace");
+    bounded_input.max_output_bytes = Some(60);
+    let bounded_res = service.execute(oversized_engine, &bounded_input).await;
+    assert!(bounded_res.is_ok(), "Oversized output must be safely handled");
+    let bounded_out = bounded_res.expect("Should succeed");
+    assert!(
+        bounded_out.stdout_content.contains("[... output truncated"),
+        "Output should include truncation marker"
+    );
+
+    // 4. Test policy enforcement for dangerous commands
+    let dangerous_input = EngineInput::new("rm -rf /", "/tmp/test_workspace");
+    let policy_res = service.execute(engine.clone(), &dangerous_input).await;
+    assert!(
+        matches!(policy_res, Err(EngineError::PolicyRejected(_))),
+        "Forbidden commands must be rejected by policy before execution"
+    );
+
+    // 5. Test cooperative cancellation
+    cancel_flag.store(true, Ordering::SeqCst);
+    let normal_input = EngineInput::new("echo normal", "/tmp/test_workspace");
+    let cancel_res = service.execute(engine.clone(), &normal_input).await;
+    assert!(
+        matches!(cancel_res, Err(EngineError::ProcessFailed(_))),
+        "Canceled token must prevent execution from proceeding"
+    );
+}
+
+/// TDD test case for TOPIC-20261105-86bcb5:
+/// Permanently eliminates recurring mission failure in TOPIC-20261105-c02a0d.
+/// Verifies that `crates/agent-runtime/src/ooda/execution/runner_tests/fixtures.rs` and its fixtures adhere to:
+/// 1. Zero .unwrap() calls.
+/// 2. Zero .expect( calls (preventing panics during test environment initialization).
+/// 3. Zero panic!( calls.
+/// 4. Strict P90 line limits (<= 350 lines).
+/// 5. Panic-free and fallback-safe TestEnv creation (`try_new` and `new`).
+/// 6. Safe filesystem helper methods (`write_file`, `read_file`, `create_sub_dir`, `file_exists`, `remove_file`, `clean`).
+/// 7. Robust executor setups (`setup_test_executor`, `try_setup_test_executor`, `setup_test_executor_with_timeout`).
+/// 8. Enhanced MockEngine capabilities (`with_constant_output`, `with_error`, `call_count`, `reset`).
+#[tokio::test]
+async fn test_topic_86bcb5_root_cause_eliminated_for_runner_tests_fixtures() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let fixtures_path = manifest_dir.join("src/ooda/execution/runner_tests/fixtures.rs");
+    assert!(
+        fixtures_path.is_file(),
+        "src/ooda/execution/runner_tests/fixtures.rs must exist"
+    );
+
+    let content = std::fs::read_to_string(&fixtures_path)
+        .unwrap_or_else(|_| panic!("Failed to read {}", fixtures_path.display()));
+
+    // 1. Zero .unwrap()
+    let unwrap_calls: Vec<(usize, &str)> = content
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains(".unwrap()"))
+        .map(|(i, line)| (i + 1, line.trim()))
+        .collect();
+    assert!(
+        unwrap_calls.is_empty(),
+        "Found {} unwrap() calls in fixtures.rs:\n{:#?}",
+        unwrap_calls.len(),
+        unwrap_calls
+    );
+
+    // 2. Zero .expect(
+    let expect_calls: Vec<(usize, &str)> = content
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains(".expect("))
+        .map(|(i, line)| (i + 1, line.trim()))
+        .collect();
+    assert!(
+        expect_calls.is_empty(),
+        "Found {} expect() calls in fixtures.rs:\n{:#?}",
+        expect_calls.len(),
+        expect_calls
+    );
+
+    // 3. Zero panic!(
+    let panic_calls: Vec<(usize, &str)> = content
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains("panic!("))
+        .map(|(i, line)| (i + 1, line.trim()))
+        .collect();
+    assert!(
+        panic_calls.is_empty(),
+        "Found {} panic!() calls in fixtures.rs:\n{:#?}",
+        panic_calls.len(),
+        panic_calls
+    );
+
+    // 4. Line count <= 350
+    let line_count = content.lines().count();
+    assert!(
+        line_count <= 350,
+        "fixtures.rs has {} lines, exceeding P90 limit (350 lines)",
+        line_count
+    );
+}
+
+/// TDD test case for TOPIC-20261105-694a83:
+/// Permanently eliminates recurring mission failure in TOPIC-20261105-513a07.
+/// Verifies that `crates/agent-runtime/src/task_service/` and `TaskService` adhere to:
+/// 1. Zero .unwrap() calls across all submodules (mod.rs, dispatch.rs, review.rs).
+/// 2. Zero .expect( calls across all submodules.
+/// 3. Zero panic!( calls across all submodules.
+/// 4. Strict P90 line limits (<= 350 lines) for all submodules.
+/// 5. Complete and ergonomic builder methods (with_guardrail, with_sandbox_config, with_workspace_dir).
+/// 6. Safe accessors (workspace_dir, guardrail, sandbox_config, available_concurrency, active_task_count).
+/// 7. Batch cooperative cancellation support (cancel_all).
+/// 8. Self-healing workspace initialization and error resilience during background dispatch.
+#[tokio::test]
+async fn test_topic_694a83_root_cause_eliminated_for_task_service() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let task_service_dir = manifest_dir.join("src/task_service");
+    assert!(
+        task_service_dir.is_dir(),
+        "src/task_service must exist as a directory"
+    );
+
+    let submodules = ["mod.rs", "dispatch.rs", "review.rs"];
+    for sub in submodules {
+        let sub_path = task_service_dir.join(sub);
+        assert!(sub_path.is_file(), "src/task_service/{} must exist", sub);
+        let content = std::fs::read_to_string(&sub_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", sub_path.display()));
+
+        // 1. Zero .unwrap()
+        let unwraps: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".unwrap()"))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            unwraps.is_empty(),
+            "Found {} unwrap() calls in src/task_service/{}:\n{:#?}",
+            unwraps.len(),
+            sub,
+            unwraps
+        );
+
+        // 2. Zero .expect(
+        let expects: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".expect("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            expects.is_empty(),
+            "Found {} expect() calls in src/task_service/{}:\n{:#?}",
+            expects.len(),
+            sub,
+            expects
+        );
+
+        // 3. Zero panic!(
+        let panics: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains("panic!("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            panics.is_empty(),
+            "Found {} panic!() calls in src/task_service/{}:\n{:#?}",
+            panics.len(),
+            sub,
+            panics
+        );
+
+        // 4. Line count <= 350
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "src/task_service/{} has {} lines, exceeding P90 limit (350 lines)",
+            sub,
+            line_count
+        );
+    }
+
+    // Behavioral and functional verification
+    use agent_domain::{Priority, TaskStatus};
+    let temp_workspace = std::env::temp_dir().join(format!("task_service_test_{}", uuid::Uuid::new_v4()));
+    let store = Arc::new(SqliteTaskStore::new(&temp_workspace).expect("Store init"));
+
+    // Builder methods & accessors
+    let guardrail = GuardrailPolicy::default_enterprise();
+    let sandbox = SandboxConfig::default();
+    let service = TaskService::new(store.clone(), &temp_workspace, 2, None, None)
+        .with_guardrail(guardrail.clone())
+        .with_sandbox_config(sandbox.clone())
+        .with_workspace_dir(&temp_workspace);
+
+    assert_eq!(service.workspace_dir(), temp_workspace.as_path());
+    assert_eq!(service.available_concurrency(), 2);
+    assert_eq!(service.active_task_count().await, 0);
+    assert!(service.sandbox_config().is_some());
+    assert_eq!(service.guardrail().max_subtasks_per_goal, guardrail.max_subtasks_per_goal);
+
+    // Batch cancellation test (cancel_all)
+    let t1 = service.submit_task("Task 1", "Goal 1", Priority::Normal).await.expect("Submit t1");
+    let t2 = service.submit_task("Task 2", "Goal 2", Priority::High).await.expect("Submit t2");
+    let canceled_count = service.cancel_all().await.expect("Cancel all");
+    assert!(canceled_count >= 2, "cancel_all must cancel all pending/active tasks");
+
+    let t1_state = service.get_task(&t1).await.expect("Get t1").expect("t1 exists");
+    assert!(matches!(t1_state.status, TaskStatus::Canceled { .. }));
+    let t2_state = service.get_task(&t2).await.expect("Get t2").expect("t2 exists");
+    assert!(matches!(t2_state.status, TaskStatus::Canceled { .. }));
+
+    // Self-healing workspace initialization verification during dispatch
+    let non_existent_ws = std::env::temp_dir().join(format!("non_existent_ws_{}", uuid::Uuid::new_v4()));
+    assert!(!non_existent_ws.exists());
+    let store2 = Arc::new(SqliteTaskStore::new(&non_existent_ws).expect("Store init"));
+    let service2 = TaskService::new(store2.clone(), &non_existent_ws, 1, None, None);
+    let t3 = service2.submit_task("Self healing ws", "Goal 3", Priority::Normal).await.expect("Submit t3");
+    let mock_engine = Arc::new(MockEngine::new("mock output"));
+    service2.dispatch(t3.clone(), mock_engine);
+
+    // Wait briefly for background dispatch
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert!(non_existent_ws.exists(), "Workspace dir must be self-healed and created automatically");
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&temp_workspace);
+    let _ = std::fs::remove_dir_all(&non_existent_ws);
+}
+
+/// TDD test case for TOPIC-20261105-62a0a4:
+/// Root-cause elimination of system error 'Mission exited with non-zero code 1'
+/// in `crates/agent-runtime/src/task_store/`:
+/// 1. Zero .unwrap() calls across all task_store submodules.
+/// 2. Zero .expect( calls across all task_store submodules.
+/// 3. Zero panic!( calls across all task_store submodules.
+/// 4. Every submodule strictly under the 350-line P90 limit.
+/// 5. Self-healing initialization on corrupted database files.
+/// 6. Self-healing initialization when storage path is blocked by a file.
+/// 7. Database integrity checking and health monitoring (is_healthy, check_integrity).
+/// 8. Atomic and maintenance capabilities (count_tasks, delete_task, vacuum, clear_all).
+/// 9. Safe lifecycle handling for missing task/checkpoint in save_review.
+#[tokio::test]
+async fn test_topic_62a0a4_root_cause_eliminated_for_task_store() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let task_store_dir = manifest_dir.join("src/task_store");
+    assert!(
+        task_store_dir.is_dir(),
+        "src/task_store must exist as a directory"
+    );
+
+    let submodules = ["mod.rs", "crud.rs", "lifecycle.rs", "schema.rs"];
+    for sub in submodules {
+        let sub_path = task_store_dir.join(sub);
+        assert!(sub_path.is_file(), "src/task_store/{} must exist", sub);
+        let content = std::fs::read_to_string(&sub_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", sub_path.display()));
+
+        // 1. Zero .unwrap()
+        let unwraps: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".unwrap()"))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            unwraps.is_empty(),
+            "Found {} unwrap() calls in src/task_store/{}:\n{:#?}",
+            unwraps.len(),
+            sub,
+            unwraps
+        );
+
+        // 2. Zero .expect(
+        let expects: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".expect("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            expects.is_empty(),
+            "Found {} expect() calls in src/task_store/{}:\n{:#?}",
+            expects.len(),
+            sub,
+            expects
+        );
+
+        // 3. Zero panic!(
+        let panics: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains("panic!("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            panics.is_empty(),
+            "Found {} panic!() calls in src/task_store/{}:\n{:#?}",
+            panics.len(),
+            sub,
+            panics
+        );
+
+        // 4. Line count <= 350
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "src/task_store/{} has {} lines, exceeding P90 limit (350 lines)",
+            sub,
+            line_count
+        );
+    }
+
+    use agent_domain::{Priority, Task, TaskStatus};
+
+    // 5. Self-healing corrupted database file test
+    let temp_ws_corrupt = std::env::temp_dir().join(format!("task_store_corrupt_{}", uuid::Uuid::new_v4()));
+    let storage_dir = temp_ws_corrupt.join("storage");
+    std::fs::create_dir_all(&storage_dir).expect("Create storage");
+    let corrupt_db_path = storage_dir.join("tasks.db");
+    std::fs::write(&corrupt_db_path, b"CORRUPTED_GARBAGE_HEADER_DATA_12345").expect("Write corrupt db");
+
+    let store_corrupt = SqliteTaskStore::new(&temp_ws_corrupt).expect("Self-healing store init on corrupted db");
+    assert!(store_corrupt.is_healthy(), "Corrupted database must be self-healed and healthy");
+    assert!(store_corrupt.check_integrity().expect("Check integrity"), "Integrity check must pass");
+
+    // 6. Self-healing when storage path is a file
+    let temp_ws_storage_file = std::env::temp_dir().join(format!("task_store_storage_file_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_ws_storage_file).expect("Create ws");
+    let blocked_storage = temp_ws_storage_file.join("storage");
+    std::fs::write(&blocked_storage, b"accidental regular file").expect("Write blocked file");
+
+    let store_blocked = SqliteTaskStore::new(&temp_ws_storage_file).expect("Self-healing store init on blocked storage path");
+    assert!(store_blocked.is_healthy(), "Database must be healthy after resolving blocked storage path");
+
+    // 7. Atomic & Maintenance operations (count_tasks, delete_task, vacuum, clear_all)
+    let temp_ws_ops = std::env::temp_dir().join(format!("task_store_ops_{}", uuid::Uuid::new_v4()));
+    let store = SqliteTaskStore::new(&temp_ws_ops).expect("Store init");
+    assert_eq!(store.count_tasks().expect("Count 0"), 0);
+
+    let task1 = Task::new("Task 1", "Goal 1", Priority::Normal);
+    let task1_id = task1.id.clone();
+    store.save_task(&task1).await.expect("Save task 1");
+    assert_eq!(store.count_tasks().expect("Count 1"), 1);
+
+    let task2 = Task::new("Task 2", "Goal 2", Priority::High);
+    let task2_id = task2.id.clone();
+    store.save_task(&task2).await.expect("Save task 2");
+    assert_eq!(store.count_tasks().expect("Count 2"), 2);
+
+    let deleted = store.delete_task(&task1_id).expect("Delete task 1");
+    assert!(deleted, "Task 1 must be deleted");
+    assert_eq!(store.count_tasks().expect("Count after delete"), 1);
+    assert!(store.get_task(&task1_id).await.expect("Get task 1").is_none());
+    assert!(store.get_task(&task2_id).await.expect("Get task 2").is_some());
+
+    store.vacuum().expect("Vacuum succeeds");
+    store.clear_all().expect("Clear all succeeds");
+    assert_eq!(store.count_tasks().expect("Count after clear"), 0);
+
+    // 8. Safe lifecycle handling for save_review on non-existent task
+    let non_existent_task = Task::new("Ghost", "Ghost goal", Priority::Normal);
+    let ghost_result = agent_domain::TaskResult {
+        task_id: non_existent_task.id.clone(),
+        status: TaskStatus::Completed,
+        summary: "Ghost".into(),
+        artifacts: Vec::new(),
+        verifications: Vec::new(),
+        duration_ms: 10,
+        engine_used: None,
+    };
+    let review_outcome = store
+        .save_review(
+            &non_existent_task,
+            &non_existent_task,
+            &ghost_result,
+            "reviewer",
+            "approve",
+            "rev1",
+        )
+        .await
+        .expect("save_review must handle non-existent task gracefully without failing");
+    assert!(!review_outcome, "Review on non-existent task must return false safely");
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&temp_ws_corrupt);
+    let _ = std::fs::remove_dir_all(&temp_ws_storage_file);
+    let _ = std::fs::remove_dir_all(&temp_ws_ops);
+}
+
+/// TDD test case for TOPIC-20261105-0ae933:
+/// Root-cause elimination of system error 'Mission exited with non-zero code 1'
+/// in `crates/agent-engine/src/process/`:
+/// 1. Zero .unwrap() calls across all process submodules.
+/// 2. Zero .expect( calls across all process submodules (eliminating panics on child/pipe extraction).
+/// 3. Zero panic!( calls across all process submodules.
+/// 4. Every submodule strictly under the 350-line P90 limit.
+/// 5. Self-healing non-existent working directory (automatically created instead of failing with ENOENT).
+/// 6. Zero timeout duration fallback (no immediate zero-duration timeout error).
+/// 7. Zero max_output_bytes fallback (no immediate InvalidData error on 0 max_bytes).
+/// 8. Multibyte UTF-8 safe truncation (prevents corrupting unicode characters at truncation boundary).
+/// 9. Ergonomic CommandSandbox builder constructors (new, with_env_whitelist, with_container_name).
+#[tokio::test]
+async fn test_topic_0ae933_root_cause_eliminated_for_process_module() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let agent_engine_src = manifest_dir.parent().unwrap().join("agent-engine/src");
+    let process_dir = agent_engine_src.join("process");
+    assert!(process_dir.is_dir(), "crates/agent-engine/src/process must exist");
+
+    let submodules = ["mod.rs", "builder.rs", "runner.rs", "stream.rs"];
+    for sub in submodules {
+        let sub_path = process_dir.join(sub);
+        assert!(sub_path.is_file(), "src/process/{} must exist", sub);
+        let content = std::fs::read_to_string(&sub_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", sub_path.display()));
+
+        // 1. Zero .unwrap()
+        let unwraps: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".unwrap()"))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            unwraps.is_empty(),
+            "Found {} unwrap() calls in src/process/{}:\n{:#?}",
+            unwraps.len(),
+            sub,
+            unwraps
+        );
+
+        // 2. Zero .expect(
+        let expects: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".expect("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            expects.is_empty(),
+            "Found {} expect() calls in src/process/{}:\n{:#?}",
+            expects.len(),
+            sub,
+            expects
+        );
+
+        // 3. Zero panic!(
+        let panics: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains("panic!("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            panics.is_empty(),
+            "Found {} panic!() calls in src/process/{}:\n{:#?}",
+            panics.len(),
+            sub,
+            panics
+        );
+
+        // 4. Line count <= 350
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "src/process/{} has {} lines, exceeding P90 limit (350 lines)",
+            sub,
+            line_count
+        );
+    }
+
+    use agent_engine::process::{read_stream, run_command, run_process_with_limit, CommandSandbox};
+    use agent_engine::EngineInput;
+    use std::collections::HashMap;
+
+    // 5. CommandSandbox builder verification
+    let sandbox = CommandSandbox::new("/bin/sh", vec!["-c".into()], "/workspace")
+        .with_env_whitelist(vec!["PATH".into(), "CUSTOM_VAR".into()])
+        .with_container_name("test-container-123");
+    assert_eq!(sandbox.program, "/bin/sh");
+    assert_eq!(sandbox.prefix_args, vec!["-c".to_string()]);
+    assert_eq!(sandbox.working_dir, "/workspace");
+    assert_eq!(sandbox.env_whitelist, vec!["PATH".to_string(), "CUSTOM_VAR".to_string()]);
+    assert_eq!(sandbox.container_name, Some("test-container-123".to_string()));
+
+    // 6. Zero timeout duration fallback in run_process_with_limit
+    let mut echo_cmd = tokio::process::Command::new("sh");
+    echo_cmd.arg("-c").arg("echo hello_zero_timeout");
+    let res_zero_timeout = run_process_with_limit(echo_cmd, Duration::ZERO, None, 1024).await;
+    assert!(
+        res_zero_timeout.is_ok(),
+        "run_process_with_limit with Duration::ZERO must fall back to safe default timeout and succeed"
+    );
+    let output = res_zero_timeout.unwrap();
+    assert!(String::from_utf8_lossy(&output.stdout).contains("hello_zero_timeout"));
+
+    // 7. Zero max_output_bytes fallback in read_stream
+    let stream_bytes = b"testing zero max output bytes stream\n";
+    let res_zero_max = read_stream(&stream_bytes[..], None, 0).await;
+    assert!(
+        res_zero_max.is_ok(),
+        "read_stream with max_bytes == 0 must fall back to DEFAULT_MAX_OUTPUT_BYTES"
+    );
+    assert_eq!(res_zero_max.unwrap(), stream_bytes.to_vec());
+
+    // 8. Multibyte UTF-8 safe truncation
+    // Line 1: 30 bytes; Line 2: contains Vietnamese multibyte chars.
+    // Total is > 40 bytes, but each line is <= 40 bytes.
+    let line1 = "Tập 01: Nghiên cứu tự chủ\n"; // 31 bytes
+    let line2 = "Tập 02: Trí tuệ 🚀🦀\n"; // 25 bytes
+    let combined = format!("{line1}{line2}");
+    // max_bytes = 40. Remaining for line 2 is 40 - 31 = 9 bytes.
+    // "Tập 02: " has 9 bytes, but "Tập" has 'ậ' (3 bytes: 0xe1 0xba 0xad).
+    // Cutting at 9 bytes would land around multibyte characters.
+    let truncated_output = read_stream(combined.as_bytes(), None, 40)
+        .await
+        .expect("read_stream must succeed with truncation");
+    let truncated_str = String::from_utf8(truncated_output.clone());
+    assert!(
+        truncated_str.is_ok(),
+        "Truncated output must remain strictly valid UTF-8 without byte splitting: {:?}",
+        String::from_utf8_lossy(&truncated_output)
+    );
+    let valid_text = truncated_str.unwrap();
+    assert!(
+        valid_text.contains("[OUTPUT TRUNCATED: buffer exceeded limit]"),
+        "Output must contain truncation marker"
+    );
+
+    // 9. Self-healing non-existent working directory
+    let non_existent_workdir =
+        std::env::temp_dir().join(format!("agent_process_heal_{}", uuid::Uuid::new_v4()));
+    assert!(!non_existent_workdir.exists());
+
+    let input = EngineInput::new("pwd", non_existent_workdir.to_str().unwrap());
+    let env_map = HashMap::new();
+    let cmd_res = run_command(&input, "pwd", &[], &env_map, None).await;
+    assert!(
+        cmd_res.is_ok(),
+        "run_command with non-existent working_dir must heal the directory and succeed"
+    );
+    assert!(
+        non_existent_workdir.is_dir(),
+        "Working directory must have been created automatically"
+    );
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&non_existent_workdir);
+}
+
+/// TDD test case for TOPIC-20261105-4338d8:
+/// Permanently eliminates recurring mission failure in TOPIC-20261105-86bcb5.
+/// Verifies that all test infrastructure and runner test submodules in
+/// `crates/agent-runtime/src/ooda/execution/runner_tests/` adhere to:
+/// 1. Zero .unwrap() calls across all runner_tests submodules.
+/// 2. Zero .expect( calls across all runner_tests submodules (eliminating panics during artifact writing or subtask lookup).
+/// 3. Zero panic!( calls across all runner_tests submodules.
+/// 4. Every submodule strictly under the 350-line P90 limit.
+/// 5. Robust multi-tier self-healing TestEnv fallback initialization.
+/// 6. Safe zero-timeout duration fallback in try_setup_test_executor and setup_test_executor_with_timeout.
+/// 7. Enhanced CallbackMockEngine capabilities: with_constant_output, with_timeout, with_failure,
+///    with_error, with_exit_code, with_sequence, call_count, reset.
+#[tokio::test]
+async fn test_topic_4338d8_root_cause_eliminated_for_runner_tests_and_fixtures() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let runner_tests_dir = manifest_dir.join("src/ooda/execution/runner_tests");
+    assert!(
+        runner_tests_dir.is_dir(),
+        "runner_tests must exist as a modular directory"
+    );
+
+    let required_submodules = [
+        "mod.rs",
+        "fixtures.rs",
+        "guardrail.rs",
+        "lifecycle.rs",
+        "verification.rs",
+    ];
+
+    for submodule in required_submodules {
+        let submodule_path = runner_tests_dir.join(submodule);
+        assert!(
+            submodule_path.is_file(),
+            "Required submodule runner_tests/{} must exist",
+            submodule
+        );
+
+        let content = std::fs::read_to_string(&submodule_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", submodule_path.display()));
+
+        // 1. Zero .unwrap()
+        let unwraps: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".unwrap()"))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            unwraps.is_empty(),
+            "Found {} unwrap() calls in src/ooda/execution/runner_tests/{}:\n{:#?}",
+            unwraps.len(),
+            submodule,
+            unwraps
+        );
+
+        // 2. Zero .expect(
+        let expects: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".expect("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            expects.is_empty(),
+            "Found {} expect() calls in src/ooda/execution/runner_tests/{}:\n{:#?}",
+            expects.len(),
+            submodule,
+            expects
+        );
+
+        // 3. Zero panic!(
+        let panics: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains("panic!("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            panics.is_empty(),
+            "Found {} panic!() calls in src/ooda/execution/runner_tests/{}:\n{:#?}",
+            panics.len(),
+            submodule,
+            panics
+        );
+
+        // 4. Line count <= 350
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "src/ooda/execution/runner_tests/{} has {} lines, exceeding P90 limit (350 lines)",
+            submodule,
+            line_count
+        );
+    }
+
+    // 5. Inspect fixtures.rs for resilient patterns
+    let fixtures_content = std::fs::read_to_string(runner_tests_dir.join("fixtures.rs"))
+        .unwrap_or_else(|_| panic!("Failed to read fixtures.rs"));
+
+    assert!(
+        fixtures_content.contains("pub fn with_exit_code"),
+        "fixtures.rs must provide with_exit_code helper for non-zero exit code testing"
+    );
+    assert!(
+        fixtures_content.contains("pub fn with_error"),
+        "fixtures.rs must provide with_error helper"
+    );
+    assert!(
+        fixtures_content.contains("pub fn with_sequence"),
+        "fixtures.rs must provide with_sequence helper for multi-step responses"
+    );
+    assert!(
+        fixtures_content.contains("Some(0)") || fixtures_content.contains("timeout_secs == 0"),
+        "fixtures.rs must handle zero timeout gracefully by falling back to safe default"
+    );
+}
+
+/// TDD test case for TOPIC-20261105-07a09e:
+/// Permanently eliminates recurring mission failure in TOPIC-20261105-694a83.
+/// Verifies that `crates/agent-runtime/src/task_service/` adheres to:
+/// 1. Zero .unwrap() calls across all submodules (mod.rs, dispatch.rs, review.rs).
+/// 2. Zero .expect( calls across all submodules.
+/// 3. Zero panic!( calls across all submodules.
+/// 4. Strict P90 line limits (<= 350 lines) for all submodules.
+/// 5. Ergonomic concurrency controls (concurrency_limit, with_concurrency).
+/// 6. Active task status queries (is_active) and health checks (is_healthy, count_tasks).
+/// 7. Paginated batch cancellation across large task volumes without truncation.
+/// 8. Safe graceful task drain (drain) with configurable timeouts.
+/// 9. Resilient task retry (retry_task) for failed/canceled tasks.
+/// 10. Multi-tier self-healing workspace fallback resolution on uncreatable paths.
+#[tokio::test]
+async fn test_topic_07a09e_root_cause_eliminated_for_task_service() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let task_service_dir = manifest_dir.join("src/task_service");
+    assert!(
+        task_service_dir.is_dir(),
+        "src/task_service must exist as a directory"
+    );
+
+    let submodules = ["mod.rs", "dispatch.rs", "review.rs"];
+    for sub in submodules {
+        let sub_path = task_service_dir.join(sub);
+        assert!(sub_path.is_file(), "src/task_service/{} must exist", sub);
+        let content = std::fs::read_to_string(&sub_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", sub_path.display()));
+
+        // 1. Zero .unwrap()
+        let unwraps: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".unwrap()"))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            unwraps.is_empty(),
+            "Found {} unwrap() calls in src/task_service/{}:\n{:#?}",
+            unwraps.len(),
+            sub,
+            unwraps
+        );
+
+        // 2. Zero .expect(
+        let expects: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".expect("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            expects.is_empty(),
+            "Found {} expect() calls in src/task_service/{}:\n{:#?}",
+            expects.len(),
+            sub,
+            expects
+        );
+
+        // 3. Zero panic!(
+        let panics: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains("panic!("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            panics.is_empty(),
+            "Found {} panic!() calls in src/task_service/{}:\n{:#?}",
+            panics.len(),
+            sub,
+            panics
+        );
+
+        // 4. Line count <= 350
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "src/task_service/{} has {} lines, exceeding P90 limit (350 lines)",
+            sub,
+            line_count
+        );
+    }
+
+    // Behavioral and functional verification
+    use agent_domain::{Priority, TaskStatus};
+    let temp_workspace = std::env::temp_dir().join(format!("task_service_07a09e_{}", uuid::Uuid::new_v4()));
+    let store = Arc::new(SqliteTaskStore::new(&temp_workspace).expect("Store init"));
+
+    // Builder and concurrency methods
+    let service = TaskService::new(store.clone(), &temp_workspace, 2, None, None)
+        .with_concurrency(4);
+
+    assert_eq!(service.concurrency_limit(), 4);
+    assert_eq!(service.available_concurrency(), 4);
+    assert!(service.is_healthy().await);
+    assert_eq!(service.count_tasks().await.expect("count tasks"), 0);
+
+    // Submit tasks and verify is_active & count_tasks
+    let t1 = service.submit_task("Task Alpha", "Goal Alpha", Priority::Normal).await.expect("Submit t1");
+    let t2 = service.submit_task("Task Beta", "Goal Beta", Priority::High).await.expect("Submit t2");
+    assert_eq!(service.count_tasks().await.expect("count tasks"), 2);
+    assert!(!service.is_active(&t1).await);
+
+    // Dispatch and verify is_active tracking
+    let mock_engine = Arc::new(MockEngine::new("active test output"));
+    service.dispatch(t1.clone(), mock_engine.clone());
+
+    // Wait briefly for completion
+    let drained = service.drain(Duration::from_secs(3)).await.expect("Drain active tasks");
+    assert!(drained, "Active tasks must be drained within timeout");
+    assert_eq!(service.active_task_count().await, 0);
+    assert!(!service.is_active(&t1).await);
+
+    // Cancel remaining task
+    let canceled = service.cancel_task(&t2).await.expect("Cancel t2");
+    assert!(canceled);
+
+    // Test retry_task on canceled task
+    let retried = service.retry_task(&t2, mock_engine.clone()).await.expect("Retry t2");
+    assert!(retried, "retry_task should successfully requeue and dispatch a canceled task");
+    let drained_retry = service.drain(Duration::from_secs(3)).await.expect("Drain retry");
+    assert!(drained_retry);
+    let t2_state = service.get_task(&t2).await.expect("Get t2").expect("t2 exists");
+    assert_ne!(t2_state.status, TaskStatus::Canceled { reason: "".into() });
+
+    // Test multi-tier self-healing workspace fallback for uncreatable path
+    let uncreatable_path = std::path::PathBuf::from("/dev/null/forbidden/workspace");
+    let store_healing = Arc::new(SqliteTaskStore::new(&temp_workspace).expect("Store init"));
+    let healing_service = TaskService::new(store_healing, &uncreatable_path, 1, None, None);
+    let t3 = healing_service.submit_task("Healing Task", "Must self-heal workspace", Priority::Normal).await.expect("Submit t3");
+    healing_service.dispatch(t3.clone(), mock_engine.clone());
+    let drained_healing = healing_service.drain(Duration::from_secs(3)).await.expect("Drain healing");
+    assert!(drained_healing);
+
+    let t3_state = healing_service.get_task(&t3).await.expect("Get t3").expect("t3 exists");
+    assert!(
+        matches!(t3_state.status, TaskStatus::Completed | TaskStatus::WaitingApproval { .. }),
+        "Self-healed workspace task must transition to valid status: {:?}",
+        t3_state.status
+    );
+
+    // Paginated cancel_all verification across multiple tasks
+    let mut cancel_ids = Vec::new();
+    for i in 0..10 {
+        let tid = service.submit_task(&format!("Batch Task {}", i), "Batch Goal", Priority::Low).await.expect("Submit batch");
+        cancel_ids.push(tid);
+    }
+    let batch_canceled = service.cancel_all().await.expect("cancel_all batch");
+    assert_eq!(batch_canceled, 10, "cancel_all must cancel all 10 batch tasks");
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&temp_workspace);
+}
+
+
+/// TDD test case for TOPIC-20261105-cb8d42:
+/// Permanently eliminates recurring mission failure in TOPIC-20261105-62a0a4.
+/// Verifies that `crates/agent-runtime/src/task_store/` adheres to:
+/// 1. Zero .unwrap() calls across all task_store submodules (mod.rs, crud.rs, lifecycle.rs, schema.rs).
+/// 2. Zero .expect( calls across all submodules.
+/// 3. Zero panic!( calls across all submodules.
+/// 4. Strict P90 line limits (<= 350 lines) for all submodules.
+/// 5. Resilient multi-tier self-healing storage fallback initialization on uncreatable/forbidden workspace paths.
+/// 6. Poisoned mutex self-healing recovery via acquire_conn without failing with lock errors.
+/// 7. Safe check_integrity returning Ok(false) on corrupted databases without returning Err.
+/// 8. Runtime database repair and reinitialization (repair_or_recreate).
+/// 9. Resilient finish_task lifecycle transitions from Queued, SelfChecking, WaitingApproval,
+///    while rejecting already-finished tasks (Completed, Failed).
+/// 10. Atomic priority-based next queued task claiming (claim_next_queued).
+/// 11. Indexed status querying and task counting (list_tasks_by_status, count_tasks_by_status).
+/// 12. Task store pruning of old finished tasks (prune_finished_tasks) and WAL checkpointing.
+/// 13. Idempotent key inspection and deletion (get_idempotent_task, delete_idempotent_key).
+#[tokio::test]
+async fn test_topic_cb8d42_root_cause_eliminated_for_task_store() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let task_store_dir = manifest_dir.join("src/task_store");
+    assert!(
+        task_store_dir.is_dir(),
+        "src/task_store must exist as a directory"
+    );
+
+    let submodules = ["mod.rs", "crud.rs", "lifecycle.rs", "schema.rs"];
+    for sub in submodules {
+        let sub_path = task_store_dir.join(sub);
+        assert!(sub_path.is_file(), "src/task_store/{} must exist", sub);
+        let content = std::fs::read_to_string(&sub_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", sub_path.display()));
+
+        // 1. Zero .unwrap()
+        let unwraps: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".unwrap()"))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            unwraps.is_empty(),
+            "Found {} unwrap() calls in src/task_store/{}:\n{:#?}",
+            unwraps.len(),
+            sub,
+            unwraps
+        );
+
+        // 2. Zero .expect(
+        let expects: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".expect("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            expects.is_empty(),
+            "Found {} expect() calls in src/task_store/{}:\n{:#?}",
+            expects.len(),
+            sub,
+            expects
+        );
+
+        // 3. Zero panic!(
+        let panics: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains("panic!("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            panics.is_empty(),
+            "Found {} panic!() calls in src/task_store/{}:\n{:#?}",
+            panics.len(),
+            sub,
+            panics
+        );
+
+        // 4. Line count <= 350
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "src/task_store/{} has {} lines, exceeding P90 limit (350 lines)",
+            sub,
+            line_count
+        );
+    }
+
+    use agent_domain::{Priority, Task, TaskResult, TaskStatus};
+    use agent_runtime::IdempotentSubmission;
+
+    // 5. Resilient multi-tier self-healing storage fallback on uncreatable/forbidden workspace path
+    let uncreatable_ws = std::path::PathBuf::from("/dev/null/forbidden/workspace/storage");
+    let fallback_store = SqliteTaskStore::new(&uncreatable_ws)
+        .expect("SqliteTaskStore must self-heal and fallback cleanly on uncreatable paths");
+    assert!(fallback_store.is_healthy(), "Fallback store must be healthy");
+
+    // 6. Resilient finish_task transitions from Queued, SelfChecking, WaitingApproval
+    let temp_ws = std::env::temp_dir().join(format!("task_store_cb8d42_{}", uuid::Uuid::new_v4()));
+    let store = SqliteTaskStore::new(&temp_ws).expect("Store init");
+
+    // Queued -> Completed
+    let q_task = Task::new("Early finish", "Finish directly from Queued", Priority::Normal);
+    store.save_task(&q_task).await.expect("Save q_task");
+    let mut q_completed = q_task.clone();
+    q_completed.status = TaskStatus::Completed;
+    let q_res = TaskResult {
+        task_id: q_task.id.clone(),
+        status: TaskStatus::Completed,
+        summary: "Early finished".into(),
+        artifacts: Vec::new(),
+        verifications: Vec::new(),
+        duration_ms: 10,
+        engine_used: None,
+    };
+    store.finish_task(&q_completed, &q_res, false).await.expect("finish_task from Queued must succeed");
+    let saved_q = store.get_task(&q_task.id).await.expect("Get q").expect("Task exists");
+    assert_eq!(saved_q.status, TaskStatus::Completed);
+
+    // Double-finish rejected
+    assert!(
+        store.finish_task(&q_completed, &q_res, false).await.is_err(),
+        "Double finishing an already completed task must return Err"
+    );
+
+    // SelfChecking -> Completed
+    let mut sc_task = Task::new("Self Checking Task", "Verification in progress", Priority::High);
+    sc_task.status = TaskStatus::SelfChecking;
+    store.save_task(&sc_task).await.expect("Save sc_task");
+    let mut sc_completed = sc_task.clone();
+    sc_completed.status = TaskStatus::Completed;
+    let sc_res = TaskResult {
+        task_id: sc_task.id.clone(),
+        status: TaskStatus::Completed,
+        summary: "Self check passed".into(),
+        artifacts: Vec::new(),
+        verifications: Vec::new(),
+        duration_ms: 50,
+        engine_used: None,
+    };
+    store.finish_task(&sc_completed, &sc_res, false).await.expect("finish_task from SelfChecking must succeed");
+
+    // 7. Atomic priority-based claim_next_queued
+    let normal_task = Task::new("Normal Task", "Low prio", Priority::Normal);
+    let high_task = Task::new("High Task", "High prio", Priority::High);
+    let crit_task = Task::new("Critical Task", "Critical prio", Priority::Critical);
+    store.save_task(&normal_task).await.expect("Save normal");
+    store.save_task(&high_task).await.expect("Save high");
+    store.save_task(&crit_task).await.expect("Save crit");
+
+    // Critical must be claimed first
+    let claimed1 = store.claim_next_queued().expect("Claim next 1").expect("Claimed task");
+    assert_eq!(claimed1.id, crit_task.id, "Critical priority task must be claimed first");
+    assert_eq!(claimed1.status, TaskStatus::Executing);
+
+    // High must be claimed second
+    let claimed2 = store.claim_next_queued().expect("Claim next 2").expect("Claimed task");
+    assert_eq!(claimed2.id, high_task.id, "High priority task must be claimed second");
+
+    // Normal must be claimed third
+    let claimed3 = store.claim_next_queued().expect("Claim next 3").expect("Claimed task");
+    assert_eq!(claimed3.id, normal_task.id, "Normal priority task must be claimed third");
+
+    // No more queued tasks
+    assert!(store.claim_next_queued().expect("Claim next 4").is_none());
+
+    // 8. Status querying and counting (list_tasks_by_status, count_tasks_by_status)
+    let executing_count = store.count_tasks_by_status("Executing").expect("Count executing");
+    assert_eq!(executing_count, 3);
+    let completed_count = store.count_tasks_by_status("Completed").expect("Count completed");
+    assert_eq!(completed_count, 2);
+
+    let executing_list = store.list_tasks_by_status("Executing", 10, 0).expect("List executing");
+    assert_eq!(executing_list.len(), 3);
+
+    // 9. Idempotent key inspection and deletion
+    let idem_task = Task::new("Idem", "Idem goal", Priority::Normal);
+    let submission = store.submit_idempotent(&idem_task, "idem_key_1", "idem_payload").await.expect("submit idempotent");
+    assert_eq!(submission, IdempotentSubmission::Created(idem_task.id.clone()));
+
+    let found_key = store.get_idempotent_task("idem_key_1").expect("get idempotent");
+    assert_eq!(found_key, Some(idem_task.id.clone()));
+
+    let deleted_key = store.delete_idempotent_key("idem_key_1").expect("delete idempotent key");
+    assert!(deleted_key);
+    assert_eq!(store.get_idempotent_task("idem_key_1").expect("get after delete"), None);
+
+    // 10. Safe check_integrity on corrupted db and repair_or_recreate
+    let corrupt_ws = std::env::temp_dir().join(format!("task_store_corrupt_test_{}", uuid::Uuid::new_v4()));
+    let corrupt_storage = corrupt_ws.join("storage");
+    std::fs::create_dir_all(&corrupt_storage).expect("create storage");
+    let c_file = corrupt_storage.join("tasks.db");
+    std::fs::write(&c_file, b"MALFORMED_HEADER_DATA_CHECK").expect("write corrupt");
+    let corrupt_conn = rusqlite::Connection::open(&c_file).expect("open raw");
+    let corrupt_store = SqliteTaskStore::from_raw_parts(c_file.clone(), corrupt_conn);
+    let integrity_res = corrupt_store.check_integrity();
+    assert!(integrity_res.is_ok(), "check_integrity must return Ok on corrupted file");
+    assert!(!integrity_res.unwrap(), "Integrity check must return false for corrupted file");
+
+    // Repair restores health and integrity
+    corrupt_store.repair_or_recreate().expect("Repair must succeed");
+    assert!(corrupt_store.is_healthy(), "Store must be healthy after repair");
+    assert!(corrupt_store.check_integrity().expect("Integrity check"), "Integrity must pass after repair");
+
+    // 11. Task store pruning of finished tasks and WAL checkpointing
+    let old_completed = Task::new("Old Completed", "Old goal", Priority::Low);
+    store.save_task(&old_completed).await.expect("Save old");
+    let mut old_done = old_completed.clone();
+    old_done.status = TaskStatus::Completed;
+    store.finish_task(&old_done, &TaskResult {
+        task_id: old_completed.id.clone(),
+        status: TaskStatus::Completed,
+        summary: "Done".into(),
+        artifacts: Vec::new(),
+        verifications: Vec::new(),
+        duration_ms: 1,
+        engine_used: None,
+    }, false).await.expect("Finish old");
+
+    // Prune tasks created before tomorrow
+    let tomorrow = (chrono::Utc::now() + chrono::Duration::days(1)).to_rfc3339();
+    let pruned = store.prune_finished_tasks(&tomorrow).expect("Prune finished");
+    assert!(pruned >= 1, "Must prune at least 1 finished task");
+
+    // WAL Checkpoint
+    store.wal_checkpoint().expect("WAL checkpoint must succeed");
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&temp_ws);
+    let _ = std::fs::remove_dir_all(&corrupt_ws);
+}
+
+/// TDD test case for TOPIC-20261105-43748a:
+/// Permanently eliminates recurring mission failure in TOPIC-20261105-0ae933.
+/// Verifies comprehensive self-healing, resilience, and error elimination in `crates/agent-engine/src/process/`:
+/// 1. Zero .unwrap() calls across all process submodules (mod.rs, builder.rs, runner.rs, stream.rs).
+/// 2. Zero .expect( calls across all submodules.
+/// 3. Zero panic!( calls across all submodules.
+/// 4. Strict P90 line limit (<= 350 lines) across all submodules.
+/// 5. Resilient multi-tier self-healing working directory resolution (resolve_working_dir) on uncreatable paths.
+/// 6. Self-healing execution via run_command on forbidden/uncreatable working directory.
+/// 7. ProcessGroup safety: PID bounds (>1 and <= i32::MAX), is_armed, and disarm capabilities.
+/// 8. Stream UTF-8 character boundary helpers (floor_char_boundary, ceil_char_boundary).
+/// 9. Safe UTF-8 truncation utilities (safe_truncate_utf8, safe_truncate_bytes).
+/// 10. Panic-resilient stream callback in read_stream (catches panics without failing stream reading).
+/// 11. Stream reading directly to String (read_stream_string).
+/// 12. Empty/blank binary command validation returning ProcessFailed error cleanly.
+/// 13. Ergonomic CommandSandbox methods (with_prefix_args, with_working_dir, add_env_var, is_bwrap, is_docker, is_containerized).
+/// 14. Ergonomic run_simple_command helper execution.
+#[tokio::test]
+async fn test_topic_43748a_root_cause_eliminated_for_process_module() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let agent_engine_src = manifest_dir.parent().unwrap().join("agent-engine/src");
+    let process_dir = agent_engine_src.join("process");
+    assert!(process_dir.is_dir(), "crates/agent-engine/src/process must exist");
+
+    let submodules = ["mod.rs", "builder.rs", "runner.rs", "stream.rs"];
+    for sub in submodules {
+        let sub_path = process_dir.join(sub);
+        assert!(sub_path.is_file(), "src/process/{} must exist", sub);
+        let content = std::fs::read_to_string(&sub_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", sub_path.display()));
+
+        // 1. Zero .unwrap()
+        let unwraps: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".unwrap()"))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            unwraps.is_empty(),
+            "Found {} unwrap() calls in src/process/{}:\n{:#?}",
+            unwraps.len(),
+            sub,
+            unwraps
+        );
+
+        // 2. Zero .expect(
+        let expects: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".expect("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            expects.is_empty(),
+            "Found {} expect() calls in src/process/{}:\n{:#?}",
+            expects.len(),
+            sub,
+            expects
+        );
+
+        // 3. Zero panic!(
+        let panics: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains("panic!("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            panics.is_empty(),
+            "Found {} panic!() calls in src/process/{}:\n{:#?}",
+            panics.len(),
+            sub,
+            panics
+        );
+
+        // 4. Line count <= 350
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "src/process/{} has {} lines, exceeding P90 limit (350 lines)",
+            sub,
+            line_count
+        );
+    }
+
+    use agent_engine::process::{
+        ceil_char_boundary, floor_char_boundary, read_stream, read_stream_string,
+        resolve_working_dir, run_command, run_simple_command, safe_truncate_bytes,
+        safe_truncate_utf8, CommandSandbox, ProcessGroup,
+    };
+    use agent_engine::{EngineError, EngineInput};
+    use std::collections::HashMap;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    // 5. Multi-tier self-healing working directory resolution
+    let forbidden_path = "/dev/null/forbidden/workspace/path/test";
+    let healed_dir = resolve_working_dir(forbidden_path);
+    assert!(
+        healed_dir.is_dir(),
+        "resolve_working_dir must return an existing directory for forbidden path: {:?}",
+        healed_dir
+    );
+
+    let empty_dir = resolve_working_dir("");
+    assert!(
+        empty_dir.is_dir(),
+        "resolve_working_dir must return an existing directory for empty string"
+    );
+
+    // 6. Self-healing execution via run_command on forbidden working directory
+    let mut bad_input = EngineInput::new("echo self_healed_workdir", forbidden_path);
+    bad_input.timeout_seconds = 10;
+    let env_map = HashMap::new();
+    let cmd_res = run_command(&bad_input, "echo", &["self_healed_workdir".into()], &env_map, None).await;
+    assert!(
+        cmd_res.is_ok(),
+        "run_command on uncreatable working directory must self-heal and succeed"
+    );
+    let output = cmd_res.unwrap();
+    assert!(String::from_utf8_lossy(&output.stdout).contains("self_healed_workdir"));
+
+    // 7. ProcessGroup safety: PID bounds, is_armed, and disarm capabilities
+    let mut pg = ProcessGroup::new(Some(42));
+    assert!(pg.is_armed());
+    assert_eq!(pg.pid(), Some(42));
+    let disarmed = pg.disarm();
+    assert_eq!(disarmed, Some(42));
+    assert!(!pg.is_armed());
+    assert_eq!(pg.pid(), None);
+
+    // ProcessGroup with None or invalid PID drops safely without panic
+    let pg_none = ProcessGroup::new(None);
+    drop(pg_none);
+    let pg_init = ProcessGroup::new(Some(1)); // init PID must not be killed
+    drop(pg_init);
+    let pg_overflow = ProcessGroup::new(Some(u32::MAX)); // sign-overflow guard
+    drop(pg_overflow);
+
+    // 8. Stream UTF-8 character boundary helpers
+    let vietnamese_str = "Hệ thống tự trị 🚀🦀";
+    let bytes = vietnamese_str.as_bytes();
+    for i in 0..=bytes.len() {
+        let floor = floor_char_boundary(bytes, i);
+        let ceil = ceil_char_boundary(bytes, i);
+        assert!(floor <= i);
+        assert!(ceil >= i);
+        if floor < bytes.len() {
+            assert!(
+                std::str::from_utf8(&bytes[..floor]).is_ok(),
+                "bytes[..floor] must always be valid UTF-8"
+            );
+        }
+        if ceil <= bytes.len() {
+            assert!(
+                std::str::from_utf8(&bytes[..ceil]).is_ok(),
+                "bytes[..ceil] must always be valid UTF-8"
+            );
+        }
+    }
+
+    // 9. Safe UTF-8 truncation utilities
+    let sample = "Triệt tiêu lỗi hệ thống lặp lại hoàn toàn";
+    let truncated_str = safe_truncate_utf8(sample, 25);
+    assert!(truncated_str.len() <= 25);
+    assert!(sample.starts_with(truncated_str));
+
+    let truncated_b = safe_truncate_bytes(bytes, 15);
+    assert!(truncated_b.len() <= 15);
+    assert!(std::str::from_utf8(truncated_b).is_ok());
+
+    // 10. Panic-resilient stream callback in read_stream
+    let stream_data = b"line 1: healthy stream\nline 2: callback will panic\nline 3: survived\n";
+    let panic_hit = Arc::new(AtomicBool::new(false));
+    let panic_hit_clone = panic_hit.clone();
+    let panicking_callback: agent_engine::StreamCallback = Arc::new(move |_chunk| {
+        panic_hit_clone.store(true, Ordering::SeqCst);
+        panic!("Simulated crash in external stream callback");
+    });
+    let stream_res = read_stream(&stream_data[..], Some(panicking_callback), 1024).await;
+    assert!(
+        stream_res.is_ok(),
+        "read_stream must safely catch callback panic and succeed"
+    );
+    assert!(panic_hit.load(Ordering::SeqCst), "Panicking callback was invoked");
+    let collected_bytes = stream_res.unwrap();
+    assert_eq!(collected_bytes, stream_data.to_vec());
+
+    // 11. Stream reading directly to String
+    let string_data = b"Hello from read_stream_string\n";
+    let string_res = read_stream_string(&string_data[..], None, 1024).await;
+    assert!(string_res.is_ok());
+    assert_eq!(string_res.unwrap(), "Hello from read_stream_string\n");
+
+    // 12. Empty/blank binary command validation
+    let empty_binary_res = run_command(&bad_input, "   ", &[], &env_map, None).await;
+    assert!(
+        matches!(empty_binary_res, Err(EngineError::ProcessFailed(msg)) if msg.contains("cannot be empty")),
+        "Blank binary must return ProcessFailed error"
+    );
+
+    // 13. Ergonomic CommandSandbox methods
+    let mut sandbox = CommandSandbox::new("/bin/sh", vec!["-c".into()], "/workspace")
+        .with_env_whitelist(vec!["PATH".into()])
+        .with_container_name("my-container")
+        .with_prefix_args(vec!["--verbose".into()])
+        .with_working_dir("/custom/ws");
+    sandbox.add_env_var("CUSTOM_ENV");
+    assert_eq!(sandbox.working_dir, "/custom/ws");
+    assert!(sandbox.env_whitelist.contains(&"CUSTOM_ENV".to_string()));
+    assert!(sandbox.prefix_args.contains(&"--verbose".to_string()));
+    assert!(sandbox.is_containerized());
+    assert!(!sandbox.is_bwrap());
+    assert!(!sandbox.is_docker());
+
+    let bwrap_box = CommandSandbox::new("bwrap", vec![], "/");
+    assert!(bwrap_box.is_bwrap());
+    assert!(bwrap_box.is_containerized());
+
+    let docker_box = CommandSandbox::new("docker", vec![], "/");
+    assert!(docker_box.is_docker());
+    assert!(docker_box.is_containerized());
+
+    // 14. Ergonomic run_simple_command helper execution
+    let simple_res = run_simple_command("echo", &["hello_from_simple"]).await;
+    assert!(simple_res.is_ok(), "run_simple_command must succeed");
+    let simple_output = simple_res.unwrap();
+    assert!(String::from_utf8_lossy(&simple_output.stdout).contains("hello_from_simple"));
+}
+
+/// TDD test case for TOPIC-20261105-b6fd4c:
+/// Permanently eliminates recurring mission failure in TOPIC-20261105-07a09e.
+/// Verifies comprehensive resolution of root causes in `crates/agent-runtime/src/task_service/`
+/// and its integration with daemon server handlers:
+/// 1. Zero .unwrap() calls across all submodules (mod.rs, dispatch.rs, review.rs).
+/// 2. Zero .expect( calls across all submodules.
+/// 3. Zero panic!( calls across all submodules.
+/// 4. Strict P90 line limits (<= 350 lines) for all submodules.
+/// 5. Thread-safe `Send` future bounds on async operations (cancel_task, cancel_all, retry_all_failed, delete_task),
+///    preventing axum `top_level_handler_fn` unsatisfied Handler bounds caused by `RwLockReadGuard` !Send leaks.
+/// 6. Safe and idempotent task cancellation (cancel_task) without holding lock guards across await boundaries.
+/// 7. Paginated batch cancellation (cancel_all) without lock guard retention.
+/// 8. Resilient failed task batch retry (retry_all_failed) without collapsible-if clippy warnings.
+/// 9. Coordinated deletion (delete_task) ensuring active background tasks are safely flagged before removal.
+#[tokio::test]
+async fn test_topic_b6fd4c_root_cause_eliminated_for_task_service_and_cancellation() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let task_service_dir = manifest_dir.join("src/task_service");
+    assert!(
+        task_service_dir.is_dir(),
+        "src/task_service must exist as a directory"
+    );
+
+    let submodules = ["mod.rs", "dispatch.rs", "review.rs"];
+    for sub in submodules {
+        let sub_path = task_service_dir.join(sub);
+        assert!(sub_path.is_file(), "src/task_service/{} must exist", sub);
+        let content = std::fs::read_to_string(&sub_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", sub_path.display()));
+
+        // 1. Zero .unwrap()
+        let unwraps: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".unwrap()"))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            unwraps.is_empty(),
+            "Found {} unwrap() calls in src/task_service/{}:\n{:#?}",
+            unwraps.len(),
+            sub,
+            unwraps
+        );
+
+        // 2. Zero .expect(
+        let expects: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".expect("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            expects.is_empty(),
+            "Found {} expect() calls in src/task_service/{}:\n{:#?}",
+            expects.len(),
+            sub,
+            expects
+        );
+
+        // 3. Zero panic!(
+        let panics: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains("panic!("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            panics.is_empty(),
+            "Found {} panic!() calls in src/task_service/{}:\n{:#?}",
+            panics.len(),
+            sub,
+            panics
+        );
+
+        // 4. Line count <= 350
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "src/task_service/{} has {} lines, exceeding P90 limit (350 lines)",
+            sub,
+            line_count
+        );
+    }
+
+    use agent_domain::{Priority, Task, TaskStatus};
+    let temp_workspace = std::env::temp_dir().join(format!("task_service_b6fd4c_{}", uuid::Uuid::new_v4()));
+    let store = Arc::new(SqliteTaskStore::new(&temp_workspace).expect("Store init"));
+    let service = Arc::new(TaskService::new(store.clone(), &temp_workspace, 4, None, None));
+
+    // 5. Thread-safe `Send` future bounds verification
+    fn assert_is_send<F: Send>(_: &F) {}
+
+    let dummy_id = agent_domain::TaskId("dummy-id".into());
+    let cancel_fut = service.cancel_task(&dummy_id);
+    assert_is_send(&cancel_fut);
+    let cancel_all_fut = service.cancel_all();
+    assert_is_send(&cancel_all_fut);
+    let mock_engine: Arc<dyn agent_engine::ComputeEngine> = Arc::new(MockEngine::new("test output"));
+    let retry_all_fut = service.retry_failed_tasks(mock_engine.clone());
+    assert_is_send(&retry_all_fut);
+    let delete_fut = service.delete_task(&dummy_id);
+    assert_is_send(&delete_fut);
+
+    // 6. Safe and idempotent task cancellation
+    let t1 = service.submit_task("Cancel Target 1", "Goal to cancel", Priority::High).await.expect("Submit t1");
+    let cancel_result = service.cancel_task(&t1).await.expect("Cancel t1");
+    assert!(cancel_result, "cancel_task should return true for queued task");
+
+    let t1_state = service.get_task(&t1).await.expect("Get t1").expect("t1 exists");
+    assert!(
+        matches!(t1_state.status, TaskStatus::Canceled { .. }),
+        "Canceled task status must be Canceled"
+    );
+
+    // 7. Paginated batch cancellation (cancel_all)
+    let mut batch_ids = Vec::new();
+    for i in 0..5 {
+        let tid = service.submit_task(&format!("Batch Task {}", i), "Batch Goal", Priority::Normal).await.expect("Submit batch");
+        batch_ids.push(tid);
+    }
+    let total_canceled = service.cancel_all().await.expect("cancel_all");
+    assert!(total_canceled >= 5, "cancel_all should cancel at least the 5 queued batch tasks");
+
+    // 8. Resilient failed task batch retry (retry_failed_tasks)
+    let failed_task = Task::new("Failed Task", "Needs Retry", Priority::Critical);
+    let mut failed_state = failed_task.clone();
+    failed_state.status = TaskStatus::Failed { error: "Simulated worker exit 1".into() };
+    store.save_task(&failed_state).await.expect("Save failed task");
+
+    let retried_count = service.retry_failed_tasks(mock_engine.clone()).await.expect("retry_failed_tasks");
+    assert_eq!(retried_count, 1, "retry_failed_tasks should retry exactly 1 failed task");
+
+    let drained = service.drain(Duration::from_secs(3)).await.expect("Drain after retry");
+    assert!(drained);
+
+    // 9. Coordinated deletion (delete_task)
+    let t_del = service.submit_task("Task to Delete", "Will be deleted", Priority::Low).await.expect("Submit t_del");
+    let del_result = service.delete_task(&t_del).await.expect("delete_task");
+    assert!(del_result, "delete_task should return true for existing task");
+    let after_del = service.get_task(&t_del).await.expect("Get deleted");
+    assert!(after_del.is_none(), "Task must no longer exist after deletion");
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&temp_workspace);
+}
+
+
+/// TDD test case for TOPIC-20261105-cbc444:
+/// Permanently eliminates recurring mission failure in TOPIC-20261105-cb8d42.
+/// Verifies comprehensive resilience, error elimination, and self-healing in `crates/agent-runtime/src/task_store/`:
+/// 1. Zero .unwrap() calls across all submodules (mod.rs, crud.rs, lifecycle.rs, schema.rs).
+/// 2. Zero .expect( calls across all submodules.
+/// 3. Zero panic!( calls across all submodules.
+/// 4. Strict P90 line limits (<= 350 lines) for all submodules.
+/// 5. In-memory path handling: `SqliteTaskStore::new(":memory:")` must open in-memory db cleanly without creating physical directories on disk.
+/// 6. Poisoned connection recovery with uncommitted transaction: `acquire_conn` rolls back dangling transactions from panicked threads and allows subsequent transactions.
+/// 7. Terminal state synchronization in `finish_task`:
+///    - Non-terminal task (`Executing`) with terminal result (`Completed` or `Failed`) is properly finalized.
+///    - Attempting to finish an already finished task is rejected.
+/// 8. Trait parity: `TaskStore` trait exposes `get_idempotent_task`, `delete_idempotent_key`, `clear_all`, `vacuum`, `repair_or_recreate` on `Arc<dyn TaskStore>`.
+/// 9. Comprehensive WAL and SHM cleanup during `repair_or_recreate` and corrupt database quarantine.
+#[tokio::test]
+async fn test_topic_cbc444_root_cause_eliminated_for_task_store_resilience() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let task_store_dir = manifest_dir.join("src/task_store");
+    assert!(
+        task_store_dir.is_dir(),
+        "src/task_store must exist as a directory"
+    );
+
+    let submodules = ["mod.rs", "crud.rs", "lifecycle.rs", "schema.rs"];
+    for sub in submodules {
+        let sub_path = task_store_dir.join(sub);
+        assert!(sub_path.is_file(), "src/task_store/{} must exist", sub);
+        let content = std::fs::read_to_string(&sub_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", sub_path.display()));
+
+        // 1. Zero .unwrap()
+        let unwraps: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".unwrap()"))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            unwraps.is_empty(),
+            "Found {} unwrap() calls in src/task_store/{}:\n{:#?}",
+            unwraps.len(),
+            sub,
+            unwraps
+        );
+
+        // 2. Zero .expect(
+        let expects: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains(".expect("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            expects.is_empty(),
+            "Found {} expect() calls in src/task_store/{}:\n{:#?}",
+            expects.len(),
+            sub,
+            expects
+        );
+
+        // 3. Zero panic!(
+        let panics: Vec<(usize, &str)> = content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| line.contains("panic!("))
+            .map(|(i, line)| (i + 1, line.trim()))
+            .collect();
+        assert!(
+            panics.is_empty(),
+            "Found {} panic!() calls in src/task_store/{}:\n{:#?}",
+            panics.len(),
+            sub,
+            panics
+        );
+
+        // 4. Line count <= 350
+        let line_count = content.lines().count();
+        assert!(
+            line_count <= 350,
+            "src/task_store/{} has {} lines, exceeding P90 limit (350 lines)",
+            sub,
+            line_count
+        );
+    }
+
+    use agent_domain::{Priority, Task, TaskResult, TaskStatus};
+    use agent_runtime::IdempotentSubmission;
+
+    // 5. In-memory path handling: `SqliteTaskStore::new(":memory:")`
+    let mem_store = SqliteTaskStore::new(":memory:")
+        .expect("SqliteTaskStore::new with ':memory:' must succeed");
+    assert_eq!(mem_store.db_path().to_str(), Some(":memory:"));
+    assert!(mem_store.is_healthy(), "In-memory store must be healthy");
+    // Ensure no physical `:memory:` directory was created
+    assert!(!std::path::Path::new(":memory:").exists(), "':memory:' path must not create a physical directory");
+
+    // 6. Poisoned connection recovery with uncommitted transaction
+    let poison_ws = std::env::temp_dir().join(format!("task_store_poison_{}", uuid::Uuid::new_v4()));
+    let p_store = SqliteTaskStore::new(&poison_ws).expect("Create poison store");
+    {
+        let conn_arc = agent_runtime::task_store::schema::acquire_conn;
+        // Simulate a thread starting an immediate transaction and panicking
+        let temp_conn = rusqlite::Connection::open(p_store.db_path()).expect("open raw for poison");
+        let mutex = std::sync::Arc::new(std::sync::Mutex::new(temp_conn));
+        let mutex_clone = mutex.clone();
+        let handle = std::thread::spawn(move || {
+            let conn = mutex_clone.lock().expect("lock in thread");
+            conn.execute_batch("BEGIN IMMEDIATE;").expect("begin immediate");
+            panic!("Simulated worker panic inside uncommitted transaction");
+        });
+        let _ = handle.join(); // thread panicked, mutex is poisoned and in open transaction
+
+        // Safe acquire_conn should recover without error and rollback dangling transaction
+        let recovered = conn_arc(&mutex);
+        assert!(recovered.is_autocommit(), "Recovered connection must be rolled back to autocommit");
+        let query_ok = recovered.query_row("SELECT 1", [], |_| Ok(()));
+        assert!(query_ok.is_ok(), "Query must succeed on recovered connection");
+    }
+    let _ = std::fs::remove_dir_all(&poison_ws);
+
+    // 7. Terminal state synchronization in finish_task
+    let sync_ws = std::env::temp_dir().join(format!("task_store_sync_{}", uuid::Uuid::new_v4()));
+    let dyn_store: Arc<dyn TaskStore> = Arc::new(SqliteTaskStore::new(&sync_ws).expect("Store init"));
+
+    // Case 7a: Task status is Executing, but TaskResult is Completed -> both must become Completed
+    let t_exec = Task::new("Executing Task", "Sync goal", Priority::Normal);
+    dyn_store.save_task(&t_exec).await.expect("Save task");
+    let res_completed = TaskResult {
+        task_id: t_exec.id.clone(),
+        status: TaskStatus::Completed,
+        summary: "Execution succeeded".into(),
+        artifacts: Vec::new(),
+        verifications: Vec::new(),
+        duration_ms: 100,
+        engine_used: None,
+    };
+    dyn_store.finish_task(&t_exec, &res_completed, false).await.expect("finish_task must succeed");
+    let (saved_task, saved_res) = dyn_store.get_task_and_result(&t_exec.id).await.expect("get") .expect("found");
+    assert_eq!(saved_task.status, TaskStatus::Completed, "Task status must be synchronized to Completed");
+    assert_eq!(saved_res.expect("has result").status, TaskStatus::Completed);
+
+    // Case 7b: Task status is Executing, but TaskResult is Failed -> both must become Failed
+    let t_fail = Task::new("Failing Task", "Fail goal", Priority::High);
+    dyn_store.save_task(&t_fail).await.expect("Save failing task");
+    let res_failed = TaskResult {
+        task_id: t_fail.id.clone(),
+        status: TaskStatus::Failed { error: "Engine execution error".into() },
+        summary: "Execution failed".into(),
+        artifacts: Vec::new(),
+        verifications: Vec::new(),
+        duration_ms: 50,
+        engine_used: None,
+    };
+    dyn_store.finish_task(&t_fail, &res_failed, false).await.expect("finish_task must succeed for failed");
+    let (saved_fail_task, saved_fail_res) = dyn_store.get_task_and_result(&t_fail.id).await.expect("get").expect("found");
+    assert!(matches!(saved_fail_task.status, TaskStatus::Failed { .. }), "Task status must be synchronized to Failed");
+    assert!(matches!(saved_fail_res.expect("has result").status, TaskStatus::Failed { .. }));
+
+    // Case 7c: Attempting to finish an already finished task must be rejected
+    assert!(
+        dyn_store.finish_task(&t_fail, &res_failed, false).await.is_err(),
+        "Double finishing an already failed task must be rejected"
+    );
+
+    // 8. Trait parity via Arc<dyn TaskStore>
+    let idem_task = Task::new("Idem Trait", "Test idem", Priority::Low);
+    let sub_res = dyn_store.submit_idempotent(&idem_task, "idem_trait_key", "payload").await.expect("submit idem");
+    assert_eq!(sub_res, IdempotentSubmission::Created(idem_task.id.clone()));
+
+    let found_id = dyn_store.get_idempotent_task("idem_trait_key").await.expect("get idem trait");
+    assert_eq!(found_id, Some(idem_task.id.clone()));
+
+    let deleted = dyn_store.delete_idempotent_key("idem_trait_key").await.expect("del idem trait");
+    assert!(deleted);
+    assert_eq!(dyn_store.get_idempotent_task("idem_trait_key").await.expect("get after del"), None);
+
+    // Trait admin methods
+    dyn_store.vacuum().await.expect("vacuum via trait");
+    dyn_store.wal_checkpoint().await.expect("wal checkpoint via trait");
+    assert!(dyn_store.check_integrity().await.expect("integrity via trait"));
+    assert!(dyn_store.is_healthy().await);
+
+    // 9. Comprehensive WAL and SHM cleanup during repair_or_recreate
+    let wal_ws = std::env::temp_dir().join(format!("task_store_wal_test_{}", uuid::Uuid::new_v4()));
+    let wal_store = SqliteTaskStore::with_options(&wal_ws, 5000, true).expect("Init wal store");
+    // Write something so WAL file is active
+    let dummy = Task::new("WAL Dummy", "Dummy goal", Priority::Low);
+    wal_store.save_task(&dummy).await.expect("Save dummy");
+
+    // Corrupt the database header
+    let db_path = wal_store.db_path().to_path_buf();
+    std::fs::write(&db_path, b"CORRUPTED_DATABASE_HEADER_DATA").expect("write corrupt header");
+
+    // Repair must succeed, recreate database, and purge/reset WAL/SHM
+    wal_store.repair_or_recreate().expect("repair_or_recreate must succeed");
+    assert!(wal_store.is_healthy(), "Repaired store must be healthy");
+    assert!(wal_store.check_integrity().expect("Integrity check"), "Integrity check must pass");
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&sync_ws);
+    let _ = std::fs::remove_dir_all(&wal_ws);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

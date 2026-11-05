@@ -1,4 +1,4 @@
-use crate::sandbox::{SandboxConfig, SandboxDriverKind, SandboxEnvironment};
+use crate::sandbox::{SandboxConfig, SandboxDriverKind};
 use agent_domain::{GuardrailPolicy, SubTask};
 use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineOutput};
 use serde_json::Value;
@@ -35,11 +35,8 @@ impl GoalDecomposer {
     }
 
     async fn execute_engine(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
-        let mut input = input.clone();
-        let config = self.sandbox_config.clone().unwrap_or_default();
-        input.command_sandbox = SandboxEnvironment::with_config(&self.workspace_dir, config)
-            .command_sandbox(Path::new(&input.working_dir));
-        self.engine.execute(&input).await
+        crate::execution::ExecutionService::new(&self.workspace_dir, self.sandbox_config.clone(), Some(self.guardrail.clone()))
+            .execute(self.engine.clone(), input).await
     }
 
     /// Tự động phân rã Goal thành cây SubTasks động qua ComputeEngine (không gán cứng)
