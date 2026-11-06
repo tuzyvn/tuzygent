@@ -1643,31 +1643,31 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261106-4c0c07: Phân tách cấu trúc tệp nguyên khối (534 dòng): crates/agent-memory/src/skills.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:46:55 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-memory/src/skills.rs có độ dài 534 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-memory/src/skills.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
 ### [P2] TOPIC-20261106-0798b8: Phân tách cấu trúc tệp nguyên khối (506 dòng): crates/agent-cli/src/cli.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:49:01 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-cli/src/cli.rs có độ dài 506 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-cli/src/cli.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
 ### [P2] TOPIC-20261106-82d8c3: Phân tách cấu trúc tệp nguyên khối (466 dòng): crates/agent-cli/src/commands/inspect.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:50:53 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-cli/src/commands/inspect.rs có độ dài 466 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-cli/src/commands/inspect.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
 ### [P2] TOPIC-20261106-769665: Phân tách cấu trúc tệp nguyên khối (451 dòng): crates/agent-cli/src/resilience.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:52:42 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-cli/src/resilience.rs có độ dài 451 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-cli/src/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
 ### [P2] TOPIC-20261106-5268e2: Phân tách cấu trúc tệp nguyên khối (439 dòng): crates/agent-domain/src/audit_ledger.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:54:30 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-domain/src/audit_ledger.rs có độ dài 439 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-domain/src/audit_ledger.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
@@ -1691,25 +1691,25 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261106-bdfbd6: Cơ chế Adaptive Token-Budget Windowing & Rolling Context Compaction cho OODA Loop
 - **Phân loại**: `Feature Expansion / Adaptive Intelligence`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 13:24:00 UTC)
 - **Lý do cần nghiên cứu**: Khi working context tích lũy qua nhiều subtask vượt quá ngưỡng token an toàn của LLM, cần thuật toán Rolling Context Compaction tự động tóm tắt các bước cũ và giữ lại đầy đủ kết quả then chốt gần nhất.
 - **Tiêu chuẩn nghiệm thu**: Cài đặt hàm `compact_working_context_with_budget(ctx: &str, max_tokens: usize) -> String`; tích hợp vào `crates/agent-runtime/src/ooda/execution/runner/step/context.rs`; viết test TDD kiểm tra context được nén đúng ngưỡng.
 
 ### [P1] TOPIC-20261106-06de7e: Tích hợp Prometheus Metrics Exporter (/metrics) cho Agent Server & OODA Loop
 - **Phân loại**: `Feature Expansion / Observability & Telemetry`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:31:18 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Cung cấp endpoint HTTP `/metrics` theo chuẩn Prometheus trong `agent-server` để giám sát thời gian thực các chỉ số: tổng task, độ trễ OODA cycle, số lần remediation, tỷ lệ thành công của test.
 - **Tiêu chuẩn nghiệm thu**: Thêm endpoint `/metrics` trong Axum router; xuất bản các chỉ số `agent_tasks_total`, `agent_ooda_duration_seconds`, `agent_remediations_total`; viết test HTTP integration kiểm chứng định dạng text/plain.
 
 ### [P2] TOPIC-20261106-c3ca9a: Bổ sung lệnh CLI 'agent-ctl inspect' tra cứu Task & Memory chuyên sâu
 - **Phân loại**: `Feature Expansion / Developer Ergonomics`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:56:21 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Cung cấp lệnh CLI trực quan `agent-ctl inspect [task-id|memory|dag]` hiển thị bảng trạng thái, các subtask đã thực hiện, timeline và dữ liệu memory mà không cần dùng sqlite3 thủ công.
 - **Tiêu chuẩn nghiệm thu**: Thêm subcommand `inspect` vào `crates/agent-cli/`; hỗ trợ xuất ra định dạng bảng terminal màu hoặc JSON (`--format json`); viết test CLI argument parser.
 
 ### [P2] TOPIC-20261106-dad843: Cơ chế Dynamic Skill Hot-Reloading & Schema Validation trong AgentMemory
 - **Phân loại**: `Feature Expansion / Developer Ergonomics`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:58:13 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Cho phép daemon và runner tự động phát hiện các skill mới được thêm vào thư mục `skills/` và nạp lại vào bộ nhớ runtime mà không cần khởi động lại toàn bộ tiến trình.
 - **Tiêu chuẩn nghiệm thu**: Cài đặt phương thức `reload_skills(&mut self)` trong `crates/agent-memory/src/skills.rs`; xác thực schema frontmatter; viết test TDD kiểm thử thêm skill mới khi runtime đang chạy.
 
@@ -1727,25 +1727,25 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261106-b4d906: Refactor 5 lệnh unwrap() tại crates/agent-runtime/src/execution/tests.rs sang cơ chế xử lý lỗi an toàn
 - **Phân loại**: `Reliability / Panic Prevention`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:38:13 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Phát hiện 5 lệnh unwrap() trong mã sản xuất tại crates/agent-runtime/src/execution/tests.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
 - **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-runtime/src/execution/tests.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
 
 ### [P1] TOPIC-20261106-2b23c7: Kiểm tra và cô lập 1 khối unsafe block trong crates/agent-runtime/src/execution/tests.rs
 - **Phân loại**: `Memory Safety`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:40:06 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Phát hiện 1 khối unsafe trong crates/agent-runtime/src/execution/tests.rs. Cần kiểm tra ranh giới bộ nhớ, pointer aliasing và invariant validation.
 - **Tiêu chuẩn nghiệm thu**: Bổ sung tài liệu chứng minh Safety Invariants (// SAFETY: ...) và viết test kiểm tra ranh giới cho crates/agent-runtime/src/execution/tests.rs.
 
 ### [P2] TOPIC-20261106-e433dd: Phân tách cấu trúc tệp nguyên khối (429 dòng): crates/agent-runtime/src/execution/tests.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:00:06 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/execution/tests.rs có độ dài 429 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/execution/tests.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
 ### [P2] TOPIC-20261106-35b353: Phân tách cấu trúc tệp nguyên khối (394 dòng): crates/agent-domain/src/task.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:01:55 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-domain/src/task.rs có độ dài 394 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-domain/src/task.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
@@ -1885,7 +1885,343 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261106-23655b: Phân tách cấu trúc tệp nguyên khối (393 dòng): crates/agent-domain/src/task.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:03:46 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-domain/src/task.rs có độ dài 393 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-domain/src/task.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P0] TOPIC-20261106-372bdc: Khử 4 điểm gọi panic!() tường minh trong crates/agent-domain/src/checkpoint.rs
+- **Phân loại**: `Reliability / Crash Immunity`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 13:35:51 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Phát hiện 4 lệnh panic!() trong crates/agent-domain/src/checkpoint.rs. Việc chủ động làm sập tiến trình vi phạm nguyên tắc tự phục hồi (Self-Healing) của AgentCore.
+- **Tiêu chuẩn nghiệm thu**: Chuyển đổi các nhánh panic!() trong crates/agent-domain/src/checkpoint.rs thành kiểu trả về Result<T, E>.
+
+### [P2] TOPIC-20261106-7ac6e1: Phân tách cấu trúc tệp nguyên khối (404 dòng): crates/agent-domain/src/task.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:05:37 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Tệp crates/agent-domain/src/task.rs có độ dài 404 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-domain/src/task.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261106-3aa600: Chaos Engineering & Fault Injection Test cho module agent-domain::audit
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:07:28 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::audit` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-domain::audit phục hồi an toàn.
+
+### [P2] TOPIC-20261106-5ee10e: Chaos Engineering & Fault Injection Test cho module agent-domain::audit_ledger
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:09:17 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::audit_ledger` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-domain::audit_ledger phục hồi an toàn.
+
+### [P2] TOPIC-20261106-d2ef26: Chaos Engineering & Fault Injection Test cho module agent-domain::checkpoint
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:11:16 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::checkpoint` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-domain::checkpoint phục hồi an toàn.
+
+### [P2] TOPIC-20261106-e02e0b: Chaos Engineering & Fault Injection Test cho module agent-engine::accounts
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:13:14 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::accounts` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-engine::accounts phục hồi an toàn.
+
+### [P2] TOPIC-20261106-117bc9: Chaos Engineering & Fault Injection Test cho module agent-engine::api
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:15:30 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::api` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-engine::api phục hồi an toàn.
+
+### [P2] TOPIC-20261106-854d91: Chaos Engineering & Fault Injection Test cho module agent-engine::backoff
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:17:29 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::backoff` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-engine::backoff phục hồi an toàn.
+
+### [P2] TOPIC-20261106-48f38c: Chaos Engineering & Fault Injection Test cho module agent-memory::context_builder
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:19:18 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::context_builder` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-memory::context_builder phục hồi an toàn.
+
+### [P2] TOPIC-20261106-c77576: Chaos Engineering & Fault Injection Test cho module agent-memory::durable
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:21:10 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::durable` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-memory::durable phục hồi an toàn.
+
+### [P2] TOPIC-20261106-e4999b: Chaos Engineering & Fault Injection Test cho module agent-memory::persona
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:23:00 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::persona` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-memory::persona phục hồi an toàn.
+
+### [P2] TOPIC-20261106-e7e0c4: Chaos Engineering & Fault Injection Test cho module agent-runtime::bus
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:24:51 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::bus` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-runtime::bus phục hồi an toàn.
+
+### [P2] TOPIC-20261106-6f9cad: Chaos Engineering & Fault Injection Test cho module agent-runtime::execution
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:26:53 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::execution` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-runtime::execution phục hồi an toàn.
+
+### [P2] TOPIC-20261106-cba3c3: Chaos Engineering & Fault Injection Test cho module agent-runtime::execution
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:28:45 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::execution` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-runtime::execution phục hồi an toàn.
+
+### [P2] TOPIC-20261106-97ead7: Chaos Engineering & Fault Injection Test cho module agent-core::benchmark
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:30:34 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-core::benchmark` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-core::benchmark phục hồi an toàn.
+
+### [P2] TOPIC-20261106-ea2d49: Chaos Engineering & Fault Injection Test cho module agent-core::fault
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:32:25 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-core::fault` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-core::fault phục hồi an toàn.
+
+### [P2] TOPIC-20261106-f9183a: Chaos Engineering & Fault Injection Test cho module agent-core::resilience
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:34:14 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-core::resilience` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-core::resilience phục hồi an toàn.
+
+### [P2] TOPIC-20261106-d5707c: Chaos Engineering & Fault Injection Test cho module agent-cli::benchmark
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:36:11 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-cli::benchmark` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-cli::benchmark phục hồi an toàn.
+
+### [P2] TOPIC-20261106-8d2e04: Chaos Engineering & Fault Injection Test cho module agent-cli::cli
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:37:59 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-cli::cli` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-cli::cli phục hồi an toàn.
+
+### [P2] TOPIC-20261106-d8a235: Chaos Engineering & Fault Injection Test cho module agent-cli::commands
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:39:46 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-cli::commands` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-cli::commands phục hồi an toàn.
+
+### [P2] TOPIC-20261106-9596c8: Chaos Engineering & Fault Injection Test cho module agent-server::auth
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:41:34 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::auth` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-server::auth phục hồi an toàn.
+
+### [P2] TOPIC-20261106-d2bfbc: Chaos Engineering & Fault Injection Test cho module agent-server::dashboard_html
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:43:22 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::dashboard_html` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-server::dashboard_html phục hồi an toàn.
+
+### [P2] TOPIC-20261106-58f8c8: Chaos Engineering & Fault Injection Test cho module agent-server::dashboard_html
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:45:11 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::dashboard_html` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh agent-server::dashboard_html phục hồi an toàn.
+
+### [P2] TOPIC-20261106-4b4be4: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::audit
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:46:59 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::audit` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-eec14b: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::audit_ledger
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:48:49 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::audit_ledger` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-6a9d5b: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::checkpoint
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:50:48 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::checkpoint` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-70bb02: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::accounts
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:52:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::accounts` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-48d91c: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::api
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:55:18 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::api` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-d03eca: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::backoff
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:57:08 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::backoff` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-ea2cac: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::context_builder
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 14:59:00 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::context_builder` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-17472b: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::durable
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:00:55 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::durable` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-2d9b9a: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::persona
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:02:43 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::persona` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-0656a3: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::bus
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:04:31 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::bus` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-cce03c: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::execution
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:06:21 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::execution` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-4c1688: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::execution
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:08:10 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::execution` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-035c4f: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-core::benchmark
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:09:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-core::benchmark` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-0255a5: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-core::fault
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:11:49 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-core::fault` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-da01b7: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-core::resilience
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:13:38 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-core::resilience` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-020671: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-cli::benchmark
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:15:28 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-cli::benchmark` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-2fb683: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-cli::cli
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:17:16 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-cli::cli` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-edeb37: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-cli::commands
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:19:09 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-cli::commands` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-f145fa: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::auth
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:20:56 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::auth` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-2b1df4: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::dashboard_html
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:22:46 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::dashboard_html` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-ee3d1a: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::dashboard_html
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 15:24:34 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::dashboard_html` chịu tải 10,000 requests đồng thời, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P1] TOPIC-20261106-fcd1b6: Nâng cấp truy xuất bộ nhớ dài hạn với thuật toán xếp hạng BM25 / Hybrid Semantic Scoring
+- **Phân loại**: `Feature Expansion / Adaptive Intelligence`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 16:46:57 UTC)
+- **Lý do cần nghiên cứu**: Hiện tại `DurableMemoryStore` trong `crates/agent-memory/src/durable/` khớp từ khóa đơn giản. Cần bổ sung bộ chấm điểm độ liên quan theo trọng số tần suất từ (TF-IDF / BM25) kết hợp độ suy giảm theo thời gian (Time-Decay) và tỷ lệ thành công của bài học.
+- **Tiêu chuẩn nghiệm thu**: Cài đặt hàm xếp hạng `score_lesson_relevance(query, lesson, now)` kết hợp BM25 term weighting, confidence score và recency decay; tích hợp vào truy vấn bài học trong `agent-memory`; viết test TDD với tập dữ liệu nhiễu để chứng minh độ chính xác xếp hạng.
+
+### [P1] TOPIC-20261106-d9f850: Xây dựng lệnh CLI 'agent-ctl replay & fork' cho phép tua lại và rẽ nhánh Task từ Checkpoint
+- **Phân loại**: `Feature Expansion / Developer Ergonomics & Time-Travel Debugging`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 17:05:19 UTC)
+- **Lý do cần nghiên cứu**: Trong `agent-runtime::task_store` và `task_service::resume` đã có cơ chế lưu trữ checkpoint theo từng subtask, nhưng `agent-cli` chưa có lệnh `replay` hoặc `fork` để kỹ sư tua lại lịch sử bước chạy, chỉnh sửa ngữ cảnh và chạy rẽ nhánh từ một bước bất kỳ.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung module lệnh `replay` trong `crates/agent-cli/src/commands/`; cho phép liệt kê các checkpoint của một task_id và khởi tạo một task mới kế thừa trạng thái tại bước N (`--from-step N`); viết test TDD kiểm chứng.
+
+### [P1] TOPIC-20261106-5bd054: Chế độ Best-of-N Speculative Parallel Engine Tournament & Auto-Judge
+- **Phân loại**: `Feature Expansion / Multi-Agent Collaboration`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 17:23:23 UTC)
+- **Lý do cần nghiên cứu**: Cho phép giao cùng một nhiệm vụ quan trọng cho N engine khác nhau (`antigravity`, `claude`, `codex`) chạy song song, dùng `TaskVerifier` chấm điểm khách quan (test pass, thời gian, kích thước diff) để chọn ra kết quả tốt nhất.
+- **Tiêu chuẩn nghiệm thu**: Cài đặt `TournamentExecutor` trong `crates/agent-runtime/`; chạy song song các candidate engines và chọn kết quả có điểm verification cao nhất; viết test TDD mô phỏng 3 engines trả kết quả khác nhau và xác minh bộ chọn hoạt động chính xác.
+
+### [P1] TOPIC-20261106-8c8959: Bộ lập lịch Cron Scheduler & Delayed Task Queue tích hợp sẵn trong TaskService
+- **Phân loại**: `Feature Expansion / Resilience & Automation`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Cho phép đăng ký các tác vụ chạy định kỳ (cron expression hoặc interval) và tác vụ hẹn giờ (`run_after` timestamp) trực tiếp trong `SqliteTaskStore` và `TaskService` mà không phụ thuộc vào crontab của hệ điều hành.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung cấu trúc `ScheduleSpec` và bảng lưu lịch chạy trong `task_store`; hỗ trợ đánh thức task đúng hạn; viết test TDD xác minh task hẹn giờ chỉ được dispatch khi đến thời điểm `run_after`.
+
+### [P1] TOPIC-20261106-994cc2: Model Context Protocol (MCP) Tool Gateway & Guardrail Policy Interceptor
+- **Phân loại**: `Feature Expansion / Security & Tooling`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Cho phép khai báo các MCP Server bên ngoài và kiểm duyệt mọi lệnh gọi MCP tool (`tools/call`) thông qua `GuardrailPolicy` và `AuditLedger` trước khi cho phép Agent thực thi.
+- **Tiêu chuẩn nghiệm thu**: Xây dựng module `McpToolGateway` chuẩn hóa JSON-RPC request/response của MCP; chặn các tool call vi phạm danh sách đen của `GuardrailPolicy`; viết test TDD xác minh chặn và ghi nhận audit.
+
+### [P1] TOPIC-20261106-9987a9: Bộ đệm Replay sự kiện có Sequence Cursor cho WebSocket & SSE Reconnect
+- **Phân loại**: `Feature Expansion / Observability & Streaming`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Khi client WebSocket (`/api/v1/ws`) bị rớt mạng tạm thời hoặc đọc chậm (`RecvError::Lagged`), client cần có thể gửi `last_seq_id` để lấy bù các sự kiện bị nhỡ từ Ring Buffer hoặc TaskStore.
+- **Tiêu chuẩn nghiệm thu**: Gắn số thứ tự đơn điệu (`seq_id`) cho mọi sự kiện trên `InterAgentBus` và lưu ring-buffer có giới hạn; hỗ trợ truy vấn `events_since(seq_id)`; viết test TDD mô phỏng client kết nối lại và nhận đủ sự kiện bị thiếu.
+
+### [P1] TOPIC-20261106-cfc0d6: Định tuyến thông minh theo độ phức tạp nhiệm vụ (Complexity-Aware Model Router)
+- **Phân loại**: `Feature Expansion / Adaptive Intelligence`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tự động phân tích độ phức tạp của Subtask (Planning/Architecture vs Sửa lỗi nhỏ/Format/Test) trong `crates/agent-engine/src/router.rs` để chọn Tier model tối ưu chi phí và tốc độ.
+- **Tiêu chuẩn nghiệm thu**: Nâng cấp `ModelRouter` với bộ ước lượng độ phức tạp (`TaskComplexity::Low | Medium | High`); ánh xạ sang cấu hình engine phù hợp; viết test TDD xác minh phân loại và định tuyến chính xác.
+
+### [P2] TOPIC-20261106-e38923: Thực thi song song Fan-Out / Fan-In MapReduce Node trong Workflow DAG
+- **Phân loại**: `Feature Expansion / Multi-Agent Collaboration`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Bổ sung khả năng chia nhỏ một tập dữ liệu đầu vào (Fan-Out / Map) cho nhiều Agent xử lý đồng thời có giới hạn concurrency, sau đó tổng hợp kết quả tại node hội tụ (Fan-In / Reduce) trong `workflow_dag`.
+- **Tiêu chuẩn nghiệm thu**: Hỗ trợ thực thi song song các nhánh độc lập và gom kết quả đầu ra theo thứ tự xác định trong `WorkflowDagOrchestrator`; viết test TDD kiểm chứng giới hạn concurrency và tính toàn vẹn dữ liệu gộp.
+
+### [P2] TOPIC-20261106-e52d89: Sổ cái thống kê Token Usage & Cost Budget Enforcement theo từng Task và Account
+- **Phân loại**: `Feature Expansion / Observability & FinOps`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Theo dõi số lượng prompt/completion tokens, thời gian chạy và chi phí ước tính cho mỗi `task_id` và `account_id`, tự động tạm dừng task nếu vượt hạn mức ngân sách (`max_budget_usd` / `max_tokens_per_task`).
+- **Tiêu chuẩn nghiệm thu**: Cài đặt `UsageLedger` lưu trữ thống kê token/chi phí; kiểm tra hạn mức trước mỗi vòng lặp OODA; viết test TDD xác minh task dừng an toàn khi vượt ngưỡng ngân sách cấu hình.
+
+### [P2] TOPIC-20261106-14baf2: Kiểm soát Outbound Network Egress Policy & Domain Whitelist cho Sandbox
+- **Phân loại**: `Feature Expansion / Security & Sandboxing`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Cấu hình chính sách mạng đầu ra (`NetworkEgressPolicy`: `Isolated`, `AllowList`, `Unrestricted`) trong `SandboxSpec` để ngăn chặn mã thực thi trong sandbox rò rỉ dữ liệu ra các máy chủ lạ bên ngoài.
+- **Tiêu chuẩn nghiệm thu**: Thêm `NetworkEgressPolicy` vào `crates/agent-runtime/src/sandbox/config.rs`; áp dụng cờ `--unshare-net` trong bubblewrap hoặc `--network none` trong Docker khi ở chế độ `Isolated`; viết test TDD kiểm chứng.
+
+### [P2] TOPIC-20261106-ac92ef: Webhook Trigger Hub có xác thực chữ ký HMAC-SHA256 trong Agent Server
+- **Phân loại**: `Feature Expansion / Developer Ergonomics & Event-Driven Automation`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Cho phép GitHub Actions, GitLab hoặc Alertmanager bắn sự kiện trực tiếp vào `/api/v1/webhooks/trigger` (kèm xác thực chữ ký HMAC-SHA256 và chống replay) để tự động khởi tạo Task sửa lỗi.
+- **Tiêu chuẩn nghiệm thu**: Xây dựng handler và bộ xác thực chữ ký HMAC-SHA256 cho webhook payload trong `agent-server`; tự động chuyển đổi sự kiện hợp lệ thành Task trong hàng đợi; viết test TDD kiểm thử chữ ký đúng và sai.
+
+### [P2] TOPIC-20261106-2069cb: Hợp nhất tri thức liên dự án & Suy giảm độ tin cậy bài học cũ (Memory Consolidation & Decay)
+- **Phân loại**: `Feature Expansion / Adaptive Intelligence`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Khi kho `DurableMemoryStore` lớn dần, các bài học trùng lặp cần được hợp nhất (deduplicate & merge) và các bài học lâu không sử dụng hoặc thất bại liên tiếp cần được giảm trọng số ưu tiên.
+- **Tiêu chuẩn nghiệm thu**: Cài đặt phương thức `consolidate_and_decay_lessons()` trong `crates/agent-memory/src/durable/`; gộp các bài học cùng lỗi và cập nhật điểm tin cậy; viết test TDD kiểm chứng.
 

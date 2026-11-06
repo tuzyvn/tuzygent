@@ -13,6 +13,7 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=Cargo.toml");
+    println!("cargo:rerun-if-changed=../../Cargo.toml");
     println!("cargo:rerun-if-env-changed=AGENTCTL_RELEASE_DATE");
     for path in ["HEAD", "refs", "packed-refs", "index"] {
         if let Some(path) = git(&["rev-parse", "--git-path", path]) {

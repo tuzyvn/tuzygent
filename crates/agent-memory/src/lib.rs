@@ -15,7 +15,11 @@ pub use durable::*;
 pub use persona::*;
 pub use scoped_scratchpad::*;
 pub use scratchpad::*;
-pub use skills::*;
+pub use skills::{
+    parse_frontmatter, scan_and_validate_skills, scan_available_skills, validate_frontmatter,
+    validate_skill_file, SkillFrontmatter, SkillMetadata, SkillRegistry, SkillValidationError,
+    FRONTMATTER_RE,
+};
 
 pub mod persona_memory;
-pub use persona_memory::*;
+pub use persona_memory::{MemoryRecord, MemoryService, RetrievedContext};

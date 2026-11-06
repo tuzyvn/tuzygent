@@ -217,11 +217,12 @@ pub fn claim_queued(conn: &Mutex<Connection>, id: &TaskId) -> Result<Option<Task
         return Ok(None);
     };
     let mut task: Task = serde_json::from_str(&raw)?;
-    if task.status != TaskStatus::Queued {
+    let now = chrono::Utc::now();
+    if task.status != TaskStatus::Queued || task.run_after.is_some_and(|t| t > now) {
         return Ok(None);
     }
     task.status = TaskStatus::Executing;
-    task.updated_at = chrono::Utc::now();
+    task.updated_at = now;
     tx.execute(
         "UPDATE tasks SET status = ?1, updated_at = ?2, raw_json = ?3 WHERE id = ?4",
         params![
@@ -238,28 +239,33 @@ pub fn claim_queued(conn: &Mutex<Connection>, id: &TaskId) -> Result<Option<Task
 pub fn claim_next_queued(conn: &Mutex<Connection>) -> Result<Option<Task>> {
     let mut conn = acquire_conn(conn);
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    let raw = {
+    let now = chrono::Utc::now();
+    let candidate = {
         let mut stmt = tx.prepare(
             "SELECT raw_json FROM tasks WHERE status = '\"Queued\"' OR status LIKE '%Queued%'
              ORDER BY CASE
                  WHEN priority LIKE '%Critical%' THEN 1
                  WHEN priority LIKE '%High%' THEN 2
                  WHEN priority LIKE '%Normal%' THEN 3
-                 ELSE 4 END, created_at ASC LIMIT 1",
+                 ELSE 4 END, created_at ASC",
         )?;
-        let mut rows = stmt.query([])?;
-        if let Some(row) = rows.next()? {
-            Some(row.get::<_, String>(0)?)
-        } else {
-            None
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut found = None;
+        for raw in rows.flatten() {
+            if let Ok(t) = serde_json::from_str::<Task>(&raw) {
+                if t.status == TaskStatus::Queued && t.run_after.is_none_or(|dt| dt <= now) {
+                    found = Some(t);
+                    break;
+                }
+            }
         }
+        found
     };
-    let Some(raw) = raw else {
+    let Some(mut task) = candidate else {
         return Ok(None);
     };
-    let mut task: Task = serde_json::from_str(&raw)?;
     task.status = TaskStatus::Executing;
-    task.updated_at = chrono::Utc::now();
+    task.updated_at = now;
     tx.execute(
         "UPDATE tasks SET status = ?1, updated_at = ?2, raw_json = ?3 WHERE id = ?4",
         params![

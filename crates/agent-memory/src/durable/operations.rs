@@ -113,6 +113,18 @@ impl ResilientDurableMemoryStore {
         }
     }
 
+    pub async fn retrieve_ranked_lessons(
+        &mut self,
+        query: &str,
+        top_k: usize,
+    ) -> Result<Vec<(StructuredLesson, f64)>, DurableMemoryError> {
+        let lessons = self.load_structured_lessons().await?;
+        let mut ranked =
+            crate::durable::ranking::rank_structured_lessons(query, &lessons, chrono::Utc::now());
+        ranked.truncate(top_k);
+        Ok(ranked)
+    }
+
     pub async fn save_user_directive(&mut self, directive: &str) -> Result<(), DurableMemoryError> {
         if directive.trim().is_empty() {
             self.rejected_count += 1;

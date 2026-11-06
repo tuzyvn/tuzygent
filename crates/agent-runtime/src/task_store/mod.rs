@@ -1,10 +1,12 @@
 pub mod crud;
 pub mod lifecycle;
+pub mod schedule;
 pub mod schema;
 
-use agent_domain::{SubTask, Task, TaskId, TaskResult};
+use agent_domain::{SubTask, Task, TaskId, TaskResult, TaskScheduleRecord};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -55,6 +57,14 @@ pub trait TaskStore: Send + Sync {
     async fn clear_all(&self) -> Result<()> { Ok(()) }
     async fn vacuum(&self) -> Result<()> { Ok(()) }
     async fn repair_or_recreate(&self) -> Result<()> { Ok(()) }
+    async fn save_schedule(&self, _record: &TaskScheduleRecord) -> Result<()> {
+        Err(anyhow!("Task scheduling is not supported by this task store"))
+    }
+    async fn get_schedule(&self, _schedule_id: &str) -> Result<Option<TaskScheduleRecord>> { Ok(None) }
+    async fn list_schedules(&self, _limit: usize, _offset: usize) -> Result<Vec<TaskScheduleRecord>> { Ok(Vec::new()) }
+    async fn delete_schedule(&self, _schedule_id: &str) -> Result<bool> { Ok(false) }
+    async fn promote_due_delayed_tasks(&self, _now: DateTime<Utc>) -> Result<Vec<Task>> { Ok(Vec::new()) }
+    async fn trigger_due_cron_schedules(&self, _now: DateTime<Utc>) -> Result<Vec<(TaskScheduleRecord, Task)>> { Ok(Vec::new()) }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -116,6 +126,12 @@ impl SqliteTaskStore {
     pub fn clear_all(&self) -> Result<()> { crud::clear_all(&self.conn) }
     pub fn get_idempotent_task(&self, key: &str) -> Result<Option<TaskId>> { lifecycle::get_idempotent_task(&self.conn, key) }
     pub fn delete_idempotent_key(&self, key: &str) -> Result<bool> { lifecycle::delete_idempotent_key(&self.conn, key) }
+    pub fn save_schedule(&self, record: &TaskScheduleRecord) -> Result<()> { schedule::save_schedule(&self.conn, record) }
+    pub fn get_schedule(&self, schedule_id: &str) -> Result<Option<TaskScheduleRecord>> { schedule::get_schedule(&self.conn, schedule_id) }
+    pub fn list_schedules(&self, limit: usize, offset: usize) -> Result<Vec<TaskScheduleRecord>> { schedule::list_schedules(&self.conn, limit, offset) }
+    pub fn delete_schedule(&self, schedule_id: &str) -> Result<bool> { schedule::delete_schedule(&self.conn, schedule_id) }
+    pub fn promote_due_delayed_tasks(&self, now: DateTime<Utc>) -> Result<Vec<Task>> { schedule::promote_due_delayed_tasks(&self.conn, now) }
+    pub fn trigger_due_cron_schedules(&self, now: DateTime<Utc>) -> Result<Vec<(TaskScheduleRecord, Task)>> { schedule::trigger_due_cron_schedules(&self.conn, now) }
 
     pub fn repair_or_recreate(&self) -> Result<()> {
         let mut conn = schema::acquire_conn(&self.conn);
@@ -195,4 +211,10 @@ impl TaskStore for SqliteTaskStore {
     async fn get_task_checkpoint(&self, task_id: &TaskId) -> Result<Option<agent_domain::TaskCheckpoint>> { crud::get_task_checkpoint(&self.conn, task_id) }
     async fn save_result(&self, result: &TaskResult) -> Result<()> { crud::save_result(&self.conn, result) }
     async fn get_result(&self, task_id: &TaskId) -> Result<Option<TaskResult>> { crud::get_result(&self.conn, task_id) }
+    async fn save_schedule(&self, record: &TaskScheduleRecord) -> Result<()> { self.save_schedule(record) }
+    async fn get_schedule(&self, schedule_id: &str) -> Result<Option<TaskScheduleRecord>> { self.get_schedule(schedule_id) }
+    async fn list_schedules(&self, limit: usize, offset: usize) -> Result<Vec<TaskScheduleRecord>> { self.list_schedules(limit, offset) }
+    async fn delete_schedule(&self, schedule_id: &str) -> Result<bool> { self.delete_schedule(schedule_id) }
+    async fn promote_due_delayed_tasks(&self, now: DateTime<Utc>) -> Result<Vec<Task>> { self.promote_due_delayed_tasks(now) }
+    async fn trigger_due_cron_schedules(&self, now: DateTime<Utc>) -> Result<Vec<(TaskScheduleRecord, Task)>> { self.trigger_due_cron_schedules(now) }
 }

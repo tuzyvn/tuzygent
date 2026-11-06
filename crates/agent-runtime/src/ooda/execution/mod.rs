@@ -24,8 +24,10 @@ pub use remediation::{
     RemediationFailureKind, RemediationOutcome,
 };
 pub use runner::{
-    build_engine_input, execute_queue, execute_single_step, publish_subtask_executing,
-    update_working_context, QueueExecutionOutcome, StepAction,
+    build_engine_input, compact_working_context_with_budget, estimate_tokens, execute_queue,
+    execute_single_step, publish_subtask_executing, resolve_active_system_context,
+    resolve_active_system_context_with_budget, update_working_context, QueueExecutionOutcome,
+    StepAction, DEFAULT_WORKING_CONTEXT_TOKEN_BUDGET,
 };
 pub use safety::{
     check_and_apply_guardrail_policy, evaluate_command_safety, evaluate_guardrail_safety,

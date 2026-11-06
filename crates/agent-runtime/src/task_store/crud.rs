@@ -147,6 +147,7 @@ pub fn delete_task(conn: &Mutex<Connection>, id: &TaskId) -> Result<bool> {
         let _ = tx.execute("DELETE FROM task_results WHERE task_id = ?1", params![id.0]);
         let _ = tx.execute("DELETE FROM task_idempotency WHERE task_id = ?1", params![id.0]);
         let _ = tx.execute("DELETE FROM task_reviews WHERE task_id = ?1", params![id.0]);
+        let _ = tx.execute("DELETE FROM task_schedules WHERE task_id = ?1 OR schedule_id = ?1", params![id.0]);
         tx.commit()?;
         Ok(true)
     } else {
@@ -184,6 +185,7 @@ pub fn prune_finished_tasks(conn: &Mutex<Connection>, older_than_rfc3339: &str) 
 pub fn clear_all(conn: &Mutex<Connection>) -> Result<()> {
     let mut conn = acquire_conn(conn);
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let _ = tx.execute("DELETE FROM task_schedules", []);
     tx.execute("DELETE FROM task_reviews", [])?;
     tx.execute("DELETE FROM task_idempotency", [])?;
     tx.execute("DELETE FROM task_results", [])?;

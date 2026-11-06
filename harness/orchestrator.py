@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 from memory_bridge import find_lessons, load_lessons
+from version_manager import get_current_version, release_and_push
 
 
 def run_cmd(cmd, check=True):
@@ -31,12 +32,15 @@ def evaluate():
     return run_cmd("python3 harness/evaluators/benchmark.py", check=False) == 0
 
 
-def trigger_self_update():
-    print("\n🚀 [Update Gatekeeper] Building release & triggering agent-ctl self-update...")
-    run_cmd("cargo build --release -p agent-cli --bin agent-ctl")
-    run_cmd("cp target/release/agent-ctl ~/.local/bin/agent-ctl")
-    run_cmd("agent-ctl --version")
-    print("✅ System agent-ctl binary updated successfully.")
+def trigger_self_update(summary=None, bump_type="patch", push=True, force_bump=False):
+    print("\n🚀 [Update Gatekeeper] Bumping version, committing, building release & pushing to remote...")
+    new_ver = release_and_push(
+        summary=summary,
+        bump_type=bump_type,
+        push=push,
+        force_bump=force_bump,
+    )
+    print(f"✅ System agent-ctl binary updated & pushed successfully (v{new_ver}).")
 
 
 def print_evolution_status():
@@ -54,7 +58,10 @@ def print_evolution_status():
 def main():
     parser = argparse.ArgumentParser(description="Tuzygent Autonomous Evolution Harness")
     parser.add_argument("--benchmark", action="store_true", help="Run benchmark evaluation only")
-    parser.add_argument("--update", action="store_true", help="Check and execute self-update")
+    parser.add_argument("--update", action="store_true", help="Bump version, commit, update binary and push")
+    parser.add_argument("--bump", choices=["patch", "minor", "major"], default="patch", help="Version bump level")
+    parser.add_argument("--no-push", action="store_true", help="Skip git push after release")
+    parser.add_argument("--force-bump", action="store_true", help="Force version bump even if no working tree diff")
     parser.add_argument("--loop", action="store_true", help="Run one autonomous research & improvement cycle")
     args = parser.parse_args()
 
@@ -65,14 +72,23 @@ def main():
         sys.exit(0 if passed else 1)
 
     if args.update:
-        trigger_self_update()
+        trigger_self_update(
+            bump_type=args.bump,
+            push=not args.no_push,
+            force_bump=args.force_bump,
+        )
         sys.exit(0)
 
-    # Standard loop: Benchmark -> Gatekeep
+    # Standard loop: Benchmark -> Gatekeep -> Bump + Commit + Build + Push
     passed = evaluate()
     if passed:
         print("\n🎉 All benchmarks and scenarios passed cleanly!")
-        trigger_self_update()
+        trigger_self_update(
+            summary="verified benchmark & harness scenarios pass",
+            bump_type=args.bump,
+            push=not args.no_push,
+            force_bump=args.force_bump,
+        )
     else:
         print("\n⚠️ Baseline benchmark has failures. Check storage/harness_memory for recorded lessons.")
         sys.exit(1)

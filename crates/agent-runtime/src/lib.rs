@@ -16,6 +16,7 @@ pub mod supervisor;
 pub mod supplement;
 pub mod task_service;
 pub mod task_store;
+pub mod tournament;
 pub mod verifier;
 pub mod watchdog;
 pub mod workflow_dag;
@@ -56,8 +57,12 @@ pub use sandbox::{
 };
 pub use supervisor::{AgentState, AgentSupervisor};
 pub use supplement::{InFlightSupplement, InFlightSupplementController};
-pub use task_service::TaskService;
+pub use task_service::{SchedulerTickReport, TaskService};
 pub use task_store::{IdempotentSubmission, SqliteTaskStore, TaskStore};
+pub use tournament::{
+    AutoJudge, AutoJudgeConfig, CandidateScorecard, TournamentCandidate, TournamentExecutor,
+    TournamentOutcome,
+};
 pub use verifier::TaskVerifier;
 pub use watchdog::{IdleWatchdog, MonotonicClock};
 pub use workflow_dag::{

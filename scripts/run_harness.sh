@@ -15,7 +15,7 @@ echo " Time     : $(date)"
 echo "=========================================================="
 
 # Ensure execution bits
-chmod +x harness/evaluators/benchmark.py harness/memory_bridge.py harness/orchestrator.py harness/researcher.py 2>/dev/null || true
+chmod +x harness/evaluators/benchmark.py harness/memory_bridge.py harness/orchestrator.py harness/researcher.py harness/topic_generator.py harness/version_manager.py 2>/dev/null || true
 
 MODE="${1:---all}"
 
@@ -44,12 +44,16 @@ case "${MODE}" in
     # Liệt kê bài học kinh nghiệm trong bộ nhớ
     python3 harness/memory_bridge.py list
     ;;
-  --update|-u)
-    # Cập nhật release nhị phân hệ thống
-    python3 harness/orchestrator.py --update
+  --update|-u|--release|--push)
+    # Tăng version, commit, cập nhật release nhị phân hệ thống và push code lên git
+    python3 harness/orchestrator.py --update "${@:2}"
+    ;;
+  --bump)
+    # Gọi trực tiếp bộ quản lý version & push
+    python3 harness/version_manager.py "${@:2}"
     ;;
   --all|*)
-    # Vòng lặp thẩm định & gatekeeper
-    python3 harness/orchestrator.py
+    # Vòng lặp thẩm định & gatekeeper (Pass benchmark -> Tăng version + Commit + Update binary + Push)
+    python3 harness/orchestrator.py "${@:2}"
     ;;
 esac

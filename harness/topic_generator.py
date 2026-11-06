@@ -61,20 +61,110 @@ def get_all_production_rs_files(crates: List[Path]) -> List[Path]:
 
 
 def extract_system_capabilities(crates: List[Path]) -> Dict[str, List[str]]:
-    """Dynamically discover modules and capabilities across workspace crates."""
+    """Dynamically discover real domain modules across workspace crates (deduplicated, excluding synthetic test/bench modules)."""
+    excluded_stems = {
+        "lib", "main", "mod", "tests", "test",
+        "benchmark", "fault", "resilience", "chaos", "sharded", "safe",
+    }
     capabilities = {}
     for crate in crates:
         crate_name = crate.name
-        modules = []
+        modules = set()
         src_dir = crate / "src"
         if src_dir.exists():
             for item in src_dir.glob("*"):
                 if item.is_dir() and not item.name.startswith("."):
-                    modules.append(item.name)
-                elif item.suffix == ".rs" and item.stem not in ("lib", "main"):
-                    modules.append(item.stem)
+                    if item.name not in excluded_stems and not item.name.endswith("_tests"):
+                        modules.add(item.name)
+                elif item.suffix == ".rs":
+                    if item.stem not in excluded_stems and not item.stem.endswith("_tests"):
+                        modules.add(item.stem)
         capabilities[crate_name] = sorted(modules)
     return capabilities
+
+
+def extract_ast_Gap_signals(crates: List[Path]) -> List[Dict]:
+    """
+    Dynamically inspect AST structures across crates to identify genuine architectural
+    and feature expansion gaps (CLI vs Server parity, Store compaction, DAG node capabilities, etc.).
+    """
+    gaps = []
+    crate_map = {c.name: c for c in crates}
+
+    # 1. Inspect Server REST routes vs CLI subcommands for parity gaps
+    server_crate = crate_map.get("agent-server")
+    cli_crate = crate_map.get("agent-cli")
+    if server_crate and cli_crate:
+        cli_commands_dir = cli_crate / "src" / "commands"
+        cli_cmds = {p.stem for p in cli_commands_dir.glob("*.rs")} if cli_commands_dir.exists() else set()
+        handlers_dir = server_crate / "src" / "handlers"
+        server_handlers = {p.stem for p in handlers_dir.glob("*.rs")} if handlers_dir.exists() else set()
+
+        if "tasks" in server_handlers and "replay" not in cli_cmds:
+            gaps.append({
+                "title": "Xây dựng lệnh CLI 'agent-ctl replay & fork' cho phép tua lại và rẽ nhánh Task từ Checkpoint",
+                "priority": "P1",
+                "category": "Feature Expansion / Developer Ergonomics & Time-Travel Debugging",
+                "rationale": (
+                    "Trong `agent-runtime::task_store` và `task_service::resume` đã có cơ chế lưu trữ checkpoint theo từng subtask, "
+                    "nhưng `agent-cli` chưa có lệnh `replay` hoặc `fork` để kỹ sư tua lại lịch sử bước chạy, chỉnh sửa ngữ cảnh và chạy rẽ nhánh từ một bước bất kỳ."
+                ),
+                "acceptance_criteria": (
+                    "Bổ sung module lệnh `replay` trong `crates/agent-cli/src/commands/`; cho phép liệt kê các checkpoint của một task_id "
+                    "và khởi tạo một task mới kế thừa trạng thái tại bước N (`--from-step N`); viết test TDD kiểm chứng."
+                ),
+                "metric_count": 93,
+            })
+
+    # 2. Inspect Workspace Sandbox for Git Worktree isolation capability
+    runtime_crate = crate_map.get("agent-runtime")
+    if runtime_crate:
+        ws_dir = runtime_crate / "src" / "sandbox" / "workspace"
+        ws_sources = ""
+        if ws_dir.exists():
+            for p in ws_dir.glob("*.rs"):
+                ws_sources += p.read_text(encoding="utf-8", errors="ignore")
+        if "worktree" not in ws_sources.lower():
+            gaps.append({
+                "title": "Cô lập không gian làm việc bằng Git Worktree tự động cho từng Task và Sub-Agent",
+                "priority": "P1",
+                "category": "Feature Expansion / Security & Sandboxing",
+                "rationale": (
+                    "Module `crates/agent-runtime/src/sandbox/workspace/` hiện chưa sử dụng `git worktree` để tạo nhánh làm việc độc lập "
+                    "zero-copy cho mỗi task song song, dẫn đến nguy cơ xung đột tệp khi nhiều Agent cùng sửa mã nguồn trên một repository."
+                ),
+                "acceptance_criteria": (
+                    "Mở rộng `WorkspaceSandboxManager` hỗ trợ tạo, kiểm tra diff, merge hoặc prune `git worktree` tự động theo `task_id`; "
+                    "viết test TDD xác minh hai task chạy song song trên hai worktree không ghi đè tệp của nhau."
+                ),
+                "metric_count": 96,
+            })
+
+    # 3. Inspect Durable Memory for FTS5 / Hybrid Semantic Search
+    memory_crate = crate_map.get("agent-memory")
+    if memory_crate:
+        durable_dir = memory_crate / "src" / "durable"
+        durable_sources = ""
+        if durable_dir.exists():
+            for p in durable_dir.glob("*.rs"):
+                durable_sources += p.read_text(encoding="utf-8", errors="ignore")
+        if "fts5" not in durable_sources.lower() and "bm25" not in durable_sources.lower():
+            gaps.append({
+                "title": "Nâng cấp truy xuất bộ nhớ dài hạn với thuật toán xếp hạng BM25 / Hybrid Semantic Scoring",
+                "priority": "P1",
+                "category": "Feature Expansion / Adaptive Intelligence",
+                "rationale": (
+                    "Hiện tại `DurableMemoryStore` trong `crates/agent-memory/src/durable/` khớp từ khóa đơn giản. "
+                    "Cần bổ sung bộ chấm điểm độ liên quan theo trọng số tần suất từ (TF-IDF / BM25) kết hợp độ suy giảm theo thời gian (Time-Decay) và tỷ lệ thành công của bài học."
+                ),
+                "acceptance_criteria": (
+                    "Cài đặt hàm xếp hạng `score_lesson_relevance(query, lesson, now)` kết hợp BM25 term weighting, confidence score và recency decay; "
+                    "tích hợp vào truy vấn bài học trong `agent-memory`; viết test TDD với tập dữ liệu nhiễu để chứng minh độ chính xác xếp hạng."
+                ),
+                "metric_count": 94,
+            })
+
+    return gaps
 
 
 def analyze_code_smells(rs_files: List[Path]) -> List[Dict]:
@@ -219,9 +309,23 @@ def analyze_runtime_lessons() -> List[Dict]:
     return lesson_topics
 
 
+def is_topic_in_backlog(title: str, existing_content: str) -> bool:
+    """Fast O(1)/substring check whether a topic title or normalized file refactor target is already in RESEARCH_BACKLOG.md."""
+    if title in existing_content:
+        return True
+    if title.startswith("Phân tách cấu trúc tệp nguyên khối ("):
+        colon_idx = title.find("):")
+        if colon_idx != -1:
+            rel_path = title[colon_idx + 2:].strip()
+            # Check if any split topic for this exact file path already exists
+            if f"dòng): {rel_path}" in existing_content:
+                return True
+    return False
+
+
 def brainstorm_feature_topics(crates: List[Path], existing_content: str) -> List[Dict]:
     """
-    Dynamically brainstorm next-generation features based on current capability graph.
+    Dynamically brainstorm next-generation features based on current capability graph & AST gaps.
     Categories:
       1. Resilience & Fault Tolerance
       2. Multi-Agent Collaboration
@@ -231,9 +335,10 @@ def brainstorm_feature_topics(crates: List[Path], existing_content: str) -> List
       6. Adaptive Intelligence
     """
     capabilities = extract_system_capabilities(crates)
+    ast_gap_topics = extract_ast_Gap_signals(crates)
 
-    feature_matrix = [
-        # --- 1. Resilience & Fault Tolerance ---
+    feature_matrix = ast_gap_topics + [
+        # --- Wave 1 & Wave 2: Resilience & Fault Tolerance ---
         {
             "title": "Tích hợp cơ chế Exponential Backoff & Jitter cho Engine Execution Retry",
             "priority": "P1",
@@ -291,8 +396,22 @@ def brainstorm_feature_topics(crates: List[Path], existing_content: str) -> List
             ),
             "metric_count": 85,
         },
+        {
+            "title": "Bộ lập lịch Cron Scheduler & Delayed Task Queue tích hợp sẵn trong TaskService",
+            "priority": "P1",
+            "category": "Feature Expansion / Resilience & Automation",
+            "rationale": (
+                "Cho phép đăng ký các tác vụ chạy định kỳ (cron expression hoặc interval) và tác vụ hẹn giờ (`run_after` timestamp) "
+                "trực tiếp trong `SqliteTaskStore` và `TaskService` mà không phụ thuộc vào crontab của hệ điều hành."
+            ),
+            "acceptance_criteria": (
+                "Bổ sung cấu trúc `ScheduleSpec` và bảng lưu lịch chạy trong `task_store`; hỗ trợ đánh thức task đúng hạn; "
+                "viết test TDD xác minh task hẹn giờ chỉ được dispatch khi đến thời điểm `run_after`."
+            ),
+            "metric_count": 91,
+        },
 
-        # --- 2. Multi-Agent Collaboration ---
+        # --- Wave 1 & Wave 2: Multi-Agent Collaboration ---
         {
             "title": "Mở rộng InterAgentBus hỗ trợ Topic-Based Publish/Subscribe Channels",
             "priority": "P1",
@@ -335,8 +454,36 @@ def brainstorm_feature_topics(crates: List[Path], existing_content: str) -> List
             ),
             "metric_count": 78,
         },
+        {
+            "title": "Chế độ Best-of-N Speculative Parallel Engine Tournament & Auto-Judge",
+            "priority": "P1",
+            "category": "Feature Expansion / Multi-Agent Collaboration",
+            "rationale": (
+                "Cho phép giao cùng một nhiệm vụ quan trọng cho N engine khác nhau (`antigravity`, `claude`, `codex`) chạy song song, "
+                "dùng `TaskVerifier` chấm điểm khách quan (test pass, thời gian, kích thước diff) để chọn ra kết quả tốt nhất."
+            ),
+            "acceptance_criteria": (
+                "Cài đặt `TournamentExecutor` trong `crates/agent-runtime/`; chạy song song các candidate engines và chọn kết quả có điểm verification cao nhất; "
+                "viết test TDD mô phỏng 3 engines trả kết quả khác nhau và xác minh bộ chọn hoạt động chính xác."
+            ),
+            "metric_count": 92,
+        },
+        {
+            "title": "Thực thi song song Fan-Out / Fan-In MapReduce Node trong Workflow DAG",
+            "priority": "P2",
+            "category": "Feature Expansion / Multi-Agent Collaboration",
+            "rationale": (
+                "Bổ sung khả năng chia nhỏ một tập dữ liệu đầu vào (Fan-Out / Map) cho nhiều Agent xử lý đồng thời có giới hạn concurrency, "
+                "sau đó tổng hợp kết quả tại node hội tụ (Fan-In / Reduce) trong `workflow_dag`."
+            ),
+            "acceptance_criteria": (
+                "Hỗ trợ thực thi song song các nhánh độc lập và gom kết quả đầu ra theo thứ tự xác định trong `WorkflowDagOrchestrator`; "
+                "viết test TDD kiểm chứng giới hạn concurrency và tính toàn vẹn dữ liệu gộp."
+            ),
+            "metric_count": 83,
+        },
 
-        # --- 3. Observability & Telemetry ---
+        # --- Wave 1 & Wave 2: Observability & Telemetry ---
         {
             "title": "Tích hợp Prometheus Metrics Exporter (/metrics) cho Agent Server & OODA Loop",
             "priority": "P1",
@@ -379,8 +526,36 @@ def brainstorm_feature_topics(crates: List[Path], existing_content: str) -> List
             ),
             "metric_count": 75,
         },
+        {
+            "title": "Bộ đệm Replay sự kiện có Sequence Cursor cho WebSocket & SSE Reconnect",
+            "priority": "P1",
+            "category": "Feature Expansion / Observability & Streaming",
+            "rationale": (
+                "Khi client WebSocket (`/api/v1/ws`) bị rớt mạng tạm thời hoặc đọc chậm (`RecvError::Lagged`), "
+                "client cần có thể gửi `last_seq_id` để lấy bù các sự kiện bị nhỡ từ Ring Buffer hoặc TaskStore."
+            ),
+            "acceptance_criteria": (
+                "Gắn số thứ tự đơn điệu (`seq_id`) cho mọi sự kiện trên `InterAgentBus` và lưu ring-buffer có giới hạn; "
+                "hỗ trợ truy vấn `events_since(seq_id)`; viết test TDD mô phỏng client kết nối lại và nhận đủ sự kiện bị thiếu."
+            ),
+            "metric_count": 89,
+        },
+        {
+            "title": "Sổ cái thống kê Token Usage & Cost Budget Enforcement theo từng Task và Account",
+            "priority": "P2",
+            "category": "Feature Expansion / Observability & FinOps",
+            "rationale": (
+                "Theo dõi số lượng prompt/completion tokens, thời gian chạy và chi phí ước tính cho mỗi `task_id` và `account_id`, "
+                "tự động tạm dừng task nếu vượt hạn mức ngân sách (`max_budget_usd` / `max_tokens_per_task`)."
+            ),
+            "acceptance_criteria": (
+                "Cài đặt `UsageLedger` lưu trữ thống kê token/chi phí; kiểm tra hạn mức trước mỗi vòng lặp OODA; "
+                "viết test TDD xác minh task dừng an toàn khi vượt ngưỡng ngân sách cấu hình."
+            ),
+            "metric_count": 82,
+        },
 
-        # --- 4. Security & Sandboxing ---
+        # --- Wave 1 & Wave 2: Security & Sandboxing ---
         {
             "title": "Tự động che mờ dữ liệu nhạy cảm (Secret Redaction) trong Tool Output Stream",
             "priority": "P1",
@@ -409,8 +584,36 @@ def brainstorm_feature_topics(crates: List[Path], existing_content: str) -> List
             ),
             "metric_count": 77,
         },
+        {
+            "title": "Model Context Protocol (MCP) Tool Gateway & Guardrail Policy Interceptor",
+            "priority": "P1",
+            "category": "Feature Expansion / Security & Tooling",
+            "rationale": (
+                "Cho phép khai báo các MCP Server bên ngoài và kiểm duyệt mọi lệnh gọi MCP tool (`tools/call`) "
+                "thông qua `GuardrailPolicy` và `AuditLedger` trước khi cho phép Agent thực thi."
+            ),
+            "acceptance_criteria": (
+                "Xây dựng module `McpToolGateway` chuẩn hóa JSON-RPC request/response của MCP; "
+                "chặn các tool call vi phạm danh sách đen của `GuardrailPolicy`; viết test TDD xác minh chặn và ghi nhận audit."
+            ),
+            "metric_count": 90,
+        },
+        {
+            "title": "Kiểm soát Outbound Network Egress Policy & Domain Whitelist cho Sandbox",
+            "priority": "P2",
+            "category": "Feature Expansion / Security & Sandboxing",
+            "rationale": (
+                "Cấu hình chính sách mạng đầu ra (`NetworkEgressPolicy`: `Isolated`, `AllowList`, `Unrestricted`) trong `SandboxSpec` "
+                "để ngăn chặn mã thực thi trong sandbox rò rỉ dữ liệu ra các máy chủ lạ bên ngoài."
+            ),
+            "acceptance_criteria": (
+                "Thêm `NetworkEgressPolicy` vào `crates/agent-runtime/src/sandbox/config.rs`; "
+                "áp dụng cờ `--unshare-net` trong bubblewrap hoặc `--network none` trong Docker khi ở chế độ `Isolated`; viết test TDD kiểm chứng."
+            ),
+            "metric_count": 81,
+        },
 
-        # --- 5. Developer Ergonomics & Tooling ---
+        # --- Wave 1 & Wave 2: Developer Ergonomics & Tooling ---
         {
             "title": "Bổ sung lệnh CLI 'agent-ctl inspect' tra cứu Task & Memory chuyên sâu",
             "priority": "P2",
@@ -453,8 +656,22 @@ def brainstorm_feature_topics(crates: List[Path], existing_content: str) -> List
             ),
             "metric_count": 70,
         },
+        {
+            "title": "Webhook Trigger Hub có xác thực chữ ký HMAC-SHA256 trong Agent Server",
+            "priority": "P2",
+            "category": "Feature Expansion / Developer Ergonomics & Event-Driven Automation",
+            "rationale": (
+                "Cho phép GitHub Actions, GitLab hoặc Alertmanager bắn sự kiện trực tiếp vào `/api/v1/webhooks/trigger` "
+                "(kèm xác thực chữ ký HMAC-SHA256 và chống replay) để tự động khởi tạo Task sửa lỗi."
+            ),
+            "acceptance_criteria": (
+                "Xây dựng handler và bộ xác thực chữ ký HMAC-SHA256 cho webhook payload trong `agent-server`; "
+                "tự động chuyển đổi sự kiện hợp lệ thành Task trong hàng đợi; viết test TDD kiểm thử chữ ký đúng và sai."
+            ),
+            "metric_count": 79,
+        },
 
-        # --- 6. Adaptive Intelligence ---
+        # --- Wave 1 & Wave 2: Adaptive Intelligence ---
         {
             "title": "Cơ chế Adaptive Token-Budget Windowing & Rolling Context Compaction cho OODA Loop",
             "priority": "P1",
@@ -469,55 +686,125 @@ def brainstorm_feature_topics(crates: List[Path], existing_content: str) -> List
             ),
             "metric_count": 87,
         },
+        {
+            "title": "Định tuyến thông minh theo độ phức tạp nhiệm vụ (Complexity-Aware Model Router)",
+            "priority": "P1",
+            "category": "Feature Expansion / Adaptive Intelligence",
+            "rationale": (
+                "Tự động phân tích độ phức tạp của Subtask (Planning/Architecture vs Sửa lỗi nhỏ/Format/Test) "
+                "trong `crates/agent-engine/src/router.rs` để chọn Tier model tối ưu chi phí và tốc độ."
+            ),
+            "acceptance_criteria": (
+                "Nâng cấp `ModelRouter` với bộ ước lượng độ phức tạp (`TaskComplexity::Low | Medium | High`); "
+                "ánh xạ sang cấu hình engine phù hợp; viết test TDD xác minh phân loại và định tuyến chính xác."
+            ),
+            "metric_count": 86,
+        },
+        {
+            "title": "Hợp nhất tri thức liên dự án & Suy giảm độ tin cậy bài học cũ (Memory Consolidation & Decay)",
+            "priority": "P2",
+            "category": "Feature Expansion / Adaptive Intelligence",
+            "rationale": (
+                "Khi kho `DurableMemoryStore` lớn dần, các bài học trùng lặp cần được hợp nhất (deduplicate & merge) "
+                "và các bài học lâu không sử dụng hoặc thất bại liên tiếp cần được giảm trọng số ưu tiên."
+            ),
+            "acceptance_criteria": (
+                "Cài đặt phương thức `consolidate_and_decay_lessons()` trong `crates/agent-memory/src/durable/`; "
+                "gộp các bài học cùng lỗi và cập nhật điểm tin cậy; viết test TDD kiểm chứng."
+            ),
+            "metric_count": 78,
+        },
     ]
 
-    # Filter out topics that already exist in RESEARCH_BACKLOG.md (whether pending or completed)
+    # Filter out topics that already exist in RESEARCH_BACKLOG.md (whether pending, completed, or blocked)
     candidate_topics = []
+    seen_titles = set()
     for item in feature_matrix:
-        if item["title"] not in existing_content:
+        t = item["title"]
+        if t not in seen_titles and not is_topic_in_backlog(t, existing_content):
+            seen_titles.add(t)
             candidate_topics.append(item)
 
-    # Infinite Evolutionary Tier: If all base feature matrix topics are completed,
-    # dynamically synthesize next-level Cross-Module Chaos, Concurrency Stress,
-    # and Performance Optimization topics based on real workspace modules!
-    if not candidate_topics:
-        cross_topics = []
-        crate_names = list(capabilities.keys())
-        for crate_name, modules in capabilities.items():
-            for mod in modules[:3]:
-                chaos_title = f"Chaos Engineering & Fault Injection Test cho module {crate_name}::{mod}"
-                if chaos_title not in existing_content:
-                    cross_topics.append({
-                        "title": chaos_title,
-                        "priority": "P2",
-                        "category": "Feature Expansion / Chaos Engineering",
-                        "rationale": (
-                            f"Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module "
-                            f"`{crate_name}::{mod}` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống."
-                        ),
-                        "acceptance_criteria": (
-                            f"Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh {crate_name}::{mod} phục hồi an toàn."
-                        ),
-                        "metric_count": 65,
-                    })
+    # Multi-Track Evolutionary Tier: Dynamically synthesize deep architectural tracks across ALL real modules
+    # (no longer restricted to `modules[:3]` or synthetic benchmark/fault modules).
+    evolution_tracks = [
+        (
+            "Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module {crate}::{mod}",
+            "Feature Expansion / State Invariant & Contract Verification",
+            "P2",
+            68,
+            (
+                "Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, "
+                "boundary contracts) cho `{crate}::{mod}` với đầu vào biên và trạng thái bất thường."
+            ),
+            (
+                "Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `{crate}::{mod}`, "
+                "bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic."
+            ),
+        ),
+        (
+            "Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho {crate}::{mod}",
+            "Feature Expansion / Resource Bounding & Backpressure",
+            "P2",
+            66,
+            (
+                "Bảo vệ `{crate}::{mod}` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế "
+                "bounded capacity, timeout tường minh và từ chối sớm có kiểm soát."
+            ),
+            (
+                "Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `{crate}::{mod}` "
+                "xử lý mượt mà khi vượt ngưỡng tài nguyên."
+            ),
+        ),
+        (
+            "Chaos Engineering & Fault Injection Test cho module {crate}::{mod}",
+            "Feature Expansion / Chaos Engineering",
+            "P2",
+            64,
+            (
+                "Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module "
+                "`{crate}::{mod}` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống."
+            ),
+            (
+                "Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `{crate}::{mod}` phục hồi an toàn."
+            ),
+        ),
+        (
+            "Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho {crate}::{mod}",
+            "Feature Expansion / Performance & Scalability",
+            "P2",
+            60,
+            (
+                "Đo lường throughput và memory allocation khi `{crate}::{mod}` chịu tải đồng thời cao, "
+                "tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết."
+            ),
+            (
+                "Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao."
+            ),
+        ),
+    ]
 
-                perf_title = f"Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho {crate_name}::{mod}"
-                if perf_title not in existing_content:
-                    cross_topics.append({
-                        "title": perf_title,
-                        "priority": "P2",
-                        "category": "Feature Expansion / Performance & Scalability",
-                        "rationale": (
-                            f"Đo lường throughput và memory allocation khi `{crate_name}::{mod}` chịu tải 10,000 requests đồng thời, "
-                            f"tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết."
-                        ),
-                        "acceptance_criteria": (
-                            f"Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao."
-                        ),
-                        "metric_count": 60,
-                    })
-
-        candidate_topics.extend(cross_topics)
+    if len(candidate_topics) < 10:
+        for title_tpl, category, prio, score, rationale_tpl, criteria_tpl in evolution_tracks:
+            for crate_name, modules in capabilities.items():
+                for mod in modules:
+                    title = title_tpl.format(crate=crate_name, mod=mod)
+                    if title not in seen_titles and not is_topic_in_backlog(title, existing_content):
+                        seen_titles.add(title)
+                        candidate_topics.append({
+                            "title": title,
+                            "priority": prio,
+                            "category": category,
+                            "rationale": rationale_tpl.format(crate=crate_name, mod=mod),
+                            "acceptance_criteria": criteria_tpl.format(crate=crate_name, mod=mod),
+                            "metric_count": score,
+                        })
+                    if len(candidate_topics) >= 15:
+                        break
+                if len(candidate_topics) >= 15:
+                    break
+            if len(candidate_topics) >= 15:
+                break
 
     return candidate_topics
 
@@ -526,6 +813,7 @@ def discover_topics(force_brainstorm: bool = False) -> List[Dict]:
     """
     Execute dynamic discovery across AST smells, complexity percentiles, runtime lessons,
     and automatic frontier feature brainstorming when maintenance topics are exhausted.
+    Only returns genuinely NEW topics not yet recorded in RESEARCH_BACKLOG.md.
     """
     crates = get_workspace_crates()
     rs_files = get_all_production_rs_files(crates)
@@ -534,14 +822,18 @@ def discover_topics(force_brainstorm: bool = False) -> List[Dict]:
     if BACKLOG_FILE.exists():
         existing_content = BACKLOG_FILE.read_text(encoding="utf-8")
 
-    all_topics = []
+    raw_maintenance = []
     if not force_brainstorm:
-        all_topics.extend(analyze_code_smells(rs_files))
-        all_topics.extend(analyze_complexity_distribution(rs_files))
-        all_topics.extend(analyze_runtime_lessons())
+        raw_maintenance.extend(analyze_code_smells(rs_files))
+        raw_maintenance.extend(analyze_complexity_distribution(rs_files))
+        raw_maintenance.extend(analyze_runtime_lessons())
 
-    # Check how many maintenance topics are genuinely NEW (not yet in backlog)
-    new_maintenance_topics = [t for t in all_topics if t["title"] not in existing_content]
+    # Filter maintenance topics to only genuinely NEW ones (not yet in backlog)
+    new_maintenance_topics = [
+        t for t in raw_maintenance if not is_topic_in_backlog(t["title"], existing_content)
+    ]
+
+    all_topics = list(new_maintenance_topics)
 
     # If maintenance topics are exhausted or force_brainstorm is requested,
     # activate the Frontier Feature Brainstorming Engine!
@@ -567,7 +859,7 @@ def sync_to_backlog(topics: List[Dict]) -> int:
 
     for t in topics:
         title = t["title"]
-        if title in existing_content:
+        if is_topic_in_backlog(title, existing_content):
             continue
 
         topic_id = f"TOPIC-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
@@ -579,10 +871,11 @@ def sync_to_backlog(topics: List[Dict]) -> int:
             f"- **Tiêu chuẩn nghiệm thu**: {t['acceptance_criteria']}\n\n"
         )
         new_entries.append(entry)
+        existing_content += "\n" + entry
         added += 1
 
     if added > 0:
-        if not BACKLOG_FILE.exists() or not existing_content.strip():
+        if not BACKLOG_FILE.exists() or not BACKLOG_FILE.read_text(encoding="utf-8").strip():
             header = (
                 "# Tuzygent Autonomous Research Backlog\n\n"
                 "Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động từ phân tích AST mã nguồn, "

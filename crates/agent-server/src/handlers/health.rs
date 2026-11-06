@@ -11,7 +11,7 @@ pub struct HealthResponse {
 pub async fn health_handler() -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "ok",
-        version: "0.1.0",
+        version: env!("CARGO_PKG_VERSION"),
         timestamp: chrono::Utc::now(),
     })
 }

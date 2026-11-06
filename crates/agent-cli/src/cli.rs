@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 use crate::commands::memory::MemoryArgs;
+use crate::commands::replay::{ForkArgs, ReplayArgs};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "agent-ctl")]
@@ -82,6 +83,48 @@ impl Cli {
                     return Err(crate::fault::CliExecutionError::ParseError {
                         code: exit_codes::USAGE_ERROR,
                         message: "workflow_id must not be empty".to_string(),
+                    });
+                }
+                Ok(())
+            }
+            Commands::Replay(args) => {
+                if args.resolved_task_id().is_none() {
+                    return Err(crate::fault::CliExecutionError::ParseError {
+                        code: exit_codes::USAGE_ERROR,
+                        message: "task_id must not be empty".to_string(),
+                    });
+                }
+                if args.from_step == Some(0) {
+                    return Err(crate::fault::CliExecutionError::ParseError {
+                        code: exit_codes::USAGE_ERROR,
+                        message: "from_step must be >= 1".to_string(),
+                    });
+                }
+                if args.subtask_id.as_deref().is_some_and(|s| s.trim().is_empty()) {
+                    return Err(crate::fault::CliExecutionError::ParseError {
+                        code: exit_codes::USAGE_ERROR,
+                        message: "subtask_id must not be empty".to_string(),
+                    });
+                }
+                Ok(())
+            }
+            Commands::Fork(args) => {
+                if args.resolved_task_id().is_none() {
+                    return Err(crate::fault::CliExecutionError::ParseError {
+                        code: exit_codes::USAGE_ERROR,
+                        message: "task_id must not be empty".to_string(),
+                    });
+                }
+                if args.from_step == Some(0) {
+                    return Err(crate::fault::CliExecutionError::ParseError {
+                        code: exit_codes::USAGE_ERROR,
+                        message: "from_step must be >= 1".to_string(),
+                    });
+                }
+                if args.subtask_id.as_deref().is_some_and(|s| s.trim().is_empty()) {
+                    return Err(crate::fault::CliExecutionError::ParseError {
+                        code: exit_codes::USAGE_ERROR,
+                        message: "subtask_id must not be empty".to_string(),
                     });
                 }
                 Ok(())
@@ -250,6 +293,10 @@ pub enum Commands {
     Inspect(InspectArgs),
     /// Manage project-scoped persona memory
     Memory(MemoryArgs),
+    /// Replay a task from a specific checkpoint step or list its recorded checkpoints
+    Replay(ReplayArgs),
+    /// Fork an existing task from a checkpoint into a new independent Task
+    Fork(ForkArgs),
     /// Build and install the latest AgentCore main from GitHub (requires Git and Cargo)
     Update {
         /// Only check the latest commit; do not build or replace the executable

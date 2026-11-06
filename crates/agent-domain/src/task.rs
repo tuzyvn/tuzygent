@@ -41,6 +41,9 @@ pub enum Priority {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskStatus {
+    Scheduled {
+        run_after: chrono::DateTime<chrono::Utc>,
+    },
     Queued,
     Dispatched {
         runtime_id: String,
@@ -183,6 +186,18 @@ pub struct Task {
     /// Number of consecutive execution or worker failures, used for poison-task isolation and dead-letter queue routing.
     #[serde(default)]
     pub failure_count: usize,
+    /// Earliest UTC timestamp at which a delayed task is eligible to transition to Queued and execute.
+    #[serde(default)]
+    pub run_after: Option<chrono::DateTime<chrono::Utc>>,
+    /// Explicit scheduled execution timestamp for delayed tasks.
+    #[serde(default)]
+    pub scheduled_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Optional recurring cron expression associated with this task.
+    #[serde(default)]
+    pub cron_expression: Option<String>,
+    /// Optional recurring or delayed schedule specification associated with this task.
+    #[serde(default)]
+    pub schedule_spec: Option<crate::schedule::ScheduleSpec>,
 }
 
 impl Task {
@@ -200,7 +215,70 @@ impl Task {
             assigned_agent: None,
             engine_name: None,
             failure_count: 0,
+            run_after: None,
+            scheduled_at: None,
+            cron_expression: None,
+            schedule_spec: None,
         }
+    }
+
+    pub fn new_delayed(
+        title: &str,
+        goal_description: &str,
+        priority: Priority,
+        run_after: chrono::DateTime<chrono::Utc>,
+    ) -> Self {
+        let now = chrono::Utc::now();
+        let status = if run_after > now {
+            TaskStatus::Scheduled { run_after }
+        } else {
+            TaskStatus::Queued
+        };
+        Self {
+            id: TaskId::new(),
+            title: title.to_string(),
+            goal_description: goal_description.to_string(),
+            priority,
+            status,
+            subtasks: Vec::new(),
+            created_at: now,
+            updated_at: now,
+            assigned_agent: None,
+            engine_name: None,
+            failure_count: 0,
+            run_after: Some(run_after),
+            scheduled_at: Some(run_after),
+            cron_expression: None,
+            schedule_spec: Some(crate::schedule::ScheduleSpec::OnceAt { run_after }),
+        }
+    }
+
+    pub fn new_cron(
+        title: &str,
+        goal_description: &str,
+        priority: Priority,
+        cron_expression: &str,
+    ) -> Result<Self, crate::schedule::ScheduleError> {
+        let spec = crate::schedule::ScheduleSpec::cron(cron_expression)?;
+        let mut task = Self::new(title, goal_description, priority);
+        task.cron_expression = Some(cron_expression.to_string());
+        task.schedule_spec = Some(spec);
+        Ok(task)
+    }
+
+    pub fn with_scheduled_at(mut self, scheduled_at: chrono::DateTime<chrono::Utc>) -> Self {
+        self.run_after = Some(scheduled_at);
+        self.scheduled_at = Some(scheduled_at);
+        self.status = TaskStatus::Scheduled { run_after: scheduled_at };
+        self.schedule_spec = Some(crate::schedule::ScheduleSpec::OnceAt { run_after: scheduled_at });
+        self
+    }
+
+    pub fn with_cron_expression(mut self, cron_expression: impl Into<String>) -> Self {
+        let expr = cron_expression.into();
+        self.cron_expression = Some(expr.clone());
+        self.schedule_spec = Some(crate::schedule::ScheduleSpec::Cron { expression: expr });
+        self
     }
 
     pub fn add_subtask(&mut self, subtask: SubTask) {
@@ -241,6 +319,47 @@ impl Task {
     pub fn is_quarantined(&self) -> bool {
         matches!(self.status, TaskStatus::Quarantined { .. })
     }
+
+    pub fn is_scheduled(&self) -> bool {
+        matches!(self.status, TaskStatus::Scheduled { .. })
+    }
+
+    pub fn is_ready_to_execute(&self, now: chrono::DateTime<chrono::Utc>) -> bool {
+        let due_at = self.scheduled_at.or(self.run_after);
+        self.status == TaskStatus::Queued && due_at.is_none_or(|t| t <= now)
+    }
+
+    /// Forks this task into a brand new `Task` with an independent `TaskId`, inheriting
+    /// checkpoint state (optionally rewound to `from_step`) and optional overridden title/goal.
+    pub fn fork_from_checkpoint(
+        &self,
+        checkpoint: &crate::checkpoint::TaskCheckpoint,
+        from_step: Option<usize>,
+        new_title: Option<String>,
+        new_goal: Option<String>,
+    ) -> Result<(Self, crate::checkpoint::TaskCheckpoint), crate::checkpoint::CheckpointIntegrityError> {
+        let new_id = TaskId::new();
+        let forked_cp = checkpoint.fork_for_task(new_id.clone(), from_step)?;
+        let now = chrono::Utc::now();
+        let forked_task = Self {
+            id: new_id,
+            title: new_title.unwrap_or_else(|| self.title.clone()),
+            goal_description: new_goal.unwrap_or_else(|| self.goal_description.clone()),
+            priority: self.priority.clone(),
+            status: TaskStatus::Queued,
+            subtasks: forked_cp.subtasks.clone(),
+            created_at: now,
+            updated_at: now,
+            assigned_agent: self.assigned_agent.clone(),
+            engine_name: self.engine_name.clone(),
+            failure_count: 0,
+            run_after: None,
+            scheduled_at: None,
+            cron_expression: None,
+            schedule_spec: None,
+        };
+        Ok((forked_task, forked_cp))
+    }
 }
 
 #[cfg(test)]
@@ -249,35 +368,19 @@ mod tests {
 
     #[test]
     fn test_task_lifecycle_and_subtask_management() -> Result<(), TaskError> {
-        let mut task = Task::new(
-            "Security Hardening",
-            "Implement enterprise guardrail policies",
-            Priority::High,
-        );
-
+        let mut task = Task::new("Security Hardening", "Implement enterprise guardrail policies", Priority::High);
         assert_eq!(task.status, TaskStatus::Queued);
         assert!(!task.is_completed());
         assert!(!task.is_failed());
         assert!(task.subtasks.is_empty());
 
-        let subtask1 = SubTask::new(
-            "sub-1",
-            "Lint security rules",
-            "cargo test -p agent-domain",
-            "Exit code 0",
-        );
+        let subtask1 = SubTask::new("sub-1", "Lint security rules", "cargo test -p agent-domain", "Exit code 0");
         assert!(!subtask1.is_remediation());
-
         task.add_subtask(subtask1);
         assert_eq!(task.subtasks.len(), 1);
 
         let remediation = SubTask::new_remediation(
-            "sub-1-fix",
-            "Remediate test failure",
-            "cargo fix --allow-no-vcs",
-            "sub-1",
-            "Compilation error in guardrail",
-            1,
+            "sub-1-fix", "Remediate test failure", "cargo fix --allow-no-vcs", "sub-1", "Compilation error in guardrail", 1,
         );
         assert!(remediation.is_remediation());
         assert_eq!(remediation.parent_subtask_id.as_deref(), Some("sub-1"));
@@ -285,7 +388,6 @@ mod tests {
 
         task.add_subtask(remediation);
         assert_eq!(task.subtasks.len(), 2);
-
         assert!(task.find_subtask("sub-1").is_some());
         assert!(task.find_subtask("sub-1-fix").is_some());
         assert!(task.find_subtask("nonexistent").is_none());
@@ -293,7 +395,6 @@ mod tests {
         if let Some(sub) = task.find_subtask_mut("sub-1") {
             sub.status = TaskStatus::Completed;
         }
-        // Thay thế .unwrap() thiếu an toàn bằng cơ chế an toàn (Result propagation & Option::map)
         assert_eq!(task.get_subtask("sub-1")?.status, TaskStatus::Completed);
         assert_eq!(task.find_subtask("sub-1").map(|s| &s.status), Some(&TaskStatus::Completed));
 

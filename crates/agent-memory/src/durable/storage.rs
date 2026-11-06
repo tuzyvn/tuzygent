@@ -79,20 +79,12 @@ pub fn text_matches_keywords(text: &str, keywords: &[String]) -> bool {
     if keywords.is_empty() {
         return false;
     }
-    let text_lower = text.to_lowercase();
-    let tokens: HashSet<&str> = text_lower
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|t| !t.is_empty())
-        .collect();
-
+    let doc_tokens = crate::durable::ranking::tokenize_document(text);
     keywords.iter().any(|kw| {
-        let kw_str = kw.as_str();
-        tokens.contains(kw_str)
-            || tokens.iter().any(|t| {
-                // Hỗ trợ số nhiều / biến thể ngắn (e.g. port -> ports, task -> tasks)
-                (t.len() > kw_str.len() && t.starts_with(kw_str) && t.len() - kw_str.len() <= 2)
-                    || (kw_str.len() > t.len() && kw_str.starts_with(*t) && kw_str.len() - t.len() <= 2)
-            })
+        let kw_lower = kw.to_lowercase();
+        doc_tokens
+            .iter()
+            .any(|dt| crate::durable::ranking::tokens_match(dt.as_str(), kw_lower.as_str()))
     })
 }
 
@@ -163,15 +155,14 @@ impl DurableMemoryStore {
         if self.memory_file.exists() {
             let memory_content = fs::read_to_string(&self.memory_file).await?;
             let blocks = parse_lesson_blocks(&memory_content);
-            let goal_words = extract_query_tokens(goal);
+            let now = chrono::Utc::now();
+            let ranked = crate::durable::ranking::rank_lesson_blocks(goal, &blocks, now);
+            let matched_set: HashSet<String> = ranked.iter().map(|(b, _)| b.clone()).collect();
+            let matched_lessons: Vec<String> = ranked.into_iter().map(|(b, _)| b).collect();
 
-            let mut matched_lessons = Vec::new();
             let mut recent_lessons = Vec::new();
-
             for block in blocks.into_iter().rev() {
-                if !goal_words.is_empty() && text_matches_keywords(&block, &goal_words) {
-                    matched_lessons.push(block);
-                } else if recent_lessons.len() < 8 {
+                if !matched_set.contains(&block) && recent_lessons.len() < 8 {
                     recent_lessons.push(block);
                 }
             }
@@ -250,6 +241,18 @@ impl DurableMemoryStore {
         }
 
         Ok(Vec::new())
+    }
+
+    pub async fn retrieve_ranked_lessons(
+        &self,
+        query: &str,
+        top_k: usize,
+    ) -> Result<Vec<(StructuredLesson, f64)>, std::io::Error> {
+        let lessons = self.load_structured_lessons().await?;
+        let mut ranked =
+            crate::durable::ranking::rank_structured_lessons(query, &lessons, chrono::Utc::now());
+        ranked.truncate(top_k);
+        Ok(ranked)
     }
 
     pub async fn save_structured_lesson(

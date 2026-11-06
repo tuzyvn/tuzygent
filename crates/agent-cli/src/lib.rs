@@ -16,8 +16,10 @@ pub use cli::{
     OutputFormat, RigAction, SafeExitCode,
 };
 pub use commands::{
-    execute_command_resilient, run_command, run_command_resilient, CommandsBenchmarkHarness,
-    CommandsBenchmarkStats, ResilientCommandDispatcher, ShardedResilientCommandDispatcher,
+    execute_command_resilient, execute_replay_or_fork, inspect_checkpoints, run_command,
+    run_command_resilient, CheckpointListPayload, CommandsBenchmarkHarness, CommandsBenchmarkStats,
+    ForkArgs, ReplayArgs, ReplayOutcomePayload, ResilientCommandDispatcher,
+    ShardedResilientCommandDispatcher,
 };
 pub use fault::{
     is_retryable_cli_error, simulate_cli_fault, CliExecutionError, CliFault, CliFaultPolicy,

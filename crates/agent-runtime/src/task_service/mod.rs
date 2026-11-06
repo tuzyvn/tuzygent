@@ -2,8 +2,12 @@ pub mod dead_letter;
 pub mod dispatch;
 pub mod resume;
 pub mod review;
+pub mod scheduler;
+#[cfg(test)]
+mod tests;
 
 pub use dead_letter::DEFAULT_POISON_THRESHOLD;
+pub use scheduler::SchedulerTickReport;
 
 use crate::sandbox::SandboxConfig;
 use crate::task_store::TaskStore;

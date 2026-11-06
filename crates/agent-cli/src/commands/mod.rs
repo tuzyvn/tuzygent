@@ -6,6 +6,7 @@ pub mod engines;
 pub mod inspect;
 pub mod memory;
 pub mod persona;
+pub mod replay;
 pub mod resilience;
 pub mod rig;
 pub mod run;
@@ -16,12 +17,18 @@ use crate::fault::CliExecutionError;
 use crate::resilience::ResilientCliRunner;
 
 pub use benchmark::{CommandsBenchmarkHarness, CommandsBenchmarkStats};
+pub use replay::{
+    execute_replay_or_fork, inspect_checkpoints, CheckpointListPayload, ForkArgs, ReplayArgs,
+    ReplayOutcomePayload,
+};
 pub use resilience::{ResilientCommandDispatcher, ShardedResilientCommandDispatcher};
 
 pub async fn run_command(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Commands::Inspect(args) => inspect::handle(args).await?,
         Commands::Memory(args) => memory::handle(args).await?,
+        Commands::Replay(args) => replay::handle(args).await?,
+        Commands::Fork(args) => replay::handle_fork(args).await?,
         Commands::Update { check } => crate::update::run(check)?,
         Commands::Create { id, name, autonomy } => {
             agent::create(id, name, autonomy).await?

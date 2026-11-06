@@ -69,10 +69,11 @@ pub mod prelude {
         ScopeAccess, ScopedScratchpad, ScratchpadManager, SkillRegistry,
     };
     pub use agent_runtime::{
-        AgentSupervisor, AutonomousOodaLoop, InterAgentBus, IsolationMode, KernelOperator,
-        ResilientWorkspaceManager, SandboxConfig, SandboxDriverKind, SandboxEnvironment,
-        SandboxSpec, WorkflowOrchestrator, WorkspaceBenchmarkHarness, WorkspaceManager,
-        WsRpcClient,
+        AgentSupervisor, AutoJudge, AutoJudgeConfig, AutonomousOodaLoop, CandidateScorecard,
+        InterAgentBus, IsolationMode, KernelOperator, ResilientWorkspaceManager, SandboxConfig,
+        SandboxDriverKind, SandboxEnvironment, SandboxSpec, TournamentCandidate,
+        TournamentExecutor, TournamentOutcome, WorkflowOrchestrator, WorkspaceBenchmarkHarness,
+        WorkspaceManager, WsRpcClient,
     };
 
     pub use crate::benchmark::{CoreBenchmarkHarness, CoreBenchmarkStats};

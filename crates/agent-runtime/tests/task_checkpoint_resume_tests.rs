@@ -605,3 +605,124 @@ async fn test_checkpoint_tampering_fails_integrity_check_and_prevents_unsafe_res
 
     let _ = std::fs::remove_dir_all(&ws);
 }
+
+#[tokio::test]
+async fn test_task_service_replay_and_fork_from_checkpoint_execution() {
+    let ws = unique_temp_dir();
+    let store = Arc::new(SqliteTaskStore::new(&ws).expect("store init"));
+    let service = Arc::new(
+        TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true),
+    );
+
+    let mut source_task = Task::new(
+        "Completed 3-Step Pipeline",
+        "Run 3 steps and then fork/replay from step 2",
+        Priority::High,
+    );
+    let mut st1 = SubTask::new("ST-1", "Step 1", "run step1", "none");
+    st1.status = TaskStatus::Completed;
+    st1.output_excerpt = Some("step1 cached".into());
+    let mut st2 = SubTask::new("ST-2", "Step 2", "run step2", "none");
+    st2.status = TaskStatus::Completed;
+    st2.output_excerpt = Some("step2 cached".into());
+    let mut st3 = SubTask::new("ST-3", "Step 3", "run step3", "none");
+    st3.status = TaskStatus::Completed;
+    st3.output_excerpt = Some("step3 cached".into());
+
+    source_task.status = TaskStatus::Completed;
+    source_task.subtasks = vec![st1, st2, st3];
+    let source_id = source_task.id.clone();
+    store.save_task(&source_task).await.expect("save source task");
+    store
+        .save_checkpoint(&source_id, &source_task.subtasks)
+        .await
+        .expect("save source checkpoint");
+
+    // 1. Fork from Step 2 and dispatch execution
+    let fork_step1_count = Arc::new(AtomicUsize::new(0));
+    let fork_step2_count = Arc::new(AtomicUsize::new(0));
+    let fork_step3_count = Arc::new(AtomicUsize::new(0));
+    let fork_engine = Arc::new(MultiStepMockEngine {
+        step1_count: fork_step1_count.clone(),
+        step2_count: fork_step2_count.clone(),
+        step3_count: fork_step3_count.clone(),
+        step2_started: None,
+        interrupt_on_step2: false,
+    });
+
+    let forked_task = service
+        .fork_and_dispatch_from_checkpoint(
+            &source_id,
+            Some(2),
+            Some("Forked Pipeline from Step 2".into()),
+            None,
+            fork_engine,
+        )
+        .await
+        .expect("fork_and_dispatch_from_checkpoint");
+
+    assert_ne!(forked_task.id, source_id);
+    assert_eq!(forked_task.subtasks[0].status, TaskStatus::Completed);
+    assert_eq!(forked_task.subtasks[1].status, TaskStatus::Queued);
+    assert_eq!(forked_task.subtasks[2].status, TaskStatus::Queued);
+
+    let fork_result = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(res) = service.get_result(&forked_task.id).await.expect("get fork result") {
+                if matches!(res.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+                    break res;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await
+    .expect("Forked task must complete");
+
+    assert_eq!(fork_result.status, TaskStatus::Completed);
+    assert_eq!(fork_step1_count.load(Ordering::SeqCst), 0, "Step 1 inherited as Completed, must not re-run");
+    assert_eq!(fork_step2_count.load(Ordering::SeqCst), 1, "Step 2 rewound and executed once");
+    assert_eq!(fork_step3_count.load(Ordering::SeqCst), 1, "Step 3 rewound and executed once");
+
+    // Original task must still be intact
+    let orig = store.get_task(&source_id).await.unwrap().unwrap();
+    assert_eq!(orig.status, TaskStatus::Completed);
+
+    // 2. Replay original task in-place from Step 3
+    let replay_step1_count = Arc::new(AtomicUsize::new(0));
+    let replay_step2_count = Arc::new(AtomicUsize::new(0));
+    let replay_step3_count = Arc::new(AtomicUsize::new(0));
+    let replay_engine = Arc::new(MultiStepMockEngine {
+        step1_count: replay_step1_count.clone(),
+        step2_count: replay_step2_count.clone(),
+        step3_count: replay_step3_count.clone(),
+        step2_started: None,
+        interrupt_on_step2: false,
+    });
+
+    let replayed = service
+        .replay_task_from_checkpoint(&source_id, Some(3), replay_engine)
+        .await
+        .expect("replay_task_from_checkpoint");
+    assert_eq!(replayed.id, source_id);
+
+    let replay_result = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(res) = service.get_result(&source_id).await.expect("get replay result") {
+                if matches!(res.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+                    break res;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await
+    .expect("Replayed task must complete");
+
+    assert_eq!(replay_result.status, TaskStatus::Completed);
+    assert_eq!(replay_step1_count.load(Ordering::SeqCst), 0, "Step 1 skipped");
+    assert_eq!(replay_step2_count.load(Ordering::SeqCst), 0, "Step 2 skipped");
+    assert_eq!(replay_step3_count.load(Ordering::SeqCst), 1, "Step 3 replayed once");
+
+    let _ = std::fs::remove_dir_all(&ws);
+}

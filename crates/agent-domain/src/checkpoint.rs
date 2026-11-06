@@ -112,6 +112,80 @@ impl TaskCheckpoint {
         self.metadata = CheckpointMetadata::new(self.metadata.task_id.clone(), &self.subtasks);
     }
 
+    /// Rewinds checkpoint state to start replaying from `from_step` (1-based step index).
+    /// Subtasks prior to `from_step` retain their `Completed` state and outputs (any non-completed
+    /// prior step is sanitized to `Queued`), while subtasks from `from_step` onwards are reset to `Queued`.
+    pub fn rewind_to_step(&mut self, from_step: usize) -> Result<(), CheckpointIntegrityError> {
+        if from_step == 0 {
+            return Err(CheckpointIntegrityError::CorruptedState(
+                "Step index must be >= 1 (1-based)".to_string(),
+            ));
+        }
+        if self.subtasks.is_empty() {
+            if from_step == 1 {
+                self.metadata =
+                    CheckpointMetadata::new(self.metadata.task_id.clone(), &self.subtasks);
+                return Ok(());
+            }
+            return Err(CheckpointIntegrityError::CorruptedState(format!(
+                "Step {} is out of bounds for empty subtask list",
+                from_step
+            )));
+        }
+        if from_step > self.subtasks.len() {
+            return Err(CheckpointIntegrityError::CorruptedState(format!(
+                "Step {} is out of bounds (total subtasks: {})",
+                from_step,
+                self.subtasks.len()
+            )));
+        }
+
+        let target_idx = from_step - 1;
+        for (idx, subtask) in self.subtasks.iter_mut().enumerate() {
+            if idx >= target_idx || subtask.status != TaskStatus::Completed {
+                subtask.status = TaskStatus::Queued;
+                subtask.verification_result = None;
+                subtask.output_excerpt = None;
+                subtask.retry_count = 0;
+            }
+        }
+        self.metadata = CheckpointMetadata::new(self.metadata.task_id.clone(), &self.subtasks);
+        Ok(())
+    }
+
+    /// Rewinds checkpoint state starting from the subtask matching `subtask_id`.
+    pub fn rewind_to_subtask(&mut self, subtask_id: &str) -> Result<usize, CheckpointIntegrityError> {
+        let Some(idx) = self.subtasks.iter().position(|s| s.id == subtask_id) else {
+            return Err(CheckpointIntegrityError::CorruptedState(format!(
+                "Subtask '{}' not found in checkpoint",
+                subtask_id
+            )));
+        };
+        let step = idx + 1;
+        self.rewind_to_step(step)?;
+        Ok(step)
+    }
+
+    /// Creates a new independent `TaskCheckpoint` bound to `new_task_id`, inheriting state
+    /// from this checkpoint (optionally rewound to `from_step`).
+    pub fn fork_for_task(
+        &self,
+        new_task_id: TaskId,
+        from_step: Option<usize>,
+    ) -> Result<Self, CheckpointIntegrityError> {
+        let mut cloned_subtasks = self.subtasks.clone();
+        let mut forked = Self {
+            metadata: CheckpointMetadata::new(new_task_id, &cloned_subtasks),
+            subtasks: std::mem::take(&mut cloned_subtasks),
+        };
+        if let Some(step) = from_step {
+            forked.rewind_to_step(step)?;
+        } else {
+            forked.sanitize_for_resume();
+        }
+        Ok(forked)
+    }
+
     /// Validates the integrity of the checkpoint metadata against the stored subtasks.
     pub fn verify_integrity(&self) -> Result<(), CheckpointIntegrityError> {
         if self.metadata.total_subtasks != self.subtasks.len() {

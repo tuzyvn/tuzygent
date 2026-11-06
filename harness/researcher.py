@@ -21,6 +21,7 @@ from typing import List, Dict, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from memory_bridge import load_lessons, record_lesson
+from version_manager import release_and_push
 
 RESEARCH_BACKLOG = Path("RESEARCH_BACKLOG.md")
 IMPROVEMENT_PLAN = Path("IMPROVEMENT_PLAN.md")
@@ -171,11 +172,12 @@ def run_continuous_research_loop(
 
     completed_count = 0
     failure_tracker: Dict[str, int] = {}
+    dry_run_seen: set = set()
     total_target = 999999 if continuous else max_topics
 
     try:
         while completed_count < total_target:
-            backlog = extract_backlog_items()
+            backlog = [b for b in extract_backlog_items() if b["topic_id"] not in dry_run_seen]
             if not backlog:
                 print("\n🏆 Toàn bộ đề tài đã hoàn tất và mã nguồn đạt chuẩn 100%! Dừng vòng lặp.")
                 break
@@ -199,6 +201,7 @@ def run_continuous_research_loop(
 
             if dry_run:
                 print(f"[Dry-run] Lệnh sẽ thực thi:\n$ ./target/release/agent-ctl run --agent-id researcher-01 --goal \"{mission[:80]}...\" --engine {engine} --sandbox {sandbox}")
+                dry_run_seen.add(topic_id)
                 completed_count += 1
                 if continuous and completed_count >= 3:
                     print("\n[Dry-run] Đã mô phỏng xong 3 đề tài liên tục. Dừng dry-run.")
@@ -222,13 +225,19 @@ def run_continuous_research_loop(
                 failure_tracker.pop(topic_id, None)
                 completed_count += 1
 
-                # Gatekeeper Verification & Self-Update
+                # Gatekeeper Verification & Self-Update + Version Bump + Git Push
                 print("\n🔍 Đang kích hoạt Gatekeeper đo lường toàn diện sau khi hoàn thành đề tài...")
                 bench_proc = subprocess.run(["python3", "harness/evaluators/benchmark.py"])
                 if bench_proc.returncode == 0:
-                    print("🚀 Benchmark đạt chuẩn 100%! Tự động build và cập nhật agent-ctl...")
-                    subprocess.run(["cargo", "build", "--release", "-p", "agent-cli", "--bin", "agent-ctl"], check=False)
-                    subprocess.run(["cp", "target/release/agent-ctl", str(Path.home() / ".local/bin/agent-ctl")], check=False)
+                    print("🚀 Benchmark đạt chuẩn 100%! Tự động tăng version, commit, cập nhật agent-ctl và git push...")
+                    try:
+                        release_and_push(
+                            summary=current_topic["title"],
+                            bump_type="patch",
+                            push=True,
+                        )
+                    except Exception as exc:
+                        print(f"⚠️ Lỗi trong quá trình release/push: {exc}")
                 else:
                     print("\n🚨 [Gatekeeper] Benchmark phát hiện lỗi hồi quy! Đang tự động nạp đề tài P0 sửa lỗi ngay...")
                     record_lesson(

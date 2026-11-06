@@ -2,7 +2,10 @@ pub mod context;
 pub mod result_handler;
 pub mod types;
 
-pub use context::resolve_active_system_context;
+pub use context::{
+    compact_working_context_with_budget, estimate_tokens, resolve_active_system_context,
+    resolve_active_system_context_with_budget, DEFAULT_WORKING_CONTEXT_TOKEN_BUDGET,
+};
 pub use result_handler::handle_subtask_execution_result;
 pub use types::{is_auth_or_quota_message, QueueExecutionOutcome, StepAction};
 

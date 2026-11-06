@@ -8,8 +8,10 @@ pub mod step;
 
 pub use helpers::{build_engine_input, publish_subtask_executing, update_working_context};
 pub use step::{
-    execute_single_step, handle_subtask_execution_result, resolve_active_system_context,
-    QueueExecutionOutcome, StepAction,
+    compact_working_context_with_budget, estimate_tokens, execute_single_step,
+    handle_subtask_execution_result, resolve_active_system_context,
+    resolve_active_system_context_with_budget, QueueExecutionOutcome, StepAction,
+    DEFAULT_WORKING_CONTEXT_TOKEN_BUDGET,
 };
 
 /// Thực thi hàng đợi subtask thích ứng (Act & Re-Act với dynamic backtracking)
