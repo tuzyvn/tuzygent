@@ -30,16 +30,34 @@
 //! }
 //! ```
 
+#![deny(ambiguous_glob_reexports)]
+#![deny(clippy::clone_on_copy)]
+#![deny(clippy::cloned_instead_of_copied)]
+#![deny(suspicious_double_ref_op)]
+
 pub use agent_domain as domain;
 pub use agent_engine as engine;
 pub use agent_memory as memory;
 pub use agent_runtime as runtime;
 
+pub mod benchmark;
+pub mod fault;
+pub mod resilience;
+pub mod safe;
+pub mod sharded;
+
+pub use benchmark::{CoreBenchmarkHarness, CoreBenchmarkStats};
+pub use fault::{CircuitState, CoreExecutionError, CoreFaultKind, CoreFaultPolicy};
+pub use resilience::{CoreExecutionResult, ResilientCoreAgent, ResilientCoreAgentBuilder};
+pub use safe::{SafeGuard, SafeUnwrapExt};
+pub use sharded::{ShardedCoreAgentRunner, SHARD_COUNT};
+
 pub mod prelude {
     pub use agent_domain::{
-        PersonaId, AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul,
-        AutonomyLevel, GuardrailPolicy, InterAgentEvent, Priority, RedLineRule, RigSnapshot,
-        RigSpec, SeatSnapshot, SubTask, Task, TaskId, TaskStatus, VoiceEngineType, VoiceProfile,
+        AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul,
+        AutonomyLevel, GuardrailPolicy, InterAgentEvent, PersonaId, Priority, RedLineRule,
+        RigSnapshot, RigSpec, SeatSnapshot, SubTask, Task, TaskError, TaskId, TaskStatus,
+        VoiceEngineType, VoiceProfile,
     };
     pub use agent_engine::{
         api::OpenAiCompatibleEngine, cli::AntigravityEngine, cli::ClaudeCodeEngine,
@@ -52,6 +70,16 @@ pub mod prelude {
     };
     pub use agent_runtime::{
         AgentSupervisor, AutonomousOodaLoop, InterAgentBus, IsolationMode, KernelOperator,
-        SandboxConfig, SandboxDriverKind, SandboxEnvironment, SandboxSpec, WorkflowOrchestrator, WsRpcClient,
+        ResilientWorkspaceManager, SandboxConfig, SandboxDriverKind, SandboxEnvironment,
+        SandboxSpec, WorkflowOrchestrator, WorkspaceBenchmarkHarness, WorkspaceManager,
+        WsRpcClient,
     };
+
+    pub use crate::benchmark::{CoreBenchmarkHarness, CoreBenchmarkStats};
+    pub use crate::fault::{CircuitState, CoreExecutionError, CoreFaultKind, CoreFaultPolicy};
+    pub use crate::resilience::{
+        CoreExecutionResult, ResilientCoreAgent, ResilientCoreAgentBuilder,
+    };
+    pub use crate::safe::{SafeGuard, SafeUnwrapExt};
+    pub use crate::sharded::{ShardedCoreAgentRunner, SHARD_COUNT};
 }

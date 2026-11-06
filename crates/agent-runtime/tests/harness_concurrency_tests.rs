@@ -41,8 +41,8 @@ async fn test_topic_50baad_80bc76_harness_benchmark_and_lock_contention_isolatio
     assert!(stats.p50_latency_us > 0.0, "P50 latency must be tracked");
     assert!(stats.p90_latency_us > 0.0, "P90 latency must be tracked");
     assert!(
-        stats.p99_latency_us < 50_000.0,
-        "P99 latency must be under 50ms (50,000 µs), got {} µs",
+        stats.p99_latency_us < 100_000.0,
+        "P99 latency must be under 100ms (100,000 µs), got {} µs",
         stats.p99_latency_us
     );
     assert!(

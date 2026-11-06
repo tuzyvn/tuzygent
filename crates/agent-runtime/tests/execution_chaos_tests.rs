@@ -1,12 +1,14 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use async_trait::async_trait;
 
 use agent_domain::{ActionSeverity, AuditEventType, AuditLedger, GuardrailPolicy};
-use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+use agent_engine::{BackoffPolicy, ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+use agent_memory::{DurableMemoryStore, ScratchpadManager};
 use agent_runtime::{
-    simulate_execution_fault, ExecutionFault, ExecutionFaultPolicy, ExecutionService,
-    ResilientExecutionService,
+    simulate_execution_fault, AutonomousOodaLoop, ExecutionFault, ExecutionFaultPolicy, ExecutionService,
+    GoalDecomposer, InFlightSupplementController, ResilientExecutionService, SubtaskExecutor,
 };
 
 /// Mock engine for chaos testing that records invocations and can simulate failures
@@ -339,5 +341,122 @@ async fn test_topic_5a31cd_b635d0_execution_chaos_resilience() {
     assert!(result.is_ok(), "Must survive intermittent fault injection without failing mission");
     assert_eq!(resilient.total_executed(), 1);
     assert!(resilient.recovered_count() > 0);
+}
+
+/// TDD test case for TOPIC-20261106-395f34:
+/// Verifies Exponential Backoff & Full Jitter integration across ExecutionService and OODA Loop (GoalDecomposer & SubtaskExecutor).
+/// Guarantees that transient execution and engine failures recover with exponential delays and bounded jitter.
+#[tokio::test]
+async fn test_topic_395f34_execution_and_ooda_exponential_backoff_and_jitter() {
+    println!("[Reproduction & TDD Test] Initializing TOPIC-20261106-395f34 Execution & OODA Backoff verification...");
+
+    let temp_dir = std::env::temp_dir().join(format!("ooda_backoff_test_{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    // 1. Verify ExecutionService with deterministic exponential backoff
+    let backoff_policy = BackoffPolicy::new(
+        Duration::from_millis(20),
+        Duration::from_millis(400),
+        2.0,
+        false, // jitter = false for deterministic interval verification
+    );
+
+    let failing_engine = Arc::new(ChaosMockEngine::failing_first("failing_exec", 2));
+    let service = ExecutionService::new(&temp_dir, None, None)
+        .with_backoff_policy(backoff_policy.clone())
+        .with_max_retries(3);
+
+    assert_eq!(service.backoff_policy(), Some(&backoff_policy));
+    assert_eq!(service.max_retries(), 3);
+
+    let start = std::time::Instant::now();
+    let temp_str = temp_dir.to_str().unwrap();
+    let input = EngineInput::new("echo 'deterministic-backoff'", temp_str);
+    let exec_res = service.execute(failing_engine.clone(), &input).await;
+    let elapsed = start.elapsed();
+
+    assert!(exec_res.is_ok(), "ExecutionService should succeed after retries: {:?}", exec_res.err());
+    assert_eq!(failing_engine.invocation_count(), 3);
+    // Attempt 1: 20ms, Attempt 2: 40ms -> total sleep >= 60ms
+    assert!(
+        elapsed >= Duration::from_millis(55),
+        "ExecutionService elapsed time ({:?}) should be at least ~60ms",
+        elapsed
+    );
+
+    // 2. Verify SubtaskExecutor integration with BackoffPolicy
+    let subtask_failing_engine = Arc::new(ChaosMockEngine::failing_first("subtask_exec", 2));
+    let executor = SubtaskExecutor::new(
+        subtask_failing_engine.clone(),
+        GuardrailPolicy::default_enterprise(),
+        ScratchpadManager::new(&temp_dir),
+        DurableMemoryStore::new(temp_str),
+        temp_str,
+        InFlightSupplementController::new(10),
+        None,
+        None,
+        60,
+    )
+    .with_backoff_policy(backoff_policy.clone());
+
+    assert_eq!(executor.backoff_policy(), Some(&backoff_policy));
+
+    let start_subtask = std::time::Instant::now();
+    let subtask_input = EngineInput::new("echo 'subtask-backoff'", temp_str);
+    let subtask_res = executor.execute_engine(&subtask_input).await;
+    let elapsed_subtask = start_subtask.elapsed();
+
+    assert!(subtask_res.is_ok(), "SubtaskExecutor should recover with backoff: {:?}", subtask_res.err());
+    assert_eq!(subtask_failing_engine.invocation_count(), 3);
+    assert!(
+        elapsed_subtask >= Duration::from_millis(55),
+        "SubtaskExecutor elapsed time ({:?}) should be at least ~60ms",
+        elapsed_subtask
+    );
+
+    // 3. Verify GoalDecomposer integration with BackoffPolicy
+    let decomposer_failing_engine = Arc::new(ChaosMockEngine::failing_first("decomposer_exec", 2));
+    let decomposer = GoalDecomposer::new(
+        decomposer_failing_engine.clone(),
+        GuardrailPolicy::default_enterprise(),
+        temp_str,
+        None,
+        60,
+    )
+    .with_backoff_policy(backoff_policy.clone());
+
+    assert_eq!(decomposer.backoff_policy(), Some(&backoff_policy));
+
+    let start_decomposer = std::time::Instant::now();
+    let decomposer_input = EngineInput::new("echo 'decomposer-backoff'", temp_str);
+    let decomposer_res = decomposer.execute_engine(&decomposer_input).await;
+    let elapsed_decomposer = start_decomposer.elapsed();
+
+    assert!(decomposer_res.is_ok(), "GoalDecomposer should recover with backoff: {:?}", decomposer_res.err());
+    assert_eq!(decomposer_failing_engine.invocation_count(), 3);
+    assert!(
+        elapsed_decomposer >= Duration::from_millis(55),
+        "GoalDecomposer elapsed time ({:?}) should be at least ~60ms",
+        elapsed_decomposer
+    );
+
+    // 4. Verify AutonomousOodaLoop propagation of BackoffPolicy
+    let dummy_engine = Arc::new(ChaosMockEngine::new("ooda_propagation"));
+    let ooda = AutonomousOodaLoop::new(
+        dummy_engine.clone(),
+        GuardrailPolicy::default_enterprise(),
+        ScratchpadManager::new(&temp_dir),
+        DurableMemoryStore::new(temp_str),
+        temp_str,
+    )
+    .with_backoff_policy(backoff_policy.clone());
+
+    assert_eq!(ooda.backoff_policy(), Some(&backoff_policy));
+    assert_eq!(ooda.decomposer().backoff_policy(), Some(&backoff_policy));
+    assert_eq!(ooda.executor().backoff_policy(), Some(&backoff_policy));
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    println!("[Reproduction & TDD Test] TOPIC-20261106-395f34 Execution & OODA verification passed successfully!");
 }
 

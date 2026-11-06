@@ -54,7 +54,7 @@ def get_all_production_rs_files(crates: List[Path]) -> List[Path]:
     for crate in crates:
         for rs in crate.rglob("*.rs"):
             # Exclude tests and integration test suites
-            if "tests" in rs.parts or rs.name.endswith("_test.rs"):
+            if "tests" in rs.parts or rs.name.endswith("_test.rs") or rs.name.endswith("_tests.rs") or rs.name in ("tests.rs", "test.rs"):
                 continue
             files.append(rs)
     return sorted(files)
@@ -86,10 +86,14 @@ def analyze_code_smells(rs_files: List[Path]) -> List[Dict]:
         except Exception:
             continue
 
-        unwraps = len(re.findall(r"\.unwrap\(\)", content))
-        expects = len(re.findall(r"\.expect\(", content))
-        panics = len(re.findall(r"\bpanic!\(", content))
-        unsafes = len(re.findall(r"\bunsafe\s*\{", content))
+        # Strip line and block comments to prevent false positives from documentation or comments
+        code_only = re.sub(r"//.*", "", content)
+        code_only = re.sub(r"/\*[\s\S]*?\*/", "", code_only)
+
+        unwraps = len(re.findall(r"\.unwrap\(\)", code_only))
+        expects = len(re.findall(r"\.expect\(", code_only))
+        panics = len(re.findall(r"\bpanic!\(", code_only))
+        unsafes = len(re.findall(r"\bunsafe\s*\{", code_only))
 
         rel_path = file_path.relative_to(ROOT_DIR)
 
@@ -172,6 +176,11 @@ def analyze_runtime_lessons() -> List[Dict]:
     lesson_topics = []
     for lesson in lessons:
         node_type = lesson.get("node_type", "unknown")
+        # Research mission outcomes are harness execution events, not code-level defects.
+        # Filtering them out prevents recursive feedback loops in autonomous evolution.
+        if node_type == "research_mission":
+            continue
+
         success_count = lesson.get("success_count", 1)
         identifier = lesson.get("identifier", "unknown")
         error_pattern = lesson.get("error_pattern", "").strip()

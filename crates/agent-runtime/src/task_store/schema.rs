@@ -142,7 +142,8 @@ pub fn init_sqlite_schema_with_options(
          CREATE TABLE IF NOT EXISTS subtask_checkpoints (
              task_id TEXT PRIMARY KEY,
              subtasks_json TEXT NOT NULL,
-             updated_at TEXT NOT NULL
+             updated_at TEXT NOT NULL,
+             metadata_json TEXT
          );
 
          CREATE TABLE IF NOT EXISTS task_results (
@@ -175,6 +176,8 @@ pub fn init_sqlite_schema_with_options(
          CREATE INDEX IF NOT EXISTS idx_task_reviews_task_id ON task_reviews(task_id);",
     )
     .map_err(|e| anyhow!("Failed to initialize tasks schema: {}", e))?;
+
+    let _ = conn.execute("ALTER TABLE subtask_checkpoints ADD COLUMN metadata_json TEXT;", []);
 
     Ok(())
 }

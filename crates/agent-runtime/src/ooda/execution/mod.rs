@@ -52,6 +52,7 @@ pub struct SubtaskExecutor {
     pub(crate) cancellation_token: Option<Arc<AtomicBool>>,
     pub(crate) checkpoint_store: Option<Arc<dyn crate::task_store::TaskStore>>,
     pub(crate) auto_approve: bool,
+    pub(crate) backoff_policy: Option<agent_engine::BackoffPolicy>,
 }
 
 impl SubtaskExecutor {
@@ -80,12 +81,22 @@ impl SubtaskExecutor {
             cancellation_token: None,
             checkpoint_store: None,
             auto_approve: false,
+            backoff_policy: None,
         }
     }
 
     pub fn with_auto_approve(mut self, auto_approve: bool) -> Self {
         self.auto_approve = auto_approve;
         self
+    }
+
+    pub fn with_backoff_policy(mut self, policy: agent_engine::BackoffPolicy) -> Self {
+        self.backoff_policy = Some(policy);
+        self
+    }
+
+    pub fn backoff_policy(&self) -> Option<&agent_engine::BackoffPolicy> {
+        self.backoff_policy.as_ref()
     }
 
     pub fn with_cancellation_token(mut self, token: Arc<AtomicBool>) -> Self {
@@ -109,8 +120,17 @@ impl SubtaskExecutor {
         &self,
         input: &EngineInput,
     ) -> Result<EngineOutput, EngineError> {
-        crate::execution::ExecutionService::new(&self.workspace_dir, self.sandbox_config.clone(), Some(self.guardrail.clone()))
-            .execute(self.engine.clone(), input).await
+        let mut service = crate::execution::ExecutionService::new(
+            &self.workspace_dir,
+            self.sandbox_config.clone(),
+            Some(self.guardrail.clone()),
+        );
+        if let Some(ref policy) = self.backoff_policy {
+            service = service
+                .with_backoff_policy(policy.clone())
+                .with_max_retries(MAX_SUBTASK_RETRIES as usize);
+        }
+        service.execute(self.engine.clone(), input).await
     }
 
     /// Khởi tạo ScopedScratchpad phân cấp cho subtask hoặc sub-agent được ủy quyền

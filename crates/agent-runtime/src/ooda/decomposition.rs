@@ -15,6 +15,7 @@ pub struct GoalDecomposer {
     workspace_dir: String,
     sandbox_config: Option<SandboxConfig>,
     timeout_seconds: u64,
+    backoff_policy: Option<agent_engine::BackoffPolicy>,
 }
 
 impl GoalDecomposer {
@@ -31,12 +32,29 @@ impl GoalDecomposer {
             workspace_dir: workspace_dir.into(),
             sandbox_config,
             timeout_seconds,
+            backoff_policy: None,
         }
     }
 
-    async fn execute_engine(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
-        crate::execution::ExecutionService::new(&self.workspace_dir, self.sandbox_config.clone(), Some(self.guardrail.clone()))
-            .execute(self.engine.clone(), input).await
+    pub fn with_backoff_policy(mut self, policy: agent_engine::BackoffPolicy) -> Self {
+        self.backoff_policy = Some(policy);
+        self
+    }
+
+    pub fn backoff_policy(&self) -> Option<&agent_engine::BackoffPolicy> {
+        self.backoff_policy.as_ref()
+    }
+
+    pub async fn execute_engine(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
+        let mut service = crate::execution::ExecutionService::new(
+            &self.workspace_dir,
+            self.sandbox_config.clone(),
+            Some(self.guardrail.clone()),
+        );
+        if let Some(ref policy) = self.backoff_policy {
+            service = service.with_backoff_policy(policy.clone()).with_max_retries(3);
+        }
+        service.execute(self.engine.clone(), input).await
     }
 
     /// Tự động phân rã Goal thành cây SubTasks động qua ComputeEngine (không gán cứng)

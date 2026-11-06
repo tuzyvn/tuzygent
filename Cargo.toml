@@ -37,6 +37,7 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 futures = "0.3"
 toml = "0.8"
 sha2 = "0.10"
+pin-project-lite = "0.2"
 
 # Local crates
 agent-domain = { path = "crates/agent-domain" }
@@ -47,7 +48,19 @@ agent-core = { path = "crates/agent-core" }
 
 [workspace.lints.rust]
 ambiguous_glob_reexports = "deny"
+suspicious_double_ref_op = "deny"
 
 [workspace.lints.clippy]
-all = "warn"
+all = { level = "warn", priority = -1 }
+clone_on_copy = "deny"
+cloned_instead_of_copied = "deny"
+
+[profile.dev]
+debug = 1
+incremental = true
+
+[profile.test]
+debug = 1
+incremental = true
+
 

@@ -304,3 +304,56 @@ async fn test_harness_high_volume_concurrent_chaos() {
 
     let _ = tokio::fs::remove_dir_all(dir).await;
 }
+
+/// TDD test case for TOPIC-20261106-b15309: Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261106-036bf1)
+/// Verifies that research mission lessons can be recorded and queried in ResilientHarnessMemory
+/// with proper node isolation and zero panics under recurring failure scenarios.
+#[tokio::test]
+async fn test_topic_b15309_research_mission_resilience_and_isolation() {
+    let dir = create_temp_workspace("topic_b15309");
+    let mut resilient = ResilientHarnessMemory::open(&dir);
+
+    // Record research mission failure lessons
+    let r1 = resilient
+        .record_lesson_resilient(
+            "research_mission",
+            "TOPIC-20261106-036bf1",
+            "Mission exited with non-zero code 1",
+            "Kiểm tra lại compilation errors và logic test",
+        )
+        .await;
+    assert!(r1.is_ok(), "Recording research mission lesson must succeed");
+
+    // Second occurrence increments count safely
+    let r2 = resilient
+        .record_lesson_resilient(
+            "research_mission",
+            "TOPIC-20261106-036bf1",
+            "Mission exited with non-zero code 1",
+            "Kiểm tra lại compilation errors và logic test",
+        )
+        .await;
+    assert!(r2.is_ok(), "Subsequent lesson recording must succeed");
+
+    let lessons = resilient.load_lessons_resilient().await.unwrap();
+    assert_eq!(lessons.len(), 1);
+    assert_eq!(lessons[0].node_type, "research_mission");
+    assert_eq!(lessons[0].identifier, "TOPIC-20261106-036bf1");
+    assert_eq!(lessons[0].success_count, 2);
+
+    // Code node search does not collide with research_mission node type
+    let code_lessons = resilient
+        .find_relevant_lessons_resilient("cargo_test", "workspace")
+        .await
+        .unwrap();
+    assert!(code_lessons.is_empty(), "Code lessons must not match research_mission node type");
+
+    let mission_lessons = resilient
+        .find_relevant_lessons_resilient("research_mission", "TOPIC-20261106-036bf1")
+        .await
+        .unwrap();
+    assert_eq!(mission_lessons.len(), 1);
+
+    let _ = tokio::fs::remove_dir_all(dir).await;
+}
+

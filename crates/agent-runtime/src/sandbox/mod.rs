@@ -10,7 +10,11 @@ pub use config::{IsolationMode, SandboxConfig, SandboxSpec};
 pub use context::{inject_agent_brief, purge_sidecar_context, SidecarContextManager};
 pub use driver::SandboxDriverKind;
 pub use env::SandboxEnvironment;
-pub use workspace::{prepare_workspace, teardown_workspace, WorkspaceManager};
+pub use workspace::{
+    is_retryable_workspace_error, prepare_workspace, teardown_workspace, ResilientWorkspaceManager,
+    WorkspaceAuditRecord, WorkspaceBenchmarkHarness, WorkspaceBenchmarkStats, WorkspaceError,
+    WorkspaceFaultKind, WorkspaceFaultPolicy, WorkspaceManager,
+};
 
 #[cfg(test)]
 mod tests {

@@ -19,12 +19,41 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use tracing::info;
 
-struct CatchUnwindFuture<F>(F);
+pin_project_lite::pin_project! {
+    /// Safe wrapper around a Future that intercepts panics during `poll`.
+    ///
+    /// # Safety Invariants and Pin Projection Analysis:
+    /// In Rust's async runtime model, polling an inner future requires `Pin<&mut F>`.
+    /// Previously, this was implemented with manual `Pin::map_unchecked_mut(|s| &mut s.0)`.
+    /// Structural pin projection requires strictly upholding four safety invariants:
+    /// 1. **Drop Invariant**: The struct must not implement a custom `Drop` that moves out of the pinned field.
+    /// 2. **Unpin Invariant**: The wrapper struct must implement `Unpin` if and only if `F: Unpin`.
+    /// 3. **Encapsulation / In-place Stability**: No safe code may expose an unpinned `&mut F` once pinned.
+    /// 4. **Panic Isolation Boundary**: Intercepting panics inside `AssertUnwindSafe(|| this.inner.poll(cx))`
+    ///    must ensure the pinned location remains valid and no undefined behavior occurs on unwind.
+    ///
+    /// // SAFETY: Pin Projection Invariants & Isolation
+    /// By utilizing `pin_project_lite::pin_project!`, pin projection is completely safe, zero-cost,
+    /// macro-verified at compile time, eliminating all unsafe code while strictly enforcing
+    /// structural pinning, drop safety, and conditional `Unpin`.
+    pub(crate) struct CatchUnwindFuture<F> {
+        #[pin]
+        inner: F,
+    }
+}
+
+impl<F> CatchUnwindFuture<F> {
+    pub(crate) fn new(inner: F) -> Self {
+        Self { inner }
+    }
+}
+
 impl<F: Future> Future for CatchUnwindFuture<F> {
     type Output = std::thread::Result<F::Output>;
+
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let f = unsafe { self.map_unchecked_mut(|s| &mut s.0) };
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f.poll(cx))) {
+        let this = self.project();
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| this.inner.poll(cx))) {
             Ok(Poll::Ready(val)) => Poll::Ready(Ok(val)),
             Ok(Poll::Pending) => Poll::Pending,
             Err(payload) => Poll::Ready(Err(payload)),
@@ -42,6 +71,7 @@ pub struct ExecutionService {
     cancellation_token: Option<Arc<AtomicBool>>,
     fault_policy: Arc<Mutex<ExecutionFaultPolicy>>,
     max_retries: usize,
+    backoff_policy: Option<agent_engine::BackoffPolicy>,
 }
 
 impl ExecutionService {
@@ -65,6 +95,7 @@ impl ExecutionService {
             cancellation_token: None,
             fault_policy: Arc::new(Mutex::new(ExecutionFaultPolicy::none())),
             max_retries: 0,
+            backoff_policy: None,
         }
     }
 
@@ -73,6 +104,10 @@ impl ExecutionService {
     pub fn with_workspace_dir(mut self, workspace_dir: impl AsRef<Path>) -> Self { self.workspace_dir = workspace_dir.as_ref().to_path_buf(); self }
     pub fn with_cancellation_token(mut self, token: Arc<AtomicBool>) -> Self { self.cancellation_token = Some(token); self }
     pub fn with_max_retries(mut self, retries: usize) -> Self { self.max_retries = retries; self }
+    pub fn with_backoff_policy(mut self, policy: agent_engine::BackoffPolicy) -> Self {
+        self.backoff_policy = Some(policy);
+        self
+    }
     pub fn with_fault_policy(self, policy: ExecutionFaultPolicy) -> Self {
         if let Ok(mut guard) = self.fault_policy.lock() { *guard = policy; }
         self
@@ -83,6 +118,7 @@ impl ExecutionService {
     pub fn sandbox_config(&self) -> &SandboxConfig { &self.sandbox_config }
     pub fn cancellation_token(&self) -> Option<&Arc<AtomicBool>> { self.cancellation_token.as_ref() }
     pub fn max_retries(&self) -> usize { self.max_retries }
+    pub fn backoff_policy(&self) -> Option<&agent_engine::BackoffPolicy> { self.backoff_policy.as_ref() }
 
     pub fn fault_policy(&self) -> ExecutionFaultPolicy {
         match self.fault_policy.lock() {
@@ -165,7 +201,11 @@ impl ExecutionService {
             if let Some(fault) = injected_fault {
                 let retryable = fault.is_transient() || fault == ExecutionFault::Panic;
                 if retryable && attempt <= self.max_retries {
-                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    if let Some(ref policy) = self.backoff_policy {
+                        policy.sleep_for_attempt(attempt as u32).await;
+                    } else {
+                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    }
                     continue;
                 }
                 return Err(fault.to_engine_error());
@@ -178,13 +218,17 @@ impl ExecutionService {
                 Ok(f) => f,
                 Err(_) => {
                     if attempt <= self.max_retries {
-                        tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+                        if let Some(ref policy) = self.backoff_policy {
+                            policy.sleep_for_attempt(attempt as u32).await;
+                        } else {
+                            tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+                        }
                         continue;
                     }
                     return Err(EngineError::ProcessFailed("Execution worker panicked unexpectedly".into()));
                 }
             };
-            let guarded_fut = CatchUnwindFuture(fut);
+            let guarded_fut = CatchUnwindFuture::new(fut);
 
             let outcome: Result<EngineOutput, EngineError> = if let Some(cancel) = effective_cancel {
                 let c = cancel.clone();
@@ -224,7 +268,11 @@ impl ExecutionService {
                 }
                 Err(e) => {
                     if is_retryable_execution_error(&e) && attempt <= self.max_retries {
-                        tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+                        if let Some(ref policy) = self.backoff_policy {
+                            policy.sleep_for_attempt(attempt as u32).await;
+                        } else {
+                            tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+                        }
                         continue;
                     }
                     return Err(e);

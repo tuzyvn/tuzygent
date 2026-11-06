@@ -1,5 +1,9 @@
+pub mod dead_letter;
 pub mod dispatch;
+pub mod resume;
 pub mod review;
+
+pub use dead_letter::DEFAULT_POISON_THRESHOLD;
 
 use crate::sandbox::SandboxConfig;
 use crate::task_store::TaskStore;
@@ -22,6 +26,8 @@ pub struct TaskService {
     pub(crate) guardrail: GuardrailPolicy,
     pub(crate) sandbox_config: Option<SandboxConfig>,
     pub(crate) max_concurrency: usize,
+    pub(crate) poison_threshold: usize,
+    pub(crate) auto_approve: bool,
 }
 
 impl TaskService {
@@ -41,36 +47,20 @@ impl TaskService {
             guardrail: guardrail.unwrap_or_else(GuardrailPolicy::default_enterprise),
             sandbox_config,
             max_concurrency,
+            poison_threshold: DEFAULT_POISON_THRESHOLD,
+            auto_approve: false,
         }
     }
 
-    pub fn store(&self) -> &Arc<dyn TaskStore> {
-        &self.store
-    }
-
-    pub fn workspace_dir(&self) -> &Path {
-        &self.workspace_dir
-    }
-
+    pub fn store(&self) -> &Arc<dyn TaskStore> { &self.store }
+    pub fn workspace_dir(&self) -> &Path { &self.workspace_dir }
     pub fn resolve_workspace_dir(&self, task_id: &TaskId) -> PathBuf {
         Self::resolve_workspace(&self.workspace_dir, &task_id.0)
     }
-
-    pub fn guardrail(&self) -> &GuardrailPolicy {
-        &self.guardrail
-    }
-
-    pub fn sandbox_config(&self) -> Option<&SandboxConfig> {
-        self.sandbox_config.as_ref()
-    }
-
-    pub fn concurrency_limit(&self) -> usize {
-        self.max_concurrency
-    }
-
-    pub fn available_concurrency(&self) -> usize {
-        self.concurrency_limiter.available_permits()
-    }
+    pub fn guardrail(&self) -> &GuardrailPolicy { &self.guardrail }
+    pub fn sandbox_config(&self) -> Option<&SandboxConfig> { self.sandbox_config.as_ref() }
+    pub fn concurrency_limit(&self) -> usize { self.max_concurrency }
+    pub fn available_concurrency(&self) -> usize { self.concurrency_limiter.available_permits() }
 
     pub async fn active_task_count(&self) -> usize {
         match self.cancellation_flags.read() {
@@ -122,6 +112,24 @@ impl TaskService {
     pub fn with_workspace_dir(mut self, workspace_dir: impl AsRef<Path>) -> Self {
         self.workspace_dir = workspace_dir.as_ref().to_path_buf();
         self
+    }
+
+    pub fn with_poison_threshold(mut self, threshold: usize) -> Self {
+        self.poison_threshold = threshold.max(1);
+        self
+    }
+
+    pub fn poison_threshold(&self) -> usize {
+        self.poison_threshold
+    }
+
+    pub fn with_auto_approve(mut self, auto_approve: bool) -> Self {
+        self.auto_approve = auto_approve;
+        self
+    }
+
+    pub fn auto_approve(&self) -> bool {
+        self.auto_approve
     }
 
     fn trigger_all_cancellation_flags(&self) {
@@ -325,7 +333,7 @@ impl TaskService {
     /// Provide a status count summary across common task states
     pub async fn status_summary(&self) -> Result<HashMap<String, usize>> {
         let mut summary = HashMap::new();
-        let statuses = ["queued", "executing", "completed", "failed", "canceled", "waiting_approval"];
+        let statuses = ["queued", "executing", "completed", "failed", "canceled", "waiting_approval", "quarantined"];
         for status in statuses {
             let count = self.store.count_tasks_by_status(status).await.unwrap_or(0);
             summary.insert(status.to_string(), count);

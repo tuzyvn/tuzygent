@@ -21,6 +21,7 @@ pub struct ResilientCliEngine<E> {
     response_cache: Arc<Mutex<HashMap<String, EngineOutput>>>,
     cache_queue: Arc<Mutex<VecDeque<String>>>,
     max_capacity: Option<usize>,
+    backoff_policy: Option<crate::backoff::BackoffPolicy>,
 }
 
 pub type ResilientCliManager<E> = ResilientCliEngine<E>;
@@ -38,21 +39,18 @@ impl<E> ResilientCliEngine<E> {
             response_cache: Arc::new(Mutex::new(HashMap::new())),
             cache_queue: Arc::new(Mutex::new(VecDeque::new())),
             max_capacity: None,
+            backoff_policy: None,
         }
     }
 
-    pub fn with_engine(inner: E) -> Self {
-        Self::new(inner, CliFaultPolicy::none(), 3)
-    }
-
-    pub fn with_fault_policy(inner: E, fault_policy: CliFaultPolicy) -> Self {
-        Self::new(inner, fault_policy, 3)
-    }
-
-    pub fn with_retry_delay_ms(mut self, delay_ms: u64) -> Self {
-        self.retry_delay_ms = delay_ms;
+    pub fn with_engine(inner: E) -> Self { Self::new(inner, CliFaultPolicy::none(), 3) }
+    pub fn with_fault_policy(inner: E, fault_policy: CliFaultPolicy) -> Self { Self::new(inner, fault_policy, 3) }
+    pub fn with_retry_delay_ms(mut self, delay_ms: u64) -> Self { self.retry_delay_ms = delay_ms; self }
+    pub fn with_backoff_policy(mut self, policy: crate::backoff::BackoffPolicy) -> Self {
+        self.backoff_policy = Some(policy);
         self
     }
+    pub fn backoff_policy(&self) -> Option<&crate::backoff::BackoffPolicy> { self.backoff_policy.as_ref() }
 
     pub fn with_capacity(self, capacity: usize) -> Self {
         if let Ok(mut cache) = self.response_cache.lock() {
@@ -207,7 +205,9 @@ impl<E: ComputeEngine> ResilientCliEngine<E> {
                             ),
                         );
                     }
-                    if self.retry_delay_ms > 0 {
+                    if let Some(ref policy) = self.backoff_policy {
+                        policy.sleep_for_attempt(attempt as u32).await;
+                    } else if self.retry_delay_ms > 0 {
                         tokio::time::sleep(Duration::from_millis(self.retry_delay_ms)).await;
                     }
                     continue;
@@ -268,7 +268,9 @@ impl<E: ComputeEngine> ResilientCliEngine<E> {
                                 ),
                             );
                         }
-                        if self.retry_delay_ms > 0 {
+                        if let Some(ref policy) = self.backoff_policy {
+                            policy.sleep_for_attempt(attempt as u32).await;
+                        } else if self.retry_delay_ms > 0 {
                             tokio::time::sleep(Duration::from_millis(self.retry_delay_ms)).await;
                         }
                         continue;

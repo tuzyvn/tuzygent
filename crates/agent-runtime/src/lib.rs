@@ -1,4 +1,7 @@
 #![deny(ambiguous_glob_reexports)]
+#![deny(clippy::clone_on_copy)]
+#![deny(clippy::cloned_instead_of_copied)]
+#![deny(suspicious_double_ref_op)]
 
 pub mod bus;
 pub mod execution;
@@ -19,6 +22,7 @@ pub mod workflow_dag;
 pub mod wsrpc;
 
 // Explicit re-exports: eliminates all ambiguous_glob_reexports risks
+pub use agent_engine::BackoffPolicy;
 pub use agent_memory::{ScopeAccess, ScopedScratchpad};
 pub use bus::{
     simulate_bus_fault, BusBenchmarkHarness, BusBenchmarkStats, BusError, BusEventFilter, BusFault,
@@ -44,8 +48,11 @@ pub use operator::{KernelOperator, RigExecutionSummary, RigSeatAssignment, SeatS
 pub use processtree::ProcessTreeController;
 pub use report_queue::{TerminalReportKind, TerminalReportStore, TerminalTaskReport};
 pub use sandbox::{
-    expand_home, inject_agent_brief, purge_sidecar_context, IsolationMode, SandboxConfig,
-    SandboxDriverKind, SandboxEnvironment, SandboxSpec, SidecarContextManager, WorkspaceManager,
+    expand_home, inject_agent_brief, is_retryable_workspace_error, prepare_workspace,
+    purge_sidecar_context, teardown_workspace, IsolationMode, ResilientWorkspaceManager,
+    SandboxConfig, SandboxDriverKind, SandboxEnvironment, SandboxSpec, SidecarContextManager,
+    WorkspaceAuditRecord, WorkspaceBenchmarkHarness, WorkspaceBenchmarkStats, WorkspaceError,
+    WorkspaceFaultKind, WorkspaceFaultPolicy, WorkspaceManager,
 };
 pub use supervisor::{AgentState, AgentSupervisor};
 pub use supplement::{InFlightSupplement, InFlightSupplementController};

@@ -1,5 +1,11 @@
+#![deny(ambiguous_glob_reexports)]
+#![deny(clippy::clone_on_copy)]
+#![deny(clippy::cloned_instead_of_copied)]
+#![deny(suspicious_double_ref_op)]
+
 pub mod accounts;
 pub mod api;
+pub mod backoff;
 pub mod cli;
 pub mod config;
 pub mod process;
@@ -29,6 +35,7 @@ pub use cli::{
     CliError, CliFault, CliFaultPolicy, ResilientCliEngine,
     ResilientCliManager, ResilientCliWrapper,
 };
+pub use backoff::BackoffPolicy;
 pub use config::*;
 pub use router::*;
 pub use tmux::*;

@@ -39,6 +39,8 @@ pub trait TaskStore: Send + Sync {
     async fn list_tasks_by_status(&self, _filter: &str, _limit: usize, _offset: usize) -> Result<Vec<Task>> { Ok(Vec::new()) }
     async fn save_checkpoint(&self, task_id: &TaskId, subtasks: &[SubTask]) -> Result<()>;
     async fn get_checkpoint(&self, task_id: &TaskId) -> Result<Option<Vec<SubTask>>>;
+    async fn get_checkpoint_metadata(&self, _task_id: &TaskId) -> Result<Option<agent_domain::CheckpointMetadata>> { Ok(None) }
+    async fn get_task_checkpoint(&self, _task_id: &TaskId) -> Result<Option<agent_domain::TaskCheckpoint>> { Ok(None) }
     async fn save_result(&self, result: &TaskResult) -> Result<()>;
     async fn get_result(&self, task_id: &TaskId) -> Result<Option<TaskResult>>;
     async fn count_tasks(&self) -> Result<usize> { Ok(self.list_tasks(usize::MAX, 0).await?.len()) }
@@ -189,6 +191,8 @@ impl TaskStore for SqliteTaskStore {
     async fn repair_or_recreate(&self) -> Result<()> { self.repair_or_recreate() }
     async fn save_checkpoint(&self, task_id: &TaskId, subtasks: &[SubTask]) -> Result<()> { crud::save_checkpoint(&self.conn, task_id, subtasks) }
     async fn get_checkpoint(&self, task_id: &TaskId) -> Result<Option<Vec<SubTask>>> { crud::get_checkpoint(&self.conn, task_id) }
+    async fn get_checkpoint_metadata(&self, task_id: &TaskId) -> Result<Option<agent_domain::CheckpointMetadata>> { crud::get_checkpoint_metadata(&self.conn, task_id) }
+    async fn get_task_checkpoint(&self, task_id: &TaskId) -> Result<Option<agent_domain::TaskCheckpoint>> { crud::get_task_checkpoint(&self.conn, task_id) }
     async fn save_result(&self, result: &TaskResult) -> Result<()> { crud::save_result(&self.conn, result) }
     async fn get_result(&self, task_id: &TaskId) -> Result<Option<TaskResult>> { crud::get_result(&self.conn, task_id) }
 }

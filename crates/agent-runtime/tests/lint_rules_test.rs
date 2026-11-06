@@ -2336,10 +2336,6 @@ async fn test_topic_169a18_ooda_tracing_spans() {
         execution_phase: String,
     }
 
-    struct SpanCollector {
-        spans: Arc<Mutex<Vec<CapturedPhaseSpan>>>,
-    }
-
     struct FieldVisitor {
         task_id: String,
         subtask_id: String,
@@ -2367,7 +2363,24 @@ async fn test_topic_169a18_ooda_tracing_spans() {
         }
     }
 
-    impl<S: Subscriber> Layer<S> for SpanCollector {
+    static INIT_GLOBAL_TRACING: std::sync::Once = std::sync::Once::new();
+    static GLOBAL_CAPTURED_SPANS: Mutex<Option<Arc<Mutex<Vec<CapturedPhaseSpan>>>>> = Mutex::new(None);
+
+    struct GlobalSpanCollector;
+
+    impl<S: Subscriber> Layer<S> for GlobalSpanCollector {
+        fn register_callsite(&self, metadata: &'static tracing::Metadata<'static>) -> tracing::subscriber::Interest {
+            if metadata.name() == "ooda_phase" {
+                tracing::subscriber::Interest::always()
+            } else {
+                tracing::subscriber::Interest::sometimes()
+            }
+        }
+
+        fn enabled(&self, metadata: &tracing::Metadata<'_>, _ctx: Context<'_, S>) -> bool {
+            metadata.name() == "ooda_phase"
+        }
+
         fn on_new_span(&self, attrs: &tracing::span::Attributes<'_>, _id: &tracing::span::Id, _ctx: Context<'_, S>) {
             if attrs.metadata().name() == "ooda_phase" {
                 let mut visitor = FieldVisitor {
@@ -2377,22 +2390,27 @@ async fn test_topic_169a18_ooda_tracing_spans() {
                 };
                 attrs.record(&mut visitor);
                 if !visitor.execution_phase.is_empty() {
-                    self.spans.lock().unwrap().push(CapturedPhaseSpan {
-                        task_id: visitor.task_id,
-                        subtask_id: visitor.subtask_id,
-                        execution_phase: visitor.execution_phase,
-                    });
+                    if let Ok(guard) = GLOBAL_CAPTURED_SPANS.lock() {
+                        if let Some(ref target) = *guard {
+                            target.lock().unwrap().push(CapturedPhaseSpan {
+                                task_id: visitor.task_id,
+                                subtask_id: visitor.subtask_id,
+                                execution_phase: visitor.execution_phase,
+                            });
+                        }
+                    }
                 }
             }
         }
     }
 
+    INIT_GLOBAL_TRACING.call_once(|| {
+        let subscriber = tracing_subscriber::registry().with(GlobalSpanCollector);
+        let _ = tracing::subscriber::set_global_default(subscriber);
+    });
+
     let captured = Arc::new(Mutex::new(Vec::<CapturedPhaseSpan>::new()));
-    let collector = SpanCollector {
-        spans: captured.clone(),
-    };
-    let subscriber = tracing_subscriber::registry().with(collector);
-    let _guard = tracing::subscriber::set_default(subscriber);
+    *GLOBAL_CAPTURED_SPANS.lock().unwrap() = Some(captured.clone());
 
     // 3. Setup mock engine with decomposition and execution support
     struct MockTracingEngine<F>
@@ -2479,10 +2497,10 @@ async fn test_topic_169a18_ooda_tracing_spans() {
         .collect();
 
     // Verify all core lifecycle phases are captured
-    assert!(phases.contains(&OODA_PHASE_OBSERVE.to_string()), "Observe phase span missing");
-    assert!(phases.contains(&OODA_PHASE_ORIENT.to_string()), "Orient phase span missing");
-    assert!(phases.contains(&OODA_PHASE_DECIDE.to_string()), "Decide phase span missing");
-    assert!(phases.contains(&OODA_PHASE_ACT.to_string()), "Act phase span missing");
+    assert!(phases.contains(&OODA_PHASE_OBSERVE.to_string()), "Observe phase span missing: recorded={:?}", recorded);
+    assert!(phases.contains(&OODA_PHASE_ORIENT.to_string()), "Orient phase span missing: recorded={:?}", recorded);
+    assert!(phases.contains(&OODA_PHASE_DECIDE.to_string()), "Decide phase span missing: recorded={:?}", recorded);
+    assert!(phases.contains(&OODA_PHASE_ACT.to_string()), "Act phase span missing: recorded={:?}", recorded);
 
     // Verify correct lifecycle order
     let obs_idx = phases.iter().position(|p| p == OODA_PHASE_OBSERVE).unwrap();
@@ -2497,7 +2515,7 @@ async fn test_topic_169a18_ooda_tracing_spans() {
     // Check Act spans contain subtask IDs
     let act_spans: Vec<&CapturedPhaseSpan> = recorded
         .iter()
-        .filter(|s| s.execution_phase == OODA_PHASE_ACT && !s.subtask_id.is_empty())
+        .filter(|s| (s.task_id == original_task_id || s.task_id.is_empty()) && s.execution_phase == OODA_PHASE_ACT && !s.subtask_id.is_empty())
         .collect();
     assert!(act_spans.len() >= 2, "Expected at least 2 Act subtask spans");
     assert_eq!(act_spans[0].subtask_id, "ST-1");
@@ -2592,20 +2610,285 @@ async fn test_topic_169a18_ooda_tracing_spans() {
     assert!(remediate_spans[0].task_id == rem_task_id || remediate_spans[0].task_id.is_empty());
 
     // Cleanup
+    *GLOBAL_CAPTURED_SPANS.lock().unwrap() = None;
     let _ = std::fs::remove_dir_all(&test_dir);
 }
 
+/// TDD test case for TOPIC-20261105-a60060:
+/// Permanently eliminates clippy/compiler lint warnings regarding `ambiguous_glob_reexports`.
+/// Verifies:
+/// 1. Zero crates use `#[allow(ambiguous_glob_reexports)]` as an evasion crutch.
+/// 2. All workspace crate root files (`crates/*/src/lib.rs`) strictly enforce `#![deny(ambiguous_glob_reexports)]`.
+/// 3. Cross-crate wildcard re-exports can be compiled in strict `#![deny(ambiguous_glob_reexports)]` scope
+///    without any namespace collisions or ambiguous exports.
+#[test]
+fn test_topic_a60060_lint_rules_root_cause_eliminated() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root_dir = manifest_dir.parent().unwrap().parent().unwrap();
 
+    let crates = [
+        "agent-domain",
+        "agent-engine",
+        "agent-memory",
+        "agent-runtime",
+        "agent-core",
+        "agent-cli",
+        "agent-server",
+    ];
 
+    for c in &crates {
+        let lib_path = root_dir.join("crates").join(c).join("src").join("lib.rs");
+        assert!(
+            lib_path.is_file(),
+            "Expected crate {} to have src/lib.rs at {}",
+            c,
+            lib_path.display()
+        );
 
+        let content = std::fs::read_to_string(&lib_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", lib_path.display()));
 
+        assert!(
+            content.contains("#![deny(ambiguous_glob_reexports)]"),
+            "Crate {} must enforce #![deny(ambiguous_glob_reexports)] in src/lib.rs to prevent lint regressions",
+            c
+        );
 
+        assert!(
+            !content.contains("#[allow(ambiguous_glob_reexports)]"),
+            "Crate {} must NOT use #[allow(ambiguous_glob_reexports)] as a temporary crutch",
+            c
+        );
+    }
 
+    // Verify workspace Cargo.toml also configures ambiguous_glob_reexports = "deny"
+    let cargo_toml_path = root_dir.join("Cargo.toml");
+    let cargo_toml = std::fs::read_to_string(&cargo_toml_path)
+        .expect("Must read workspace Cargo.toml");
+    assert!(
+        cargo_toml.contains("ambiguous_glob_reexports = \"deny\""),
+        "Workspace Cargo.toml must deny ambiguous_glob_reexports in [workspace.lints.rust]"
+    );
+}
 
+/// TDD test case for TOPIC-20261105-7b43f7:
+/// Permanently eliminates clippy/compiler lint warnings regarding `clippy::clone_on_copy`,
+/// `clippy::cloned_instead_of_copied`, and `suspicious_double_ref_op` (formerly `clone_double_ref`).
+/// Verifies:
+/// 1. Zero crates use `#[allow(clippy::clone_on_copy)]` or `#[allow(clippy::cloned_instead_of_copied)]` as evasion crutches.
+/// 2. All workspace crate root files (`crates/*/src/lib.rs`) strictly enforce `#![deny(clippy::clone_on_copy)]`,
+///    `#![deny(clippy::cloned_instead_of_copied)]`, and `#![deny(suspicious_double_ref_op)]`.
+/// 3. Workspace `Cargo.toml` explicitly configures `clone_on_copy = "deny"` and `cloned_instead_of_copied = "deny"`
+///    in `[workspace.lints.clippy]` and `suspicious_double_ref_op = "deny"` in `[workspace.lints.rust]`.
+/// 4. Idiomatic usage of Copy operations: `.copied()` on iterators and direct value copy instead of redundant `.clone()`.
+#[test]
+fn test_topic_7b43f7_clippy_lint_rules_root_cause_eliminated() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root_dir = manifest_dir.parent().unwrap().parent().unwrap();
 
+    let crates = [
+        "agent-domain",
+        "agent-engine",
+        "agent-memory",
+        "agent-runtime",
+        "agent-core",
+        "agent-cli",
+        "agent-server",
+    ];
 
+    for c in &crates {
+        let lib_path = root_dir.join("crates").join(c).join("src").join("lib.rs");
+        assert!(
+            lib_path.is_file(),
+            "Expected crate {} to have src/lib.rs at {}",
+            c,
+            lib_path.display()
+        );
 
+        let content = std::fs::read_to_string(&lib_path)
+            .unwrap_or_else(|_| panic!("Failed to read {}", lib_path.display()));
 
+        assert!(
+            content.contains("#![deny(clippy::clone_on_copy)]"),
+            "Crate {} must enforce #![deny(clippy::clone_on_copy)] in src/lib.rs",
+            c
+        );
 
+        assert!(
+            content.contains("#![deny(clippy::cloned_instead_of_copied)]"),
+            "Crate {} must enforce #![deny(clippy::cloned_instead_of_copied)] in src/lib.rs",
+            c
+        );
+
+        assert!(
+            content.contains("#![deny(suspicious_double_ref_op)]"),
+            "Crate {} must enforce #![deny(suspicious_double_ref_op)] in src/lib.rs",
+            c
+        );
+
+        assert!(
+            !content.contains("#[allow(clippy::clone_on_copy)]")
+                && !content.contains("#[allow(clone_on_copy)]"),
+            "Crate {} must NOT use #[allow(clippy::clone_on_copy)] as an evasion crutch",
+            c
+        );
+
+        assert!(
+            !content.contains("#[allow(clippy::cloned_instead_of_copied)]")
+                && !content.contains("#[allow(cloned_instead_of_copied)]"),
+            "Crate {} must NOT use #[allow(clippy::cloned_instead_of_copied)] as an evasion crutch",
+            c
+        );
+    }
+
+    // Verify workspace Cargo.toml configurations
+    let cargo_toml_path = root_dir.join("Cargo.toml");
+    let cargo_toml = std::fs::read_to_string(&cargo_toml_path)
+        .expect("Must read workspace Cargo.toml");
+
+    assert!(
+        cargo_toml.contains("clone_on_copy = \"deny\""),
+        "Workspace Cargo.toml must deny clone_on_copy in [workspace.lints.clippy]"
+    );
+    assert!(
+        cargo_toml.contains("cloned_instead_of_copied = \"deny\""),
+        "Workspace Cargo.toml must deny cloned_instead_of_copied in [workspace.lints.clippy]"
+    );
+    assert!(
+        cargo_toml.contains("suspicious_double_ref_op = \"deny\""),
+        "Workspace Cargo.toml must deny suspicious_double_ref_op in [workspace.lints.rust]"
+    );
+
+    // Verify programmatic / behavioral idioms:
+    // 1. Idiomatic iterator copying with .copied()
+    let numbers = [10usize, 20usize, 30usize];
+    let sum: usize = numbers.iter().copied().filter(|&x| x > 15).sum();
+    assert_eq!(sum, 50);
+    let first_even = numbers.iter().copied().find(|&x| x == 20);
+    assert_eq!(first_even, Some(20));
+
+    // 2. Direct copy of Copy struct without calling clone()
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    struct CopyToken {
+        id: u64,
+        valid: bool,
+    }
+
+    let token1 = CopyToken { id: 42, valid: true };
+    let token2 = token1; // Copy semantics, not .clone()
+    assert_eq!(token1, token2);
+
+    // 3. Clean dereferencing of double references instead of clone
+    let val = 100u32;
+    let ref1 = &val;
+    let ref2 = &ref1;
+    let deref_val: u32 = **ref2;
+    assert_eq!(deref_val, 100);
+}
+
+#[test]
+fn test_topic_7fe3cf_workspace_resilience_and_cargo_profiles() {
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let root_dir = manifest_dir
+        .parent()
+        .expect("crates/")
+        .parent()
+        .expect("root");
+
+    // Verify workspace Cargo.toml profiles debug = 1
+    let cargo_toml_path = root_dir.join("Cargo.toml");
+    let cargo_toml =
+        std::fs::read_to_string(&cargo_toml_path).expect("Must read workspace Cargo.toml");
+
+    assert!(
+        cargo_toml.contains("[profile.dev]"),
+        "Workspace Cargo.toml must define [profile.dev]"
+    );
+    assert!(
+        cargo_toml.contains("[profile.test]"),
+        "Workspace Cargo.toml must define [profile.test]"
+    );
+    assert!(
+        cargo_toml.contains("debug = 1"),
+        "Workspace Cargo.toml profiles must configure debug = 1 to slash linker memory overhead"
+    );
+
+    // Verify .cargo/config.toml
+    let config_path = root_dir.join(".cargo/config.toml");
+    assert!(
+        config_path.exists(),
+        "Must have .cargo/config.toml for linker optimization"
+    );
+    let config_content =
+        std::fs::read_to_string(&config_path).expect("Must read .cargo/config.toml");
+    assert!(
+        config_content.contains("--no-keep-memory"),
+        ".cargo/config.toml must specify --no-keep-memory for ld"
+    );
+}
+
+/// TDD test case for TOPIC-20261106-211ead:
+/// Verifies that `crates/agent-runtime/src/execution/tests.rs` contains ZERO explicit `panic!()` calls,
+/// adhering strictly to safe error handling guidelines and zero-panic test conventions.
+#[test]
+fn test_topic_211ead_no_panic_in_execution_tests_rs() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let tests_path = manifest_dir.join("src/execution/tests.rs");
+    assert!(tests_path.is_file(), "src/execution/tests.rs must exist");
+
+    let content = std::fs::read_to_string(&tests_path)
+        .expect("Failed to read src/execution/tests.rs");
+
+    let panic_calls: Vec<(usize, &str)> = content
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains("panic!("))
+        .map(|(i, line)| (i + 1, line.trim()))
+        .collect();
+
+    assert!(
+        panic_calls.is_empty(),
+        "Found {} explicit panic!() calls in src/execution/tests.rs:\n{:#?}",
+        panic_calls.len(),
+        panic_calls
+    );
+}
+
+/// TDD test case for TOPIC-20261106-395f34:
+/// Verifies that BackoffPolicy is properly integrated, exported, and complies with
+/// the architectural requirements for exponential backoff & full jitter.
+#[test]
+fn test_topic_395f34_backoff_policy_architecture_and_exports() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let root_dir = manifest_dir.parent().expect("crates/").parent().expect("root");
+    let backoff_path = root_dir.join("crates/agent-engine/src/backoff.rs");
+    assert!(backoff_path.is_file(), "crates/agent-engine/src/backoff.rs must exist");
+
+    let content = std::fs::read_to_string(&backoff_path).expect("Read backoff.rs");
+
+    // Ensure struct BackoffPolicy definition
+    assert!(content.contains("pub struct BackoffPolicy"), "Must define struct BackoffPolicy");
+    assert!(content.contains("pub initial_interval: Duration"), "Must contain initial_interval");
+    assert!(content.contains("pub max_interval: Duration"), "Must contain max_interval");
+    assert!(content.contains("pub multiplier: f64"), "Must contain multiplier");
+    assert!(content.contains("pub jitter: bool"), "Must contain jitter");
+
+    // Verify public helper constructors and methods
+    assert!(content.contains("pub fn calculate_max_delay"), "Must provide calculate_max_delay");
+    assert!(content.contains("pub fn compute_delay"), "Must provide compute_delay");
+    assert!(content.contains("pub async fn sleep_for_attempt"), "Must provide sleep_for_attempt");
+
+    // Verify zero explicit panic!()
+    let panic_matches: Vec<(usize, &str)> = content
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| {
+            let trimmed = line.trim();
+            !trimmed.starts_with("//") && trimmed.contains("panic!(")
+        })
+        .map(|(i, line)| (i + 1, line.trim()))
+        .collect();
+    assert!(panic_matches.is_empty(), "backoff.rs must contain zero panic calls: {:?}", panic_matches);
+}
 
 

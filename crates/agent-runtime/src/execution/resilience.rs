@@ -20,6 +20,7 @@ pub struct ResilientExecutionService {
     response_cache: Arc<Mutex<HashMap<String, EngineOutput>>>,
     cache_queue: Arc<Mutex<VecDeque<String>>>,
     max_capacity: Option<usize>,
+    backoff_policy: Option<agent_engine::BackoffPolicy>,
 }
 
 impl ResilientExecutionService {
@@ -35,6 +36,7 @@ impl ResilientExecutionService {
             response_cache: Arc::new(Mutex::new(HashMap::new())),
             cache_queue: Arc::new(Mutex::new(VecDeque::new())),
             max_capacity: None,
+            backoff_policy: None,
         }
     }
 
@@ -81,6 +83,16 @@ impl ResilientExecutionService {
 
     pub fn max_capacity(&self) -> Option<usize> {
         self.max_capacity
+    }
+
+    pub fn with_backoff_policy(mut self, policy: agent_engine::BackoffPolicy) -> Self {
+        self.backoff_policy = Some(policy.clone());
+        self.service = self.service.with_backoff_policy(policy);
+        self
+    }
+
+    pub fn backoff_policy(&self) -> Option<&agent_engine::BackoffPolicy> {
+        self.backoff_policy.as_ref()
     }
 
     pub fn with_capacity(self, capacity: usize) -> Self {
@@ -195,6 +207,9 @@ impl ResilientExecutionService {
                     self.panics_caught_count += 1;
                     if attempt <= self.max_retries {
                         self.recovered_count += 1;
+                        if let Some(ref policy) = self.backoff_policy {
+                            policy.sleep_for_attempt(attempt as u32).await;
+                        }
                         continue;
                     }
                     self.failed_count += 1;
@@ -203,6 +218,9 @@ impl ResilientExecutionService {
 
                 if attempt <= self.max_retries {
                     self.recovered_count += 1;
+                    if let Some(ref policy) = self.backoff_policy {
+                        policy.sleep_for_attempt(attempt as u32).await;
+                    }
                     continue;
                 }
 
@@ -238,6 +256,9 @@ impl ResilientExecutionService {
 
                     if attempt <= self.max_retries {
                         self.recovered_count += 1;
+                        if let Some(ref policy) = self.backoff_policy {
+                            policy.sleep_for_attempt(attempt as u32).await;
+                        }
                         continue;
                     }
 
@@ -249,6 +270,9 @@ impl ResilientExecutionService {
                         self.panics_caught_count += 1;
                         if attempt <= self.max_retries {
                             self.recovered_count += 1;
+                            if let Some(ref policy) = self.backoff_policy {
+                                policy.sleep_for_attempt(attempt as u32).await;
+                            }
                             continue;
                         }
                         self.failed_count += 1;

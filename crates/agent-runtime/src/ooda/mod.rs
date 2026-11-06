@@ -51,6 +51,7 @@ pub struct AutonomousOodaLoop {
     pub(crate) cancellation_token: Option<Arc<std::sync::atomic::AtomicBool>>,
     pub(crate) checkpoint_store: Option<Arc<dyn crate::task_store::TaskStore>>,
     pub(crate) auto_approve: bool,
+    pub(crate) backoff_policy: Option<agent_engine::BackoffPolicy>,
 }
 
 impl AutonomousOodaLoop {
@@ -75,7 +76,17 @@ impl AutonomousOodaLoop {
             cancellation_token: None,
             checkpoint_store: None,
             auto_approve: false,
+            backoff_policy: None,
         }
+    }
+
+    pub fn with_backoff_policy(mut self, policy: agent_engine::BackoffPolicy) -> Self {
+        self.backoff_policy = Some(policy);
+        self
+    }
+
+    pub fn backoff_policy(&self) -> Option<&agent_engine::BackoffPolicy> {
+        self.backoff_policy.as_ref()
     }
 
     pub fn with_auto_approve(mut self, auto_approve: bool) -> Self {
@@ -118,13 +129,17 @@ impl AutonomousOodaLoop {
     }
 
     pub fn decomposer(&self) -> GoalDecomposer {
-        GoalDecomposer::new(
+        let mut decomposer = GoalDecomposer::new(
             self.engine.clone(),
             self.guardrail.clone(),
             &self.workspace_dir,
             self.sandbox_config.clone(),
             self.timeout_seconds,
-        )
+        );
+        if let Some(ref policy) = self.backoff_policy {
+            decomposer = decomposer.with_backoff_policy(policy.clone());
+        }
+        decomposer
     }
 
     pub fn executor(&self) -> SubtaskExecutor {
@@ -147,6 +162,9 @@ impl AutonomousOodaLoop {
         }
         if self.auto_approve {
             exec = exec.with_auto_approve(true);
+        }
+        if let Some(ref policy) = self.backoff_policy {
+            exec = exec.with_backoff_policy(policy.clone());
         }
         exec
     }

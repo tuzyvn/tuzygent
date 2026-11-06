@@ -1,7 +1,8 @@
 use agent_domain::{
     ActionSeverity, AuditLedger, AgentId, EventError, EventFault, EventFaultPolicy,
     GuardrailError, GuardrailFault, GuardrailFaultPolicy, GuardrailPolicy, InterAgentEvent,
-    ResilientEventProcessor, ResilientGuardrailEvaluator,
+    Priority, ResilientEventProcessor, ResilientGuardrailEvaluator, SubTask, Task, TaskError,
+    TaskStatus,
 };
 
 /// Reproduction test for TOPIC-20261105-d9881e / TOPIC-20261105-cae92b:
@@ -192,4 +193,132 @@ fn test_reproduce_and_verify_guardrail_pattern_normalization_and_variants() {
     // Safe command must pass
     assert!(policy.check_command_safety("cargo check --release").is_ok());
 }
+
+/// Reproduction and verification test for TOPIC-20261106-c9a250:
+/// Refactor unwrap() on task.find_subtask() to safe error handling mechanism (zero-panic).
+#[test]
+fn test_reproduce_and_verify_subtask_safe_lookup_and_panic_prevention() {
+    println!("[Reproduction Test] Initializing Subtask Lookup & Panic Prevention verification...");
+
+    let mut task = Task::new(
+        "Autonomous Vulnerability Remediation",
+        "Perform zero-panic subtask resolution across agent domain",
+        Priority::High,
+    );
+
+    let subtask = SubTask::new(
+        "sub-1",
+        "Lint security rules",
+        "cargo test -p agent-domain",
+        "Exit code 0",
+    );
+    task.add_subtask(subtask);
+
+    // Kịch bản 1: Tái hiện nguy cơ panic khi dùng unwrap() với subtask không tồn tại
+    let panic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = task.find_subtask("nonexistent").unwrap();
+    }));
+    assert!(
+        panic_result.is_err(),
+        "Calling .unwrap() on nonexistent subtask must panic in unhandled legacy code"
+    );
+
+    // Kịch bản 2: Cơ chế tra cứu an toàn get_subtask() trả về Ok khi subtask tồn tại
+    let found = task.get_subtask("sub-1");
+    assert!(found.is_ok(), "Existing subtask must resolve safely to Ok");
+    assert_eq!(found.unwrap().status, TaskStatus::Queued);
+
+    // Kịch bản 3: Cơ chế tra cứu an toàn get_subtask() trả về Err(TaskError::SubtaskNotFound) mà KHÔNG gây panic
+    let not_found = task.get_subtask("nonexistent");
+    assert!(
+        matches!(not_found, Err(TaskError::SubtaskNotFound(ref id)) if id == "nonexistent"),
+        "Missing subtask must return TaskError::SubtaskNotFound without panic"
+    );
+
+    // Kịch bản 4: Cơ chế tra cứu biến đổi an toàn get_subtask_mut() cho phép cập nhật trạng thái
+    let mut_res = task.get_subtask_mut("sub-1");
+    assert!(mut_res.is_ok(), "Existing subtask must resolve mutably to Ok");
+    mut_res.unwrap().status = TaskStatus::Completed;
+
+    // Xác nhận trạng thái đã được cập nhật thành công qua get_subtask
+    let updated = task.get_subtask("sub-1");
+    assert!(updated.is_ok());
+    assert_eq!(updated.unwrap().status, TaskStatus::Completed);
+
+    // Kịch bản 5: get_subtask_mut() trên ID không tồn tại trả về Err mà không hoảng loạn
+    let mut_not_found = task.get_subtask_mut("nonexistent");
+    assert!(
+        matches!(mut_not_found, Err(TaskError::SubtaskNotFound(ref id)) if id == "nonexistent"),
+        "Missing subtask on get_subtask_mut must return TaskError::SubtaskNotFound"
+    );
+
+    println!("[Reproduction Test] Subtask safe lookup and zero-panic verification passed successfully!");
+}
+
+/// TDD Reproduction and verification test for TOPIC-20261106-b15309 / TOPIC-20261106-036bf1:
+/// Triệt tiêu lỗi hệ thống lặp lại (research_mission::TOPIC-20261106-036bf1) originating from
+/// explicit `panic!()` in crates/agent-domain/src/task.rs and recurring mission cascades.
+///
+/// Verifies:
+/// 1. Source verification: crates/agent-domain/src/task.rs must contain ZERO explicit `panic!()` calls.
+/// 2. Functional verification: querying, updating, or failing to find subtasks in `Task` must never panic.
+/// 3. Error propagation: missing subtasks return structured `TaskError::SubtaskNotFound`.
+#[test]
+fn test_reproduce_and_verify_topic_b15309_zero_panic_in_task_rs() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let task_rs_path = manifest_dir.join("src/task.rs");
+    assert!(task_rs_path.is_file(), "task.rs must exist at {}", task_rs_path.display());
+
+    let content = std::fs::read_to_string(&task_rs_path).expect("Failed to read src/task.rs");
+
+    // Scan for any explicit panic!() call in task.rs
+    let panic_matches: Vec<(usize, &str)> = content
+        .lines()
+        .enumerate()
+        .filter(|(_, line)| {
+            let trimmed = line.trim();
+            !trimmed.starts_with("//") && trimmed.contains("panic!(")
+        })
+        .map(|(idx, line)| (idx + 1, line.trim()))
+        .collect();
+
+    assert!(
+        panic_matches.is_empty(),
+        "Detected explicit panic!() in src/task.rs (TOPIC-20261106-069a77 / TOPIC-20261106-b15309 regression):\n{:#?}",
+        panic_matches
+    );
+
+    // Functional verification: Task with mixed subtasks operates without panic
+    let mut task = Task::new(
+        "Self-Healing Lifecycle Task",
+        "Verify zero-panic resilience",
+        Priority::High,
+    );
+
+    // 1. Empty lookup is safe
+    assert!(task.get_subtask("st-absent").is_err());
+    assert_eq!(task.find_subtask("st-absent"), None);
+
+    // 2. Add and mutate subtasks safely
+    let sub = SubTask::new("st-1", "Step 1", "echo ok", "Exit code 0");
+    task.add_subtask(sub);
+
+    let retrieved = task.get_subtask("st-1");
+    assert!(retrieved.is_ok());
+    assert_eq!(retrieved.unwrap().id, "st-1");
+
+    let mutated = task.get_subtask_mut("st-1");
+    assert!(mutated.is_ok());
+    mutated.unwrap().status = TaskStatus::Completed;
+
+    assert_eq!(
+        task.get_subtask("st-1").map(|s| &s.status),
+        Ok(&TaskStatus::Completed)
+    );
+    assert_eq!(
+        task.find_subtask("st-1").map(|s| &s.status),
+        Some(&TaskStatus::Completed)
+    );
+}
+
 

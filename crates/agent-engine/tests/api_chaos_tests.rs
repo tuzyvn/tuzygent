@@ -8,7 +8,7 @@ use tokio::time::sleep;
 use agent_domain::AuditLedger;
 use agent_engine::{
     simulate_api_fault, ApiBenchmarkHarness, ApiBenchmarkStats, ApiError, ApiFault,
-    ApiFaultPolicy, BenchmarkMockApiEngine, ComputeEngine, CustomAgentApiEngine, EngineError,
+    ApiFaultPolicy, BackoffPolicy, BenchmarkMockApiEngine, ComputeEngine, CustomAgentApiEngine, EngineError,
     EngineInput, EngineKind, EngineOutput, OpenAiCompatibleEngine, ResilientApiEngine,
 };
 
@@ -980,4 +980,92 @@ async fn test_topic_0893f8_ad1a54_api_benchmark_and_resilience() {
     );
 
     println!("[Reproduction & Benchmark Test] TOPIC-20261105-0893f8 / ad1a54 passed successfully!");
+}
+
+/// TDD test case for TOPIC-20261106-395f34:
+/// Verifies Exponential Backoff & Full Jitter algorithm integration for Engine Execution Retry.
+/// Ensures resilient recovery for transient HTTP 429 (RateLimitExceeded) and HTTP 503 (ServiceUnavailable)
+/// while guaranteeing proper backoff sleep intervals and jitter bounds.
+#[tokio::test]
+async fn test_topic_395f34_resilient_api_exponential_backoff_and_jitter() {
+    println!("[Reproduction & TDD Test] Initializing TOPIC-20261106-395f34 Exponential Backoff & Jitter verification...");
+
+    // 1. Verify BackoffPolicy configuration and calculation
+    let policy = BackoffPolicy::new(
+        Duration::from_millis(20),
+        Duration::from_millis(500),
+        2.0,
+        false, // deterministic without jitter for interval math checks
+    );
+    assert_eq!(policy.initial_interval(), Duration::from_millis(20));
+    assert_eq!(policy.max_interval(), Duration::from_millis(500));
+    assert_eq!(policy.multiplier(), 2.0);
+    assert!(!policy.jitter());
+
+    // Attempt 1: 20ms, Attempt 2: 40ms, Attempt 3: 80ms, Attempt 4: 160ms, Attempt 5: 320ms, Attempt 6: min(640, 500) = 500ms
+    assert_eq!(policy.calculate_max_delay(1), Duration::from_millis(20));
+    assert_eq!(policy.calculate_max_delay(2), Duration::from_millis(40));
+    assert_eq!(policy.calculate_max_delay(3), Duration::from_millis(80));
+    assert_eq!(policy.calculate_max_delay(4), Duration::from_millis(160));
+    assert_eq!(policy.calculate_max_delay(5), Duration::from_millis(320));
+    assert_eq!(policy.calculate_max_delay(6), Duration::from_millis(500));
+
+    // 2. Verify deterministic interval execution in ResilientApiEngine under RateLimitExceeded (HTTP 429)
+    let fault_policy = ApiFaultPolicy::always(ApiFault::RateLimitExceeded).with_max_injections(2);
+    let resilient = ResilientApiEngine::new(BenchmarkMockApiEngine, fault_policy, 3)
+        .with_backoff_policy(policy.clone());
+
+    let start = std::time::Instant::now();
+    let input = create_test_input("test_backoff_rate_limit", 5);
+    let res = resilient.execute(&input).await;
+    let elapsed = start.elapsed();
+
+    assert!(res.is_ok(), "ResilientApiEngine must recover with backoff: {:?}", res.err());
+    assert_eq!(resilient.recovered_count(), 2);
+    assert_eq!(resilient.resolved_count(), 1);
+    // Attempt 1 delay = 20ms, Attempt 2 delay = 40ms -> Total sleep >= 60ms
+    assert!(
+        elapsed >= Duration::from_millis(55),
+        "Elapsed duration ({:?}) should be at least ~60ms for 2 backoff retries",
+        elapsed
+    );
+
+    // 3. Verify Full Jitter properties under ServiceUnavailable (HTTP 503)
+    let jitter_policy = BackoffPolicy::new(
+        Duration::from_millis(15),
+        Duration::from_millis(200),
+        2.0,
+        true, // jitter enabled
+    );
+    assert!(jitter_policy.jitter());
+
+    // Check bounded jitter distribution
+    for attempt in 1..=5 {
+        let max_d = jitter_policy.calculate_max_delay(attempt);
+        for _ in 0..20 {
+            let delay = jitter_policy.compute_delay(attempt);
+            assert!(
+                delay <= max_d,
+                "Jitter delay {:?} must never exceed max_delay {:?} for attempt {}",
+                delay,
+                max_d,
+                attempt
+            );
+        }
+    }
+
+    let fault_policy_503 = ApiFaultPolicy::always(ApiFault::ServiceUnavailable).with_max_injections(2);
+    let resilient_jitter = ResilientApiEngine::new(BenchmarkMockApiEngine, fault_policy_503, 3)
+        .with_backoff_policy(jitter_policy);
+
+    let start_jitter = std::time::Instant::now();
+    let res_jitter = resilient_jitter.execute(&input).await;
+    let elapsed_jitter = start_jitter.elapsed();
+
+    assert!(res_jitter.is_ok(), "ResilientApiEngine must recover under HTTP 503 with jitter");
+    assert_eq!(resilient_jitter.recovered_count(), 2);
+    assert_eq!(resilient_jitter.resolved_count(), 1);
+    assert!(elapsed_jitter >= Duration::from_millis(1));
+
+    println!("[Reproduction & TDD Test] TOPIC-20261106-395f34 verified successfully!");
 }

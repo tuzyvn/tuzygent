@@ -1,3 +1,4 @@
+use super::dead_letter::evaluate_failure_and_quarantine;
 use super::TaskService;
 use crate::ooda::AutonomousOodaLoop;
 use crate::sandbox::SandboxConfig;
@@ -81,9 +82,17 @@ impl TaskService {
                     | TaskStatus::PreparingSandbox
                     | TaskStatus::SelfChecking
                     | TaskStatus::Supplementing { .. }
-                    | TaskStatus::Dispatched { .. } => {
-                        if let Ok(Some(subtasks)) = self.store.get_checkpoint(&task.id).await {
-                            task.subtasks = subtasks;
+                    | TaskStatus::Dispatched { .. }
+                    | TaskStatus::Canceled { .. } => {
+                        match self.store.get_task_checkpoint(&task.id).await {
+                            Ok(Some(mut cp)) => {
+                                cp.sanitize_for_resume();
+                                task.subtasks = cp.subtasks;
+                            }
+                            Ok(None) => {}
+                            Err(e) => {
+                                tracing::warn!("Interrupted task {} has corrupted checkpoint during recovery: {}", task.id, e);
+                            }
                         }
                         task.status = TaskStatus::WaitingApproval {
                             reason: "Interrupted execution requires reconciliation before retry".into(),
@@ -106,6 +115,8 @@ impl TaskService {
         let workspace = self.workspace_dir.clone();
         let guardrail = self.guardrail.clone();
         let sandbox_config = self.sandbox_config.clone();
+        let poison_threshold = self.poison_threshold;
+        let auto_approve = self.auto_approve;
 
         let cancel_flag = Arc::new(AtomicBool::new(false));
         {
@@ -131,9 +142,10 @@ impl TaskService {
                     }
                     if let Ok(Some(mut task)) = store.get_task(&task_id).await {
                         let err_msg = "TaskService closed before execution could acquire permit".to_string();
-                        task.status = TaskStatus::Failed { error: err_msg.clone() };
+                        let (new_status, reason) = evaluate_failure_and_quarantine(&mut task, poison_threshold, &err_msg);
+                        task.status = new_status.clone();
                         task.updated_at = chrono::Utc::now();
-                        let failure_result = make_task_result(task_id.clone(), task.status.clone(), err_msg, None);
+                        let failure_result = make_task_result(task_id.clone(), new_status, reason, None);
                         let _ = store.finish_task(&task, &failure_result, true).await;
                     }
                     return;
@@ -168,6 +180,8 @@ impl TaskService {
                     worker_workspace,
                     worker_guardrail,
                     worker_sandbox,
+                    poison_threshold,
+                    auto_approve,
                 )
                 .await;
             });
@@ -184,9 +198,10 @@ impl TaskService {
                 let mut task = store.get_task(&task_id).await.ok().flatten().unwrap_or_else(|| {
                     Task::new("Failed Task", "Panicked Task", agent_domain::Priority::Normal)
                 });
-                task.status = TaskStatus::Failed { error: err_msg.clone() };
+                let (new_status, reason) = evaluate_failure_and_quarantine(&mut task, poison_threshold, &err_msg);
+                task.status = new_status.clone();
                 task.updated_at = chrono::Utc::now();
-                let failure_result = make_task_result(task_id.clone(), task.status.clone(), format!("Task execution failed: {}", err_msg), None);
+                let failure_result = make_task_result(task_id.clone(), new_status, reason, None);
                 if let Err(err) = store.finish_task(&task, &failure_result, true).await {
                     error!("Failed to persist worker failure: {}", err);
                 }
@@ -206,6 +221,7 @@ impl TaskService {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn execute_task_worker(
         mut task: Task,
         store: Arc<dyn TaskStore>,
@@ -214,6 +230,8 @@ impl TaskService {
         workspace: PathBuf,
         guardrail: GuardrailPolicy,
         sandbox_config: Option<SandboxConfig>,
+        poison_threshold: usize,
+        auto_approve: bool,
     ) {
         let task_id = task.id.clone();
         let resolved_workspace = Self::resolve_workspace(&workspace, &task_id.0);
@@ -230,22 +248,24 @@ impl TaskService {
         }
 
         // Restore from checkpoint if available
-        match store.get_checkpoint(&task_id).await {
-            Ok(Some(cached_subtasks)) if !cached_subtasks.is_empty() => {
-                info!("🔄 [TaskService] Restoring {} subtasks from checkpoint for task {}", cached_subtasks.len(), task_id);
-                task.subtasks = cached_subtasks;
+        match store.get_task_checkpoint(&task_id).await {
+            Ok(Some(mut cp)) => {
+                info!("🔄 [TaskService] Restoring {} subtasks from verified checkpoint for task {}", cp.subtasks.len(), task_id);
+                cp.sanitize_for_resume();
+                task.subtasks = cp.subtasks;
             }
+            Ok(None) => {}
             Err(err) => {
                 let message = format!("Cannot load task checkpoint: {err}");
-                task.status = TaskStatus::Failed { error: message.clone() };
+                let (new_status, reason) = evaluate_failure_and_quarantine(&mut task, poison_threshold, &message);
+                task.status = new_status.clone();
                 task.updated_at = chrono::Utc::now();
-                let result = make_task_result(task_id, task.status.clone(), message, None);
+                let result = make_task_result(task_id, new_status, reason, None);
                 if let Err(err) = store.finish_task(&task, &result, true).await {
                     error!("Failed to persist checkpoint error: {}", err);
                 }
                 return;
             }
-            _ => {}
         }
 
         let scratchpad = ScratchpadManager::for_task(&resolved_workspace, &task.id.0);
@@ -260,6 +280,10 @@ impl TaskService {
         )
         .with_cancellation_token(cancel_flag.clone())
         .with_checkpoint_store(store.clone());
+
+        if auto_approve {
+            ooda = ooda.with_auto_approve(true);
+        }
 
         if let Some(cfg) = sandbox_config {
             ooda = ooda.with_sandbox_config(cfg);
@@ -280,6 +304,15 @@ impl TaskService {
                 if matches!(task.status, TaskStatus::Canceled { .. }) {
                     task_result.status = task.status.clone();
                     task_result.summary = "Canceled by user request".into();
+                } else if matches!(task.status, TaskStatus::Failed { .. }) {
+                    let err = match &task.status {
+                        TaskStatus::Failed { error } => error.clone(),
+                        _ => "Task failed".to_string(),
+                    };
+                    let (new_status, reason) = evaluate_failure_and_quarantine(&mut task, poison_threshold, &err);
+                    task.status = new_status.clone();
+                    task_result.status = new_status;
+                    task_result.summary = reason;
                 } else {
                     task_result.status = task.status.clone();
                 }
@@ -289,17 +322,16 @@ impl TaskService {
             }
             Err(err) => {
                 error!("❌ [TaskService] Task {} failed with error: {}", task_id, err);
-                if !matches!(task.status, TaskStatus::Canceled { .. }) {
-                    task.status = TaskStatus::Failed { error: err.clone() };
-                }
                 task.updated_at = chrono::Utc::now();
                 let is_canceled = matches!(task.status, TaskStatus::Canceled { .. });
-                let summary = if is_canceled {
-                    "Canceled by user request".into()
+                let (failed_status, summary) = if is_canceled {
+                    (task.status.clone(), "Canceled by user request".into())
                 } else {
-                    format!("Mission failed: {}", err)
+                    let (new_status, reason) = evaluate_failure_and_quarantine(&mut task, poison_threshold, &err);
+                    task.status = new_status.clone();
+                    (new_status, reason)
                 };
-                let failed_result = make_task_result(task_id.clone(), task.status.clone(), summary, Some(engine.engine_kind().to_string()));
+                let failed_result = make_task_result(task_id.clone(), failed_status, summary, Some(engine.engine_kind().to_string()));
                 if let Err(err) = store.finish_task(&task, &failed_result, false).await {
                     error!("Failed to persist task failure: {}", err);
                 }

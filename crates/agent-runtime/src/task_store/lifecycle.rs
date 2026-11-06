@@ -54,9 +54,11 @@ pub fn save_review(
         "UPDATE tasks SET status=?1, updated_at=?2, raw_json=?3 WHERE id=?4",
         params![serde_json::to_string(&updated.status)?, now, serde_json::to_string(updated)?, updated.id.0],
     )?;
+    let metadata = agent_domain::CheckpointMetadata::new(updated.id.clone(), &updated.subtasks);
+    let metadata_json = serde_json::to_string(&metadata)?;
     tx.execute(
-        "UPDATE subtask_checkpoints SET subtasks_json=?1, updated_at=?2 WHERE task_id=?3",
-        params![serde_json::to_string(&updated.subtasks)?, now, updated.id.0],
+        "UPDATE subtask_checkpoints SET subtasks_json=?1, updated_at=?2, metadata_json=?3 WHERE task_id=?4",
+        params![serde_json::to_string(&updated.subtasks)?, now, metadata_json, updated.id.0],
     )?;
     tx.execute(
         "INSERT INTO task_reviews(task_id,revision,reviewer,decision,created_at) VALUES (?1,?2,?3,?4,?5)",
@@ -97,7 +99,7 @@ pub fn cancel_task(conn: &Mutex<Connection>, id: &TaskId) -> Result<bool> {
         return Ok(false);
     };
     let mut task: Task = serde_json::from_str(&raw)?;
-    if matches!(task.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+    if matches!(task.status, TaskStatus::Completed | TaskStatus::Failed { .. } | TaskStatus::Quarantined { .. }) {
         return Err(anyhow!("Cannot cancel a finished task"));
     }
     if matches!(task.status, TaskStatus::Canceled { .. }) {
@@ -150,7 +152,7 @@ pub fn finish_task(
         return Err(anyhow!("Task {} not found", task.id.0));
     };
     let current: Task = serde_json::from_str(&raw)?;
-    if matches!(current.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+    if matches!(current.status, TaskStatus::Completed | TaskStatus::Failed { .. } | TaskStatus::Quarantined { .. }) {
         return Err(anyhow!("Task is already finished: {:?}", current.status));
     }
     let mut final_task = task.clone();
@@ -159,7 +161,7 @@ pub fn finish_task(
         final_task.status = current.status.clone();
         final_result.status = current.status.clone();
         final_result.summary = reason.clone();
-    } else if matches!(result.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+    } else if matches!(result.status, TaskStatus::Completed | TaskStatus::Failed { .. } | TaskStatus::Quarantined { .. }) {
         final_task.status = result.status.clone();
         final_result.status = result.status.clone();
     } else {
@@ -177,9 +179,11 @@ pub fn finish_task(
         ],
     )?;
     if !preserve_checkpoint {
+        let metadata = agent_domain::CheckpointMetadata::new(final_task.id.clone(), &final_task.subtasks);
+        let metadata_json = serde_json::to_string(&metadata)?;
         tx.execute(
-            "INSERT INTO subtask_checkpoints (task_id, subtasks_json, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(task_id) DO UPDATE SET subtasks_json=excluded.subtasks_json, updated_at=excluded.updated_at",
-            params![final_task.id.0, serde_json::to_string(&final_task.subtasks)?, now],
+            "INSERT INTO subtask_checkpoints (task_id, subtasks_json, updated_at, metadata_json) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(task_id) DO UPDATE SET subtasks_json=excluded.subtasks_json, updated_at=excluded.updated_at, metadata_json=excluded.metadata_json",
+            params![final_task.id.0, serde_json::to_string(&final_task.subtasks)?, now, metadata_json],
         )?;
     }
     tx.execute(

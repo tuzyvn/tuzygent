@@ -1,3 +1,8 @@
+#![deny(ambiguous_glob_reexports)]
+#![deny(clippy::clone_on_copy)]
+#![deny(clippy::cloned_instead_of_copied)]
+#![deny(suspicious_double_ref_op)]
+
 pub mod benchmark;
 pub mod cli;
 pub mod commands;
