@@ -1,11 +1,23 @@
 pub mod accounts;
+pub mod benchmark;
+pub mod buffer;
+pub mod cache;
 pub mod chat;
 pub mod dashboard;
+pub mod fault;
+pub mod resilience;
+pub mod sharded;
 pub mod types;
 
 pub use accounts::*;
+pub use benchmark::*;
+pub use buffer::*;
+pub use cache::*;
 pub use chat::*;
 pub use dashboard::*;
+pub use fault::*;
+pub use resilience::*;
+pub use sharded::*;
 pub use types::*;
 
 #[cfg(test)]
@@ -41,6 +53,7 @@ mod tests {
             workspace: "/tmp".into(),
             vault,
             task_service,
+            metrics: Arc::new(crate::metrics::ResilientMetricsService::default()),
         })
     }
 

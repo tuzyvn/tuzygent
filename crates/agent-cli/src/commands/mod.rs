@@ -1,15 +1,22 @@
 pub mod agent;
 pub mod auth;
+pub mod benchmark;
 pub mod demo;
 pub mod engines;
 pub mod inspect;
 pub mod memory;
 pub mod persona;
+pub mod resilience;
 pub mod rig;
 pub mod run;
 pub mod workflow;
 
 use crate::cli::{Cli, Commands};
+use crate::fault::CliExecutionError;
+use crate::resilience::ResilientCliRunner;
+
+pub use benchmark::{CommandsBenchmarkHarness, CommandsBenchmarkStats};
+pub use resilience::{ResilientCommandDispatcher, ShardedResilientCommandDispatcher};
 
 pub async fn run_command(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
@@ -61,4 +68,19 @@ pub async fn run_command(cli: Cli) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Dispatches a command resiliently with automatic retry, fault injection handling,
+/// panic isolation, and audit ledger tracking.
+pub async fn run_command_resilient(
+    cli: Cli,
+    runner: &mut ResilientCliRunner,
+) -> Result<(), CliExecutionError> {
+    runner.run_command_resilient(cli).await
+}
+
+/// Dispatches a command using default resilience policy
+pub async fn execute_command_resilient(cli: Cli) -> Result<(), CliExecutionError> {
+    let mut runner = ResilientCliRunner::default();
+    runner.run_command_resilient(cli).await
 }

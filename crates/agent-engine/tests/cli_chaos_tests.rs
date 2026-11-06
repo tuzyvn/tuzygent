@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use agent_domain::{AuditEventType, AuditLedger};
 use agent_engine::{
-    simulate_cli_fault, CliError, CliFault, CliFaultPolicy, ComputeEngine, EngineError,
-    EngineInput, EngineKind, EngineOutput, GenericCliEngine, ResilientCliEngine,
-    ResilientCliWrapper,
+    simulate_cli_fault, BenchmarkMockCliEngine, CliBenchmarkHarness, CliBenchmarkStats, CliError,
+    CliFault, CliFaultPolicy, ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput,
+    GenericCliEngine, ResilientCliEngine, ResilientCliWrapper,
 };
 
 fn create_test_input(prompt: &str, timeout_seconds: u64) -> EngineInput {
@@ -331,4 +331,127 @@ async fn test_resilient_cli_with_generic_engine_live_echo() {
     assert!(output.stdout_content.contains("live-echo-resilience-test"));
     assert_eq!(resilient.recovered_count(), 1);
     assert_eq!(resilient.resolved_count(), 1);
+}
+
+#[tokio::test]
+async fn test_topic_1823d4_bec5af_cli_benchmark_and_resilience() {
+    println!("[Reproduction & Benchmark Test] Executing TOPIC-20261105-1823d4 / bec5af CLI Benchmark...");
+
+    // 1. Verify LOC compliance across all modular CLI components (< 350 lines P90)
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let cli_dir = manifest_dir.join("src/cli");
+    assert!(
+        cli_dir.is_dir(),
+        "src/cli must exist as a modular directory"
+    );
+
+    let mut checked_files = 0;
+    for entry in std::fs::read_dir(&cli_dir).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("rs") {
+            let content = std::fs::read_to_string(&path).unwrap();
+            let lines = content.lines().count();
+            assert!(
+                lines <= 350,
+                "CLI submodule {} has {} lines, which exceeds P90 limit (350 lines)",
+                path.file_name().unwrap().to_str().unwrap(),
+                lines
+            );
+            checked_files += 1;
+        }
+    }
+    assert!(
+        checked_files >= 4,
+        "Expected at least 4 modular CLI source files, found {}",
+        checked_files
+    );
+
+    // 2. High-load benchmark: 10,000 requests measuring P50/P90/P99 latency, throughput, and proving bounded memory allocation
+    let inner_mock = BenchmarkMockCliEngine;
+    let resilient = ResilientCliEngine::new(inner_mock, CliFaultPolicy::none(), 3)
+        .with_max_capacity(2_000);
+
+    let stats: CliBenchmarkStats = CliBenchmarkHarness::run_benchmark(&resilient, 10_000).await;
+    assert_eq!(stats.total_requests, 10_000);
+    assert_eq!(stats.successful_resolved, 9_000);
+    assert_eq!(stats.rejected_count, 1_000);
+    assert!(
+        stats.throughput_ops_per_sec > 500.0,
+        "Throughput should exceed 500 ops/sec, got {}",
+        stats.throughput_ops_per_sec
+    );
+    assert!(
+        stats.p50_latency_us > 0.0,
+        "P50 latency must be tracked"
+    );
+    assert!(
+        stats.p90_latency_us > 0.0,
+        "P90 latency must be tracked"
+    );
+    assert!(
+        stats.p99_latency_us < 20_000.0,
+        "P99 latency must be under 20ms, got {} us",
+        stats.p99_latency_us
+    );
+    assert!(
+        stats.memory_allocated_bytes > 0,
+        "Memory allocation must be tracked"
+    );
+
+    // 3. Verify bounded memory allocation (no unbounded leak / FIFO eviction)
+    let mem_before = resilient.memory_usage_bytes();
+    // Run another 5,000 requests to trigger FIFO eviction in bounded capacity
+    let _ = CliBenchmarkHarness::run_benchmark(&resilient, 5_000).await;
+    let mem_after = resilient.memory_usage_bytes();
+    assert!(
+        mem_after <= mem_before + 2048,
+        "Memory usage must be strictly bounded under high load (before: {}, after: {})",
+        mem_before,
+        mem_after
+    );
+
+    // 4. Batch execution optimization test
+    let batch_inputs = vec![
+        create_test_input("valid_cmd_1", 5),
+        create_test_input("valid_cmd_2", 5),
+        create_test_input("invalid_batch_cmd", 5),
+        create_test_input("valid_cmd_3", 5),
+    ];
+    let batch_res = resilient.execute_batch(&batch_inputs).await;
+    assert_eq!(batch_res.len(), 4);
+    assert!(batch_res[0].is_ok());
+    assert!(batch_res[1].is_ok());
+    assert!(matches!(batch_res[2], Err(EngineError::ProcessFailed(_))));
+    assert!(batch_res[3].is_ok());
+
+    // 5. Concurrent benchmark test (10,000 requests across 4 workers, measuring lock contention)
+    let concurrent_stats = CliBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
+    assert_eq!(concurrent_stats.total_requests, 10_000);
+    assert_eq!(concurrent_stats.successful_resolved, 9_000);
+    assert_eq!(concurrent_stats.rejected_count, 1_000);
+    assert!(
+        concurrent_stats.throughput_ops_per_sec > 500.0,
+        "Concurrent throughput should exceed 500 ops/sec, got {}",
+        concurrent_stats.throughput_ops_per_sec
+    );
+    assert!(
+        concurrent_stats.p50_latency_us > 0.0,
+        "Concurrent P50 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p90_latency_us > 0.0,
+        "Concurrent P90 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p99_latency_us < 20_000.0,
+        "Concurrent P99 latency should be well under 20ms, got {} us",
+        concurrent_stats.p99_latency_us
+    );
+    assert!(
+        concurrent_stats.memory_allocated_bytes > 0,
+        "Concurrent memory usage should be tracked"
+    );
+
+    println!("[Reproduction & Benchmark Test] TOPIC-20261105-1823d4 / bec5af passed successfully!");
 }

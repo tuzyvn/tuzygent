@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use agent_domain::{ActionSeverity, AuditLedger};
 use agent_engine::{
-    AccountEngineKind, AccountError, AccountFault, AccountFaultPolicy, AccountProfile,
-    AccountStatus, AccountVault, ResilientAccountManager,
+    AccountBenchmarkHarness, AccountEngineKind, AccountError, AccountFault, AccountFaultPolicy,
+    AccountProfile, AccountStatus, AccountVault, ResilientAccountManager,
 };
 
 fn temp_vault_dir(prefix: &str) -> std::path::PathBuf {
@@ -394,3 +394,109 @@ fn test_vault_concurrent_chaos_and_lock_poisoning_recovery() {
 
     let _ = std::fs::remove_dir_all(temp_dir);
 }
+
+#[test]
+fn test_topic_b974be_31f26a_accounts_benchmark_and_resilience() {
+    println!("[Reproduction & Benchmark Test] Executing TOPIC-20261105-b974be / 31f26a Accounts Benchmark...");
+
+    let temp_dir = temp_vault_dir("benchmark_resilience");
+    let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
+
+    for i in 0..5 {
+        let _ = vault.register_account(
+            AccountEngineKind::Antigravity,
+            &format!("bench_worker_{}", i),
+            &format!("Bench Worker {}", i),
+            HashMap::new(),
+        );
+    }
+
+    // 1. Single-threaded benchmark (10,000 requests)
+    let mut manager = ResilientAccountManager::new(vault.clone(), AccountFaultPolicy::none(), 3)
+        .with_max_capacity(2_000);
+
+    let stats = AccountBenchmarkHarness::run_benchmark(&mut manager, 10_000);
+    assert_eq!(stats.total_requests, 10_000);
+    assert_eq!(stats.successful_resolved, 9_000);
+    assert_eq!(stats.rejected_count, 1_000);
+    assert!(
+        stats.throughput_ops_per_sec > 500.0,
+        "Throughput should exceed 500 ops/sec, got {}",
+        stats.throughput_ops_per_sec
+    );
+    assert!(
+        stats.p50_latency_us > 0.0,
+        "P50 latency must be tracked"
+    );
+    assert!(
+        stats.p90_latency_us > 0.0,
+        "P90 latency must be tracked"
+    );
+    assert!(
+        stats.p99_latency_us < 20_000.0,
+        "P99 latency must be under 20ms, got {} us",
+        stats.p99_latency_us
+    );
+    assert!(
+        stats.memory_allocated_bytes > 0,
+        "Memory allocation must be tracked"
+    );
+
+    // 2. Verify bounded memory allocation (no unbounded leak)
+    let mem_before = manager.memory_usage_bytes();
+    // Run another 5,000 requests to trigger FIFO eviction in bounded capacity
+    let _ = AccountBenchmarkHarness::run_benchmark(&mut manager, 5_000);
+    let mem_after = manager.memory_usage_bytes();
+    assert!(
+        mem_after <= mem_before + 2048,
+        "Memory usage must be strictly bounded under high load (before: {}, after: {})",
+        mem_before,
+        mem_after
+    );
+
+    // 3. Batch account selection optimization test
+    let batch_engines = vec![
+        AccountEngineKind::Antigravity,
+        AccountEngineKind::Antigravity,
+        AccountEngineKind::Generic("missing_batch_engine".to_string()),
+        AccountEngineKind::Antigravity,
+    ];
+    let batch_res = manager.select_batch(&batch_engines);
+    assert_eq!(batch_res.len(), 4);
+    assert!(batch_res[0].is_ok());
+    assert!(batch_res[1].is_ok());
+    assert!(matches!(batch_res[2], Err(AccountError::NoAvailableAccount(_))));
+    assert!(batch_res[3].is_ok());
+
+    // 4. Concurrent benchmark test (10,000 requests across 4 threads)
+    let concurrent_stats = AccountBenchmarkHarness::run_concurrent_benchmark(10_000, 4);
+    assert_eq!(concurrent_stats.total_requests, 10_000);
+    assert_eq!(concurrent_stats.successful_resolved, 9_000);
+    assert_eq!(concurrent_stats.rejected_count, 1_000);
+    assert!(
+        concurrent_stats.throughput_ops_per_sec > 500.0,
+        "Concurrent throughput should exceed 500 ops/sec, got {}",
+        concurrent_stats.throughput_ops_per_sec
+    );
+    assert!(
+        concurrent_stats.p50_latency_us > 0.0,
+        "Concurrent P50 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p90_latency_us > 0.0,
+        "Concurrent P90 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p99_latency_us < 20_000.0,
+        "Concurrent P99 latency should be well under 20ms, got {} us",
+        concurrent_stats.p99_latency_us
+    );
+    assert!(
+        concurrent_stats.memory_allocated_bytes > 0,
+        "Concurrent memory usage should be tracked"
+    );
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+    println!("[Reproduction & Benchmark Test] TOPIC-20261105-b974be / 31f26a passed successfully!");
+}
+

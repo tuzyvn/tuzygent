@@ -1,7 +1,8 @@
 use agent_domain::{ActionSeverity, AuditEventType, AuditLedger};
 use agent_memory::{
-    simulate_durable_fault, DurableMemoryError, DurableMemoryFault, DurableMemoryFaultPolicy,
-    DurableMemoryStore, ResilientDurableMemoryStore, StructuredLesson,
+    simulate_durable_fault, DurableBenchmarkHarness, DurableBenchmarkStats, DurableMemoryError,
+    DurableMemoryFault, DurableMemoryFaultPolicy, DurableMemoryStore, ResilientDurableMemoryStore,
+    StructuredLesson,
 };
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -320,4 +321,96 @@ async fn test_corrupted_json_does_not_brick_subsequent_saves() {
     assert_eq!(lessons[0].id, "les-recover-01");
 
     let _ = tokio::fs::remove_dir_all(dir).await;
+}
+
+#[test]
+fn test_topic_b493ca_b86f27_durable_benchmark_and_resilience() {
+    println!("[Reproduction & Benchmark Test] Executing TOPIC-20261105-b493ca / b86f27 Durable Benchmark...");
+
+    // 1. Single-threaded benchmark (10,000 requests)
+    let mut resilient = ResilientDurableMemoryStore::from_workspace("/tmp/durable_test_bench")
+        .with_max_capacity(2_000);
+
+    let stats: DurableBenchmarkStats =
+        DurableBenchmarkHarness::run_benchmark(&mut resilient, 10_000);
+    assert_eq!(stats.total_requests, 10_000);
+    assert_eq!(stats.successful_operations, 9_000);
+    assert_eq!(stats.rejected_count, 1_000);
+    assert!(
+        stats.throughput_ops_per_sec > 500.0,
+        "Throughput should exceed 500 ops/sec, got {}",
+        stats.throughput_ops_per_sec
+    );
+    assert!(
+        stats.p50_latency_us > 0.0,
+        "P50 latency must be tracked"
+    );
+    assert!(
+        stats.p90_latency_us > 0.0,
+        "P90 latency must be tracked"
+    );
+    assert!(
+        stats.p99_latency_us < 20_000.0,
+        "P99 latency must be under 20ms, got {} us",
+        stats.p99_latency_us
+    );
+    assert!(
+        stats.memory_allocated_bytes > 0,
+        "Memory allocation must be tracked"
+    );
+
+    // 2. Verify bounded memory allocation (no unbounded leak)
+    let mem_before = resilient.memory_usage_bytes();
+    // Run another 5,000 requests to trigger FIFO eviction in bounded capacity
+    let _ = DurableBenchmarkHarness::run_benchmark(&mut resilient, 5_000);
+    let mem_after = resilient.memory_usage_bytes();
+    assert!(
+        mem_after <= mem_before + 2048,
+        "Memory usage must be strictly bounded under high load (before: {}, after: {})",
+        mem_before,
+        mem_after
+    );
+
+    // 3. Batch resolution optimization test
+    let batch_lessons = vec![
+        DurableBenchmarkHarness::make_benchmark_lesson(1, false),
+        DurableBenchmarkHarness::make_benchmark_lesson(2, false),
+        DurableBenchmarkHarness::make_benchmark_lesson(3, true), // Invalid: empty content
+        DurableBenchmarkHarness::make_benchmark_lesson(4, false),
+    ];
+    let batch_res = resilient.save_batch(&batch_lessons);
+    assert_eq!(batch_res.len(), 4);
+    assert!(batch_res[0].is_ok());
+    assert!(batch_res[1].is_ok());
+    assert!(matches!(batch_res[2], Err(DurableMemoryError::EmptyContent)));
+    assert!(batch_res[3].is_ok());
+
+    // 4. Concurrent benchmark test (10,000 requests across 4 threads)
+    let concurrent_stats = DurableBenchmarkHarness::run_concurrent_benchmark(10_000, 4);
+    assert_eq!(concurrent_stats.total_requests, 10_000);
+    assert_eq!(concurrent_stats.successful_operations, 9_000);
+    assert_eq!(concurrent_stats.rejected_count, 1_000);
+    assert!(
+        concurrent_stats.throughput_ops_per_sec > 500.0,
+        "Concurrent throughput should exceed 500 ops/sec, got {}",
+        concurrent_stats.throughput_ops_per_sec
+    );
+    assert!(
+        concurrent_stats.p50_latency_us > 0.0,
+        "Concurrent P50 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p90_latency_us > 0.0,
+        "Concurrent P90 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p99_latency_us < 20_000.0,
+        "Concurrent P99 latency should be well under 20ms, got {} us",
+        concurrent_stats.p99_latency_us
+    );
+    assert!(
+        concurrent_stats.memory_allocated_bytes > 0,
+        "Concurrent memory usage should be tracked"
+    );
+    println!("[Reproduction & Benchmark Test] TOPIC-20261105-b493ca / b86f27 passed successfully!");
 }

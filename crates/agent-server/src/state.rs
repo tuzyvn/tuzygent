@@ -2,6 +2,8 @@ use agent_core::prelude::*;
 use clap::Parser;
 use std::sync::Arc;
 
+use crate::metrics::ResilientMetricsService;
+
 #[derive(Parser, Debug, Clone)]
 #[command(name = "agent-server")]
 #[command(about = "AgentCore Standalone REST & WebSocket Daemon Server")]
@@ -29,4 +31,24 @@ pub struct AppState {
     pub workspace: String,
     pub vault: Arc<agent_engine::AccountVault>,
     pub task_service: Arc<agent_runtime::TaskService>,
+    pub metrics: Arc<ResilientMetricsService>,
+}
+
+impl AppState {
+    pub fn new(
+        supervisor: Arc<AgentSupervisor>,
+        bus: InterAgentBus,
+        workspace: String,
+        vault: Arc<agent_engine::AccountVault>,
+        task_service: Arc<agent_runtime::TaskService>,
+    ) -> Self {
+        Self {
+            supervisor,
+            bus,
+            workspace,
+            vault,
+            task_service,
+            metrics: Arc::new(ResilientMetricsService::default()),
+        }
+    }
 }

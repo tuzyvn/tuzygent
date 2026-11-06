@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use super::chaos::{AccountError, AccountFault};
+use super::fault::{AccountError, AccountFault};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AccountEngineKind {
@@ -132,5 +132,14 @@ impl AccountProfile {
                 "Account service temporarily unavailable".to_string(),
             )),
         }
+    }
+
+    pub fn estimated_size_bytes(&self) -> usize {
+        let base = std::mem::size_of::<Self>();
+        let heap_id = self.id.len();
+        let heap_name = self.name.len();
+        let heap_home = self.home_dir.as_os_str().len();
+        let heap_env: usize = self.extra_env.iter().map(|(k, v)| k.len() + v.len()).sum();
+        base + heap_id + heap_name + heap_home + heap_env
     }
 }

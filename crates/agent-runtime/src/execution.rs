@@ -1,19 +1,47 @@
+pub mod benchmark;
+pub mod fault;
+pub mod resilience;
+
+pub use benchmark::{ExecutionBenchmarkHarness, ExecutionBenchmarkStats};
+pub use fault::{
+    is_retryable_execution_error, simulate_execution_fault, ExecutionFault, ExecutionFaultPolicy,
+};
+pub use resilience::ResilientExecutionService;
+
 use crate::sandbox::{SandboxConfig, SandboxEnvironment};
 use agent_domain::GuardrailPolicy;
 use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineOutput};
+use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 use tracing::info;
 
+struct CatchUnwindFuture<F>(F);
+impl<F: Future> Future for CatchUnwindFuture<F> {
+    type Output = std::thread::Result<F::Output>;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let f = unsafe { self.map_unchecked_mut(|s| &mut s.0) };
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f.poll(cx))) {
+            Ok(Poll::Ready(val)) => Poll::Ready(Ok(val)),
+            Ok(Poll::Pending) => Poll::Pending,
+            Err(payload) => Poll::Ready(Err(payload)),
+        }
+    }
+}
+
 /// Unified Execution Service that guarantees every engine execution
-/// adheres to sandboxing, guardrails, timeout, and output limit policies.
+/// adheres to sandboxing, guardrails, timeout, fault injection, retry and output limits.
 #[derive(Clone)]
 pub struct ExecutionService {
     workspace_dir: PathBuf,
     sandbox_config: SandboxConfig,
     guardrail: GuardrailPolicy,
     cancellation_token: Option<Arc<AtomicBool>>,
+    fault_policy: Arc<Mutex<ExecutionFaultPolicy>>,
+    max_retries: usize,
 }
 
 impl ExecutionService {
@@ -28,51 +56,41 @@ impl ExecutionService {
         sandbox_config: Option<SandboxConfig>,
         guardrail: Option<GuardrailPolicy>,
     ) -> Self {
+        let s_config = sandbox_config.unwrap_or_default();
+        let g_policy = guardrail.unwrap_or_else(GuardrailPolicy::default_enterprise);
         Self {
             workspace_dir: workspace_dir.as_ref().to_path_buf(),
-            sandbox_config: sandbox_config.unwrap_or_default(),
-            guardrail: guardrail.unwrap_or_else(GuardrailPolicy::default_enterprise),
+            sandbox_config: s_config,
+            guardrail: g_policy,
             cancellation_token: None,
+            fault_policy: Arc::new(Mutex::new(ExecutionFaultPolicy::none())),
+            max_retries: 0,
         }
     }
 
-    pub fn with_guardrail(mut self, guardrail: GuardrailPolicy) -> Self {
-        self.guardrail = guardrail;
+    pub fn with_guardrail(mut self, guardrail: GuardrailPolicy) -> Self { self.guardrail = guardrail; self }
+    pub fn with_sandbox_config(mut self, sandbox_config: SandboxConfig) -> Self { self.sandbox_config = sandbox_config; self }
+    pub fn with_workspace_dir(mut self, workspace_dir: impl AsRef<Path>) -> Self { self.workspace_dir = workspace_dir.as_ref().to_path_buf(); self }
+    pub fn with_cancellation_token(mut self, token: Arc<AtomicBool>) -> Self { self.cancellation_token = Some(token); self }
+    pub fn with_max_retries(mut self, retries: usize) -> Self { self.max_retries = retries; self }
+    pub fn with_fault_policy(self, policy: ExecutionFaultPolicy) -> Self {
+        if let Ok(mut guard) = self.fault_policy.lock() { *guard = policy; }
         self
     }
 
-    pub fn with_sandbox_config(mut self, sandbox_config: SandboxConfig) -> Self {
-        self.sandbox_config = sandbox_config;
-        self
+    pub fn workspace_dir(&self) -> &Path { &self.workspace_dir }
+    pub fn guardrail(&self) -> &GuardrailPolicy { &self.guardrail }
+    pub fn sandbox_config(&self) -> &SandboxConfig { &self.sandbox_config }
+    pub fn cancellation_token(&self) -> Option<&Arc<AtomicBool>> { self.cancellation_token.as_ref() }
+    pub fn max_retries(&self) -> usize { self.max_retries }
+
+    pub fn fault_policy(&self) -> ExecutionFaultPolicy {
+        match self.fault_policy.lock() {
+            Ok(p) => p.clone(),
+            Err(_) => ExecutionFaultPolicy::default(),
+        }
     }
 
-    pub fn with_workspace_dir(mut self, workspace_dir: impl AsRef<Path>) -> Self {
-        self.workspace_dir = workspace_dir.as_ref().to_path_buf();
-        self
-    }
-
-    pub fn with_cancellation_token(mut self, token: Arc<AtomicBool>) -> Self {
-        self.cancellation_token = Some(token);
-        self
-    }
-
-    pub fn workspace_dir(&self) -> &Path {
-        &self.workspace_dir
-    }
-
-    pub fn guardrail(&self) -> &GuardrailPolicy {
-        &self.guardrail
-    }
-
-    pub fn sandbox_config(&self) -> &SandboxConfig {
-        &self.sandbox_config
-    }
-
-    pub fn cancellation_token(&self) -> Option<&Arc<AtomicBool>> {
-        self.cancellation_token.as_ref()
-    }
-
-    /// Execute the provided compute engine through mandatory sandbox, policy, timeout and output limits
     pub async fn execute(
         &self,
         engine: Arc<dyn ComputeEngine>,
@@ -81,7 +99,16 @@ impl ExecutionService {
         self.execute_cancellable(engine, input, None).await
     }
 
-    /// Execute with optional ad-hoc cancellation token
+    pub async fn execute_resilient(
+        &self,
+        engine: Arc<dyn ComputeEngine>,
+        input: &EngineInput,
+    ) -> Result<EngineOutput, EngineError> {
+        let mut resilient = self.clone();
+        if resilient.max_retries == 0 { resilient.max_retries = 3; }
+        resilient.execute(engine, input).await
+    }
+
     pub async fn execute_cancellable(
         &self,
         engine: Arc<dyn ComputeEngine>,
@@ -91,170 +118,122 @@ impl ExecutionService {
         let effective_cancel = token.or(self.cancellation_token.as_ref());
         if let Some(cancel) = effective_cancel {
             if cancel.load(Ordering::SeqCst) {
-                return Err(EngineError::ProcessFailed(
-                    "Execution canceled before start".to_string(),
-                ));
+                return Err(EngineError::ProcessFailed("Execution canceled before start".into()));
             }
         }
 
-        // 1. Check command safety against guardrails
         if !input.prompt_or_command.is_empty() {
-            if let Err(red_line_err) = self.guardrail.check_command_safety(&input.prompt_or_command) {
-                return Err(EngineError::PolicyRejected(red_line_err));
+            if let Err(err) = self.guardrail.check_command_safety(&input.prompt_or_command) {
+                return Err(EngineError::PolicyRejected(err));
             }
         }
 
-        // 2. Prepare Sandboxed Input
-        let mut sandboxed_input = input.clone();
-        if sandboxed_input.working_dir.is_empty() {
-            sandboxed_input.working_dir = self.workspace_dir.to_string_lossy().to_string();
+        let mut s_input = input.clone();
+        if s_input.working_dir.is_empty() {
+            s_input.working_dir = self.workspace_dir.to_string_lossy().to_string();
         }
-
-        let max_output_bytes = sandboxed_input
-            .max_output_bytes
-            .unwrap_or(self.guardrail.max_output_bytes)
-            .min(self.guardrail.max_output_bytes);
-        sandboxed_input.max_output_bytes = Some(max_output_bytes);
-
-        // Safe fallback for zero timeout to prevent immediate timeout error
-        let timeout_secs = if sandboxed_input.timeout_seconds == 0 {
-            300
-        } else {
-            sandboxed_input.timeout_seconds
+        let max_bytes = match s_input.max_output_bytes {
+            Some(b) => b.min(self.guardrail.max_output_bytes),
+            None => self.guardrail.max_output_bytes,
         };
-        sandboxed_input.timeout_seconds = timeout_secs;
+        s_input.max_output_bytes = Some(max_bytes);
 
-        // 3. Inject sandbox environment
-        let workdir_path = Path::new(&sandboxed_input.working_dir);
-        let sandbox_env = SandboxEnvironment::with_config(
-            &self.workspace_dir,
-            self.sandbox_config.clone(),
-        );
-        sandboxed_input.command_sandbox = sandbox_env.command_sandbox(workdir_path);
+        let timeout_secs = if s_input.timeout_seconds == 0 { 300 } else { s_input.timeout_seconds };
+        s_input.timeout_seconds = timeout_secs;
 
-        info!(
-            "🛡️ [ExecutionService] Executing engine '{}' with sandbox isolation (timeout: {}s, max_bytes: {})",
-            engine.engine_kind(),
-            timeout_secs,
-            max_output_bytes,
-        );
+        let workdir = Path::new(&s_input.working_dir);
+        let s_env = SandboxEnvironment::with_config(&self.workspace_dir, self.sandbox_config.clone());
+        s_input.command_sandbox = s_env.command_sandbox(workdir);
 
-        // 4. Delegate to engine with timeout and cancellation support
-        let engine_fut = engine.execute(&sandboxed_input);
+        info!("🛡️ [ExecutionService] Executing '{}' (timeout: {}s, retries: {})",
+            engine.engine_kind(), timeout_secs, self.max_retries);
+
+        let mut attempt = 0;
         let timeout_duration = std::time::Duration::from_secs(timeout_secs);
+        loop {
+            attempt += 1;
+            if let Some(cancel) = effective_cancel {
+                if cancel.load(Ordering::SeqCst) {
+                    return Err(EngineError::ProcessFailed("Execution canceled during run".into()));
+                }
+            }
 
-        let mut output = if let Some(cancel) = effective_cancel {
-            let cancel_clone = cancel.clone();
-            tokio::select! {
-                biased;
-                _ = async {
-                    while !cancel_clone.load(Ordering::SeqCst) {
-                        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+            let injected_fault = match self.fault_policy.lock() {
+                Ok(mut guard) => guard.should_inject(),
+                Err(_) => None,
+            };
+            if let Some(fault) = injected_fault {
+                let retryable = fault.is_transient() || fault == ExecutionFault::Panic;
+                if retryable && attempt <= self.max_retries {
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    continue;
+                }
+                return Err(fault.to_engine_error());
+            }
+
+            let eng = engine.clone();
+            let inp = s_input.clone();
+            let fut_res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| eng.execute(&inp)));
+            let fut = match fut_res {
+                Ok(f) => f,
+                Err(_) => {
+                    if attempt <= self.max_retries {
+                        tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+                        continue;
                     }
-                } => {
-                    return Err(EngineError::ProcessFailed("Execution canceled during run".to_string()));
+                    return Err(EngineError::ProcessFailed("Execution worker panicked unexpectedly".into()));
                 }
-                res = tokio::time::timeout(timeout_duration, engine_fut) => {
-                    res.map_err(|_| EngineError::Timeout)??
-                }
-            }
-        } else {
-            tokio::time::timeout(timeout_duration, engine_fut)
-                .await
-                .map_err(|_| EngineError::Timeout)??
-        };
+            };
+            let guarded_fut = CatchUnwindFuture(fut);
 
-        // 5. Enforce output limit and truncate safely at UTF-8 char boundary
-        if output.stdout_content.len() > max_output_bytes {
-            let mut end = max_output_bytes;
-            while end > 0 && !output.stdout_content.is_char_boundary(end) {
-                end -= 1;
+            let outcome: Result<EngineOutput, EngineError> = if let Some(cancel) = effective_cancel {
+                let c = cancel.clone();
+                tokio::select! {
+                    biased;
+                    _ = async {
+                        while !c.load(Ordering::SeqCst) {
+                            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+                        }
+                    } => {
+                        Err(EngineError::ProcessFailed("Execution canceled during run".into()))
+                    }
+                    res = tokio::time::timeout(timeout_duration, guarded_fut) => match res {
+                        Err(_) => Err(EngineError::Timeout),
+                        Ok(Err(_)) => Err(EngineError::ProcessFailed("Execution worker panicked unexpectedly".into())),
+                        Ok(Ok(eo)) => eo,
+                    }
+                }
+            } else {
+                match tokio::time::timeout(timeout_duration, guarded_fut).await {
+                    Err(_) => Err(EngineError::Timeout),
+                    Ok(Err(_)) => Err(EngineError::ProcessFailed("Execution worker panicked unexpectedly".into())),
+                    Ok(Ok(eo)) => eo,
+                }
+            };
+
+            match outcome {
+                Ok(mut out) => {
+                    if out.stdout_content.len() > max_bytes {
+                        let mut end = max_bytes;
+                        while end > 0 && !out.stdout_content.is_char_boundary(end) { end -= 1; }
+                        let mut trunc = out.stdout_content[..end].to_string();
+                        trunc.push_str("\n[... output truncated by ExecutionService guardrail ...]");
+                        out.stdout_content = trunc;
+                    }
+                    return Ok(out);
+                }
+                Err(e) => {
+                    if is_retryable_execution_error(&e) && attempt <= self.max_retries {
+                        tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+                        continue;
+                    }
+                    return Err(e);
+                }
             }
-            let mut truncated = output.stdout_content[..end].to_string();
-            truncated.push_str("\n[... output truncated by ExecutionService guardrail ...]");
-            output.stdout_content = truncated;
         }
-
-        Ok(output)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use agent_engine::{EngineKind, EngineOutput};
-    use async_trait::async_trait;
-    use std::sync::Mutex;
+mod tests;
 
-    struct RecordingEngine(Mutex<Option<EngineInput>>);
-
-    #[async_trait]
-    impl ComputeEngine for RecordingEngine {
-        async fn execute(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
-            let mut guard = self
-                .0
-                .lock()
-                .map_err(|e| EngineError::ProcessFailed(format!("Lock error: {e}")))?;
-            *guard = Some(input.clone());
-            Ok(EngineOutput {
-                stdout_content: "ok".into(),
-                exit_code: 0,
-                execution_duration_ms: 0,
-                engine_used: EngineKind::Mock,
-                session_id: None,
-            })
-        }
-        fn engine_kind(&self) -> EngineKind {
-            EngineKind::Mock
-        }
-    }
-
-    #[tokio::test]
-    async fn execution_applies_sandbox_and_output_limit() -> Result<(), Box<dyn std::error::Error>> {
-        let engine = Arc::new(RecordingEngine(Mutex::new(None)));
-        let service = ExecutionService::new("/tmp", None, None);
-        service
-            .execute(engine.clone(), &EngineInput::new("hello", "/tmp"))
-            .await?;
-        let guard = engine
-            .0
-            .lock()
-            .map_err(|e| format!("Lock error: {e}"))?;
-        let input = guard.as_ref().ok_or("Recorded input is missing")?;
-        assert!(input.command_sandbox.is_some());
-        assert_eq!(
-            input.max_output_bytes,
-            Some(service.guardrail().max_output_bytes)
-        );
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn policy_rejects_before_engine_is_called() -> Result<(), Box<dyn std::error::Error>> {
-        let engine = Arc::new(RecordingEngine(Mutex::new(None)));
-        let service = ExecutionService::new("/tmp", None, None);
-        assert!(matches!(
-            service
-                .execute(engine.clone(), &EngineInput::new("rm -rf /", "/tmp"))
-                .await,
-            Err(EngineError::PolicyRejected(_))
-        ));
-        let guard = engine
-            .0
-            .lock()
-            .map_err(|e| format!("Lock error: {e}"))?;
-        assert!(guard.is_none());
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn recording_engine_handles_poisoned_mutex_gracefully() {
-        let engine = Arc::new(RecordingEngine(Mutex::new(None)));
-        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = engine.0.lock();
-            std::panic::resume_unwind(Box::new("intentional poison"));
-        }));
-        let result = engine.execute(&EngineInput::new("test", "/tmp")).await;
-        assert!(matches!(result, Err(EngineError::ProcessFailed(_))));
-    }
-}

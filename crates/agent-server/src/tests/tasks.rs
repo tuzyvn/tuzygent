@@ -50,11 +50,9 @@ async fn authenticated_task_delegates_to_codex_via_rest() -> Result<(), Box<dyn 
             workspace: workspace_str.into(),
             vault: Arc::new(agent_engine::AccountVault::new_with_dir(temp_vault)),
             task_service,
+            metrics: Arc::new(crate::metrics::ResilientMetricsService::default()),
         },
-        AuthState {
-            token: Arc::new("test-secret".into()),
-            allowed_origins: vec![],
-        },
+        AuthState::new(Arc::new("test-secret".into()), vec![]),
     );
     let request = Request::builder()
         .method("POST")
@@ -134,8 +132,9 @@ async fn manual_review_endpoint_requires_auth_and_current_revision() {
     store.save_checkpoint(&task.id, &task.subtasks).await.unwrap();
     let bus = InterAgentBus::new(16);
     let app = build_app(AppState { supervisor: Arc::new(AgentSupervisor::new(bus.clone())), bus,
-        workspace: "/tmp".into(), vault: Arc::new(agent_engine::AccountVault::new_with_dir(std::env::temp_dir().join(format!("vault-{}", uuid::Uuid::new_v4())))), task_service: service },
-        AuthState { token: Arc::new("test-secret".into()), allowed_origins: vec![] });
+        workspace: "/tmp".into(), vault: Arc::new(agent_engine::AccountVault::new_with_dir(std::env::temp_dir().join(format!("vault-{}", uuid::Uuid::new_v4())))), task_service: service,
+        metrics: Arc::new(crate::metrics::ResilientMetricsService::default()) },
+        AuthState::new(Arc::new("test-secret".into()), vec![]));
     let path = format!("/api/v1/tasks/{}", task.id);
     let response = app.clone().oneshot(Request::builder().uri(&path).header("authorization", "Bearer test-secret").body(Body::empty()).unwrap()).await.unwrap();
     let body: serde_json::Value = serde_json::from_slice(&axum::body::to_bytes(response.into_body(), 8192).await.unwrap()).unwrap();
@@ -173,11 +172,9 @@ async fn cancel_task_endpoint_cancels_queued_task_and_requires_auth() {
             workspace: "/tmp".into(),
             vault: Arc::new(agent_engine::AccountVault::new_with_dir(std::env::temp_dir().join(format!("vault-{}", uuid::Uuid::new_v4())))),
             task_service: service,
+            metrics: Arc::new(crate::metrics::ResilientMetricsService::default()),
         },
-        AuthState {
-            token: Arc::new("test-secret".into()),
-            allowed_origins: vec![],
-        },
+        AuthState::new(Arc::new("test-secret".into()), vec![]),
     );
 
     let cancel_uri = format!("/api/v1/tasks/{}/cancel", task.id);

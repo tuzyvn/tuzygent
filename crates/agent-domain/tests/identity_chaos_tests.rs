@@ -208,3 +208,97 @@ fn test_high_volume_identity_chaos_resilience() {
     assert_eq!(manager.rejected_count(), 10);
     assert_eq!(manager.resolved_count(), 40);
 }
+
+#[test]
+fn test_topic_a30f60_744860_identity_benchmark_and_resilience() {
+    use agent_domain::IdentityBenchmarkHarness;
+
+    println!("[Reproduction & Benchmark Test] Executing TOPIC-20261105-a30f60 / 744860 Identity Benchmark...");
+
+    // 1. Single-threaded benchmark (10,000 requests)
+    let mut manager = ResilientIdentityManager::new(IdentityFaultPolicy::none(), 3)
+        .with_max_capacity(2_000);
+
+    let stats = IdentityBenchmarkHarness::run_benchmark(&mut manager, 10_000);
+    assert_eq!(stats.total_requests, 10_000);
+    assert_eq!(stats.successful_resolved, 9_000);
+    assert_eq!(stats.rejected_count, 1_000);
+    assert!(
+        stats.throughput_ops_per_sec > 500.0,
+        "Throughput should exceed 500 ops/sec, got {}",
+        stats.throughput_ops_per_sec
+    );
+    assert!(
+        stats.p50_latency_us > 0.0,
+        "P50 latency must be tracked"
+    );
+    assert!(
+        stats.p90_latency_us > 0.0,
+        "P90 latency must be tracked"
+    );
+    assert!(
+        stats.p99_latency_us < 20_000.0,
+        "P99 latency must be under 20ms, got {} us",
+        stats.p99_latency_us
+    );
+    assert!(
+        stats.memory_allocated_bytes > 0,
+        "Memory allocation must be tracked"
+    );
+
+    // 2. Verify bounded memory allocation (no unbounded leak)
+    let mem_before = manager.memory_usage_bytes();
+    // Run another 5,000 requests to trigger FIFO eviction in bounded capacity
+    let _ = IdentityBenchmarkHarness::run_benchmark(&mut manager, 5_000);
+    let mem_after = manager.memory_usage_bytes();
+    assert!(
+        mem_after <= mem_before + 2048,
+        "Memory usage must be strictly bounded under high load (before: {}, after: {})",
+        mem_before,
+        mem_after
+    );
+
+    // 3. Batch resolution optimization test
+    let batch_profiles = vec![
+        create_sample_profile("batch1", "Agent Alpha"),
+        create_sample_profile("batch2", "Agent Beta"),
+        create_sample_profile("batch3", ""), // Invalid: empty name
+        create_sample_profile("batch4", "Agent Gamma"),
+    ];
+    let batch_res = manager.resolve_batch(&batch_profiles);
+    assert_eq!(batch_res.len(), 4);
+    assert!(batch_res[0].is_ok());
+    assert!(batch_res[1].is_ok());
+    assert!(matches!(batch_res[2], Err(IdentityError::InvalidIdentity(_))));
+    assert!(batch_res[3].is_ok());
+
+    // 4. Concurrent benchmark test (10,000 requests across 4 threads)
+    let concurrent_stats = IdentityBenchmarkHarness::run_concurrent_benchmark(10_000, 4);
+    assert_eq!(concurrent_stats.total_requests, 10_000);
+    assert_eq!(concurrent_stats.successful_resolved, 9_000);
+    assert_eq!(concurrent_stats.rejected_count, 1_000);
+    assert!(
+        concurrent_stats.throughput_ops_per_sec > 500.0,
+        "Concurrent throughput should exceed 500 ops/sec, got {}",
+        concurrent_stats.throughput_ops_per_sec
+    );
+    assert!(
+        concurrent_stats.p50_latency_us > 0.0,
+        "Concurrent P50 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p90_latency_us > 0.0,
+        "Concurrent P90 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p99_latency_us < 20_000.0,
+        "Concurrent P99 latency should be well under 20ms, got {} us",
+        concurrent_stats.p99_latency_us
+    );
+    assert!(
+        concurrent_stats.memory_allocated_bytes > 0,
+        "Concurrent memory usage should be tracked"
+    );
+    println!("[Reproduction & Benchmark Test] TOPIC-20261105-a30f60 / 744860 passed successfully!");
+}
+

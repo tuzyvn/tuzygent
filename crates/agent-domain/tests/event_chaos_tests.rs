@@ -1,6 +1,7 @@
 use agent_domain::{
-    ActionSeverity, AgentId, AuditEventType, AuditLedger, EventError, EventFault,
-    EventFaultPolicy, InterAgentEvent, ResilientEventProcessor,
+    ActionSeverity, AgentId, AuditEventType, AuditLedger, EventBenchmarkHarness,
+    EventBenchmarkStats, EventError, EventFault, EventFaultPolicy, InterAgentEvent,
+    ResilientEventProcessor,
 };
 
 #[test]
@@ -488,5 +489,112 @@ fn test_event_fault_to_error_conversion() {
     ));
     assert_eq!(EventFault::Dropped.to_error(), EventError::Dropped);
 }
+
+// =========================================================================
+// Root Cause Elimination Test for TOPIC-20261105-52d2a0 & TOPIC-20261105-243a67
+// High Load Benchmark, P99 Latency & Chaos Resilience for agent-domain::event
+// =========================================================================
+
+#[test]
+fn test_topic_52d2a0_243a67_event_benchmark_and_resilience() {
+    // 1. Verify LOC compliance across all modular event components (< 350 lines P90)
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let event_dir = manifest_dir.join("src/event");
+    assert!(
+        event_dir.is_dir(),
+        "src/event must exist as a modular directory"
+    );
+
+    let event_root = manifest_dir.join("src/event.rs");
+    if event_root.is_file() {
+        let content = std::fs::read_to_string(&event_root).unwrap();
+        let lines = content.lines().count();
+        assert!(
+            lines <= 350,
+            "event.rs has {} lines, which exceeds P90 limit (350 lines)",
+            lines
+        );
+    }
+
+    for entry in std::fs::read_dir(&event_dir).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("rs") {
+            let content = std::fs::read_to_string(&path).unwrap();
+            let lines = content.lines().count();
+            assert!(
+                lines <= 350,
+                "Submodule {} has {} lines, which exceeds P90 limit (350 lines)",
+                path.file_name().unwrap().to_str().unwrap(),
+                lines
+            );
+        }
+    }
+
+    // 2. High-load benchmark: 10,000 requests measuring P99 latency and proving bounded memory allocation
+    let mut processor = ResilientEventProcessor::new(EventFaultPolicy::none(), 3)
+        .with_max_capacity(10_000);
+
+    let stats: EventBenchmarkStats = EventBenchmarkHarness::run_benchmark(&mut processor, 10_000);
+    assert_eq!(stats.total_requests, 10_000);
+    assert_eq!(stats.successful_processed, 10_000);
+    assert!(
+        stats.throughput_ops_per_sec > 1_000.0,
+        "Throughput should exceed 1000 ops/sec, got {}",
+        stats.throughput_ops_per_sec
+    );
+    assert!(
+        stats.p99_latency_us < 5_000.0,
+        "P99 latency should be under 5000 us (5ms), got {} us",
+        stats.p99_latency_us
+    );
+    assert!(
+        stats.memory_allocated_bytes > 0,
+        "Memory allocation must be tracked"
+    );
+
+    // Verify bounded memory allocation (no unbounded leak):
+    let mem_before = processor.memory_usage_bytes();
+    // Run another 5,000 requests to trigger eviction in bounded capacity
+    let _ = EventBenchmarkHarness::run_benchmark(&mut processor, 5_000);
+    let mem_after = processor.memory_usage_bytes();
+    assert!(
+        mem_after <= mem_before + 1024,
+        "Memory usage must be strictly bounded under high load (before: {}, after: {})",
+        mem_before, mem_after
+    );
+
+    // 3. Batch processing optimization test
+    let sender = AgentId::new("batch-sender");
+    let batch_events: Vec<InterAgentEvent> = (0..100)
+        .map(|i| {
+            InterAgentEvent::new(
+                sender.clone(),
+                None,
+                "batch.test",
+                serde_json::json!({ "idx": i }),
+            )
+        })
+        .collect();
+
+    let batch_res = processor.process_batch(batch_events).expect("batch process succeeds");
+    assert_eq!(batch_res.len(), 100);
+
+    // 4. Concurrent benchmark test (10,000 requests across 4 threads)
+    let concurrent_stats = EventBenchmarkHarness::run_concurrent_benchmark(10_000, 4);
+    assert_eq!(concurrent_stats.total_requests, 10_000);
+    assert_eq!(concurrent_stats.successful_processed, 10_000);
+    assert!(
+        concurrent_stats.throughput_ops_per_sec > 500.0,
+        "Concurrent throughput should be healthy, got {}",
+        concurrent_stats.throughput_ops_per_sec
+    );
+    assert!(
+        concurrent_stats.p99_latency_us < 20_000.0,
+        "Concurrent P99 latency should be well under 20ms, got {} us",
+        concurrent_stats.p99_latency_us
+    );
+}
+
 
 

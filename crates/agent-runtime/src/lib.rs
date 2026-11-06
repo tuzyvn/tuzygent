@@ -21,11 +21,20 @@ pub mod wsrpc;
 // Explicit re-exports: eliminates all ambiguous_glob_reexports risks
 pub use agent_memory::{ScopeAccess, ScopedScratchpad};
 pub use bus::{
-    simulate_bus_fault, BusError, BusFault, BusFaultPolicy, InterAgentBus, ResilientInterAgentBus,
-    ResilientSubscriber,
+    simulate_bus_fault, BusBenchmarkHarness, BusBenchmarkStats, BusError, BusEventFilter, BusFault,
+    BusFaultPolicy, InterAgentBus, ResilientInterAgentBus, ResilientSubscriber, ShardedBusQueue,
 };
-pub use execution::ExecutionService;
-pub use harness::{HarnessLesson, HarnessMemoryStore, HarnessSelfHealer};
+pub use execution::{
+    is_retryable_execution_error, simulate_execution_fault, ExecutionBenchmarkHarness,
+    ExecutionBenchmarkStats, ExecutionFault, ExecutionFaultPolicy, ExecutionService,
+    ResilientExecutionService,
+};
+pub use harness::{
+    is_retryable_harness_error, simulate_harness_fault, HarnessBenchmarkHarness,
+    HarnessBenchmarkStats, HarnessError, HarnessFault, HarnessFaultPolicy, HarnessLesson,
+    HarnessLessonCache, HarnessMemoryStore, HarnessSelfHealer, ResilientHarnessMemory,
+    ResilientHarnessMemoryStore,
+};
 pub use ooda::{
     AutonomousOodaLoop, GoalDecomposer, QueueExecutionOutcome, SubtaskExecutor,
     MAX_SUBTASK_RETRIES, MAX_TOTAL_REMEDIATIONS,

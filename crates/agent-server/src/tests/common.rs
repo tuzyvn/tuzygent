@@ -17,10 +17,11 @@ pub fn app() -> Result<Router, Box<dyn std::error::Error>> {
             workspace: "/tmp".into(),
             vault: Arc::new(agent_engine::AccountVault::new_with_dir(temp_vault)),
             task_service,
+            metrics: Arc::new(crate::metrics::ResilientMetricsService::default()),
         },
-        AuthState {
-            token: Arc::new("test-secret".into()),
-            allowed_origins: vec!["https://dashboard.example".parse()?],
-        },
+        AuthState::new(
+            Arc::new("test-secret".into()),
+            vec!["https://dashboard.example".parse()?],
+        ),
     ))
 }

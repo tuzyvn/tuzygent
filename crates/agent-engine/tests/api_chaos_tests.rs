@@ -7,8 +7,9 @@ use tokio::time::sleep;
 
 use agent_domain::AuditLedger;
 use agent_engine::{
-    ApiFault, ApiFaultPolicy, ComputeEngine, CustomAgentApiEngine, EngineError, EngineInput,
-    OpenAiCompatibleEngine, ResilientApiEngine,
+    simulate_api_fault, ApiBenchmarkHarness, ApiBenchmarkStats, ApiError, ApiFault,
+    ApiFaultPolicy, BenchmarkMockApiEngine, ComputeEngine, CustomAgentApiEngine, EngineError,
+    EngineInput, EngineKind, EngineOutput, OpenAiCompatibleEngine, ResilientApiEngine,
 };
 
 fn create_test_input(prompt: &str, timeout_seconds: u64) -> EngineInput {
@@ -699,4 +700,284 @@ async fn test_resilient_api_audit_ledger_recorded_flow() {
     assert_eq!(ledger.len(), 2);
 
     handle.abort();
+}
+
+struct MockEngineWithFailures {
+    failures_remaining: AtomicUsize,
+    fail_error: EngineError,
+}
+
+#[async_trait::async_trait]
+impl ComputeEngine for MockEngineWithFailures {
+    async fn execute(&self, _input: &EngineInput) -> Result<EngineOutput, EngineError> {
+        let rem = self.failures_remaining.load(Ordering::SeqCst);
+        if rem > 0 {
+            self.failures_remaining.fetch_sub(1, Ordering::SeqCst);
+            Err(match &self.fail_error {
+                EngineError::ApiRequestFailed(s) => EngineError::ApiRequestFailed(s.clone()),
+                EngineError::Timeout => EngineError::Timeout,
+                other => EngineError::ProcessFailed(other.to_string()),
+            })
+        } else {
+            Ok(EngineOutput {
+                stdout_content: "success".to_string(),
+                exit_code: 0,
+                execution_duration_ms: 5,
+                engine_used: EngineKind::CustomAgentApi,
+                session_id: None,
+            })
+        }
+    }
+
+    fn engine_kind(&self) -> EngineKind {
+        EngineKind::CustomAgentApi
+    }
+}
+
+#[tokio::test]
+async fn test_fault_simulation_and_taxonomy() {
+    assert_eq!(
+        simulate_api_fault(&ApiFault::SocketTimeout),
+        Err(ApiError::SocketTimeout)
+    );
+    assert_eq!(
+        simulate_api_fault(&ApiFault::ConnectionReset),
+        Err(ApiError::ConnectionReset)
+    );
+    assert!(matches!(
+        simulate_api_fault(&ApiFault::RateLimitExceeded),
+        Err(ApiError::RateLimitExceeded(_))
+    ));
+    assert!(matches!(
+        simulate_api_fault(&ApiFault::TransientIo),
+        Err(ApiError::TransientIo(_))
+    ));
+    assert!(matches!(
+        simulate_api_fault(&ApiFault::CorruptedResponse),
+        Err(ApiError::CorruptedResponse(_))
+    ));
+    assert!(matches!(
+        simulate_api_fault(&ApiFault::ServiceUnavailable),
+        Err(ApiError::ServiceUnavailable(_))
+    ));
+}
+
+#[tokio::test]
+async fn test_policy_intermittent_and_max_injections() {
+    let mut policy =
+        ApiFaultPolicy::intermittent(ApiFault::SocketTimeout, 2).with_max_injections(2);
+
+    assert_eq!(policy.should_inject(), Some(ApiFault::SocketTimeout)); // inv 1
+    assert_eq!(policy.should_inject(), None);                          // inv 2
+    assert_eq!(policy.should_inject(), Some(ApiFault::SocketTimeout)); // inv 3
+    assert_eq!(policy.should_inject(), None);                          // max reached
+    assert_eq!(policy.injected_count(), 2);
+}
+
+#[tokio::test]
+async fn test_resilient_engine_auto_recovers_transient_failures() {
+    let inner = MockEngineWithFailures {
+        failures_remaining: AtomicUsize::new(2),
+        fail_error: EngineError::ApiRequestFailed("HTTP error: connection reset by peer".to_string()),
+    };
+
+    let resilient = ResilientApiEngine::new(inner, ApiFaultPolicy::none(), 3);
+    let res = resilient.execute(&create_test_input("test", 5)).await;
+
+    assert!(res.is_ok());
+    assert_eq!(resilient.recovered_count(), 2);
+    assert_eq!(resilient.resolved_count(), 1);
+    assert_eq!(resilient.rejected_count(), 0);
+}
+
+#[tokio::test]
+async fn test_resilient_engine_fails_when_exceeding_max_retries() {
+    let inner = MockEngineWithFailures {
+        failures_remaining: AtomicUsize::new(5),
+        fail_error: EngineError::ApiRequestFailed("503 Service Unavailable".to_string()),
+    };
+
+    let resilient = ResilientApiEngine::new(inner, ApiFaultPolicy::none(), 2);
+    let res = resilient.execute(&create_test_input("test", 5)).await;
+
+    assert!(res.is_err());
+    assert_eq!(resilient.recovered_count(), 2);
+    assert_eq!(resilient.rejected_count(), 1);
+    assert_eq!(resilient.resolved_count(), 0);
+}
+
+#[tokio::test]
+async fn test_resilient_engine_chaos_injection_recovery() {
+    let inner = MockEngineWithFailures {
+        failures_remaining: AtomicUsize::new(0),
+        fail_error: EngineError::Timeout,
+    };
+
+    // Injects 2 transient faults via policy, wrapper retries and recovers
+    let policy = ApiFaultPolicy::always(ApiFault::SocketTimeout).with_max_injections(2);
+    let resilient = ResilientApiEngine::new(inner, policy, 3);
+    let res = resilient.execute(&create_test_input("test", 5)).await;
+
+    assert!(res.is_ok());
+    assert_eq!(resilient.recovered_count(), 2);
+    assert_eq!(resilient.resolved_count(), 1);
+}
+
+#[tokio::test]
+async fn test_resilient_engine_corrupted_response_not_retried() {
+    let inner = MockEngineWithFailures {
+        failures_remaining: AtomicUsize::new(0),
+        fail_error: EngineError::Timeout,
+    };
+
+    // Corrupted response is fatal and rejected immediately
+    let policy = ApiFaultPolicy::always(ApiFault::CorruptedResponse);
+    let resilient = ResilientApiEngine::new(inner, policy, 3);
+    let res = resilient.execute(&create_test_input("test", 5)).await;
+
+    assert!(res.is_err());
+    assert_eq!(resilient.rejected_count(), 1);
+    assert_eq!(resilient.recovered_count(), 0);
+}
+
+#[tokio::test]
+async fn test_execute_and_record_with_audit_ledger() {
+    let inner = MockEngineWithFailures {
+        failures_remaining: AtomicUsize::new(1),
+        fail_error: EngineError::ApiRequestFailed("429 Too Many Requests".to_string()),
+    };
+
+    let resilient = ResilientApiEngine::new(inner, ApiFaultPolicy::none(), 3);
+    let mut ledger = AuditLedger::new();
+    let res = resilient
+        .execute_and_record(&mut ledger, &create_test_input("test", 5))
+        .await;
+
+    assert!(res.is_ok());
+    assert_eq!(resilient.recovered_count(), 1);
+    assert_eq!(resilient.resolved_count(), 1);
+    assert_eq!(ledger.len(), 2); // 1 retry attempt event + 1 success event
+}
+
+#[tokio::test]
+async fn test_topic_0893f8_ad1a54_api_benchmark_and_resilience() {
+    println!("[Reproduction & Benchmark Test] Executing TOPIC-20261105-0893f8 / ad1a54 API Benchmark...");
+
+    // 1. Verify LOC compliance across all modular api components (< 350 lines P90)
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let api_dir = manifest_dir.join("src/api");
+    assert!(
+        api_dir.is_dir(),
+        "src/api must exist as a modular directory"
+    );
+
+    let mut checked_files = 0;
+    for entry in std::fs::read_dir(&api_dir).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) == Some("rs") {
+            let content = std::fs::read_to_string(&path).unwrap();
+            let lines = content.lines().count();
+            assert!(
+                lines <= 350,
+                "API submodule {} has {} lines, which exceeds P90 limit (350 lines)",
+                path.file_name().unwrap().to_str().unwrap(),
+                lines
+            );
+            checked_files += 1;
+        }
+    }
+    assert!(
+        checked_files >= 4,
+        "Expected at least 4 modular API source files, found {}",
+        checked_files
+    );
+
+    // 2. High-load benchmark: 10,000 requests measuring P50/P90/P99 latency, throughput, and proving bounded memory allocation
+    let inner_mock = BenchmarkMockApiEngine;
+    let resilient = ResilientApiEngine::new(inner_mock, ApiFaultPolicy::none(), 3)
+        .with_max_capacity(2_000);
+
+    let stats: ApiBenchmarkStats = ApiBenchmarkHarness::run_benchmark(&resilient, 10_000).await;
+    assert_eq!(stats.total_requests, 10_000);
+    assert_eq!(stats.successful_resolved, 9_000);
+    assert_eq!(stats.rejected_count, 1_000);
+    assert!(
+        stats.throughput_ops_per_sec > 500.0,
+        "Throughput should exceed 500 ops/sec, got {}",
+        stats.throughput_ops_per_sec
+    );
+    assert!(
+        stats.p50_latency_us > 0.0,
+        "P50 latency must be tracked"
+    );
+    assert!(
+        stats.p90_latency_us > 0.0,
+        "P90 latency must be tracked"
+    );
+    assert!(
+        stats.p99_latency_us < 20_000.0,
+        "P99 latency must be under 20ms, got {} us",
+        stats.p99_latency_us
+    );
+    assert!(
+        stats.memory_allocated_bytes > 0,
+        "Memory allocation must be tracked"
+    );
+
+    // 3. Verify bounded memory allocation (no unbounded leak / FIFO eviction)
+    let mem_before = resilient.memory_usage_bytes();
+    // Run another 5,000 requests to trigger FIFO eviction in bounded capacity
+    let _ = ApiBenchmarkHarness::run_benchmark(&resilient, 5_000).await;
+    let mem_after = resilient.memory_usage_bytes();
+    assert!(
+        mem_after <= mem_before + 2048,
+        "Memory usage must be strictly bounded under high load (before: {}, after: {})",
+        mem_before,
+        mem_after
+    );
+
+    // 4. Batch execution optimization test
+    let batch_inputs = vec![
+        create_test_input("valid_prompt_1", 5),
+        create_test_input("valid_prompt_2", 5),
+        create_test_input("invalid_batch_prompt", 5),
+        create_test_input("valid_prompt_3", 5),
+    ];
+    let batch_res = resilient.execute_batch(&batch_inputs).await;
+    assert_eq!(batch_res.len(), 4);
+    assert!(batch_res[0].is_ok());
+    assert!(batch_res[1].is_ok());
+    assert!(matches!(batch_res[2], Err(EngineError::ApiRequestFailed(_))));
+    assert!(batch_res[3].is_ok());
+
+    // 5. Concurrent benchmark test (10,000 requests across 4 workers, measuring lock contention)
+    let concurrent_stats = ApiBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
+    assert_eq!(concurrent_stats.total_requests, 10_000);
+    assert_eq!(concurrent_stats.successful_resolved, 9_000);
+    assert_eq!(concurrent_stats.rejected_count, 1_000);
+    assert!(
+        concurrent_stats.throughput_ops_per_sec > 500.0,
+        "Concurrent throughput should exceed 500 ops/sec, got {}",
+        concurrent_stats.throughput_ops_per_sec
+    );
+    assert!(
+        concurrent_stats.p50_latency_us > 0.0,
+        "Concurrent P50 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p90_latency_us > 0.0,
+        "Concurrent P90 latency should be measured"
+    );
+    assert!(
+        concurrent_stats.p99_latency_us < 20_000.0,
+        "Concurrent P99 latency should be well under 20ms, got {} us",
+        concurrent_stats.p99_latency_us
+    );
+    assert!(
+        concurrent_stats.memory_allocated_bytes > 0,
+        "Concurrent memory usage should be tracked"
+    );
+
+    println!("[Reproduction & Benchmark Test] TOPIC-20261105-0893f8 / ad1a54 passed successfully!");
 }
