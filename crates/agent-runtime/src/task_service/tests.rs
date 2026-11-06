@@ -1,8 +1,52 @@
 use super::TaskService;
 use crate::task_store::SqliteTaskStore;
-use agent_domain::{Priority, TaskStatus};
+use agent_domain::{Priority, ScheduleSpec, TaskStatus};
+use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+use async_trait::async_trait;
 use chrono::{Duration, TimeZone, Utc};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+
+struct CountingMockEngine {
+    executions: Arc<AtomicUsize>,
+}
+
+impl CountingMockEngine {
+    fn new() -> (Arc<Self>, Arc<AtomicUsize>) {
+        let count = Arc::new(AtomicUsize::new(0));
+        (
+            Arc::new(Self {
+                executions: count.clone(),
+            }),
+            count,
+        )
+    }
+}
+
+#[async_trait]
+impl ComputeEngine for CountingMockEngine {
+    async fn execute(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
+        let stdout = if input.prompt_or_command.contains("Architect")
+            || input.prompt_or_command.contains("JSON")
+        {
+            r#"[{"id":"ST-1","title":"Execute scheduled step","command_or_prompt":"echo scheduled_ok","expected_verification":"cmd: true"}]"#.to_string()
+        } else {
+            self.executions.fetch_add(1, Ordering::SeqCst);
+            "Scheduled task completed.".to_string()
+        };
+        Ok(EngineOutput {
+            stdout_content: stdout,
+            exit_code: 0,
+            execution_duration_ms: 2,
+            engine_used: EngineKind::Mock,
+            session_id: None,
+        })
+    }
+
+    fn engine_kind(&self) -> EngineKind {
+        EngineKind::Mock
+    }
+}
 
 fn build_test_service() -> TaskService {
     let store = Arc::new(SqliteTaskStore::memory().expect("in-memory sqlite store"));
@@ -261,6 +305,257 @@ async fn test_cron_task_multi_cycle_progression_and_combined_scheduler_tick() {
     assert!(service.delete_schedule(&cron_sched.schedule_id).await.unwrap());
     let tick4 = BaseTick::run(&service, cycle4).await;
     assert!(tick4.spawned_cron_tasks.is_empty());
+}
+
+#[tokio::test]
+async fn test_delayed_task_cannot_be_claimed_or_executed_before_due_time_and_executes_once_due() {
+    let service = build_test_service();
+    let (engine, exec_count) = CountingMockEngine::new();
+    let t0 = Utc.with_ymd_and_hms(2026, 11, 7, 16, 0, 0).single().unwrap();
+    let due_time = t0 + Duration::minutes(10);
+
+    let delayed_id = service
+        .submit_delayed_task(
+            "Deferred Audit Job",
+            "Run compliance verification only after due time",
+            Priority::High,
+            due_time,
+        )
+        .await
+        .expect("submit delayed task");
+
+    // 1. Before due time: cannot be claimed via claim_queued or claim_next_queued
+    assert!(service.store().claim_queued(&delayed_id).await.unwrap().is_none());
+    assert!(service.store().claim_next_queued().await.unwrap().is_none());
+
+    // 2. Before due time: dispatching due tasks with an active engine must not execute the task
+    let before_due = due_time - Duration::seconds(5);
+    let early_dispatched = service
+        .dispatch_due_tasks(before_due, Some(engine.clone()))
+        .await
+        .unwrap();
+    assert!(early_dispatched.is_empty());
+    assert_eq!(exec_count.load(Ordering::SeqCst), 0);
+
+    // Direct dispatch while still Scheduled must also refuse to claim/execute
+    service.dispatch(delayed_id.clone(), engine.clone());
+    assert!(service.drain(std::time::Duration::from_secs(2)).await.unwrap());
+    assert_eq!(exec_count.load(Ordering::SeqCst), 0);
+    let task_before = service.get_task(&delayed_id).await.unwrap().unwrap();
+    assert_eq!(task_before.status, TaskStatus::Scheduled { run_after: due_time });
+
+    // 3. At due time: promoting and dispatching executes the task to Completed
+    let promoted = service
+        .dispatch_due_tasks(due_time, Some(engine.clone()))
+        .await
+        .unwrap();
+    assert_eq!(promoted, vec![delayed_id.clone()]);
+    assert!(service.drain(std::time::Duration::from_secs(5)).await.unwrap());
+
+    let completed_task = service.get_task(&delayed_id).await.unwrap().unwrap();
+    assert_eq!(completed_task.status, TaskStatus::Completed);
+    assert_eq!(exec_count.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn test_delayed_task_dequeue_order_only_returns_tasks_whose_due_time_has_passed() {
+    let service = build_test_service();
+    let t0 = Utc.with_ymd_and_hms(2026, 11, 7, 17, 0, 0).single().unwrap();
+    let due_first = t0 + Duration::seconds(20);
+    let due_second = t0 + Duration::seconds(60);
+
+    let first_id = service
+        .submit_delayed_task("First Due", "Due at +20s", Priority::Normal, due_first)
+        .await
+        .unwrap();
+    let second_id = service
+        .submit_delayed_task("Second Due", "Due at +60s", Priority::Critical, due_second)
+        .await
+        .unwrap();
+
+    // Before +20s: queue claim returns nothing
+    let _ = service.dispatch_due_tasks(t0 + Duration::seconds(10), None).await.unwrap();
+    assert!(service.store().claim_next_queued().await.unwrap().is_none());
+
+    // At +20s: only first_id is promoted and claimable from the queue
+    let promoted_1 = service.dispatch_due_tasks(due_first, None).await.unwrap();
+    assert_eq!(promoted_1, vec![first_id.clone()]);
+    let claimed_1 = service
+        .store()
+        .claim_next_queued()
+        .await
+        .unwrap()
+        .expect("first due task should be claimable");
+    assert_eq!(claimed_1.id, first_id);
+    assert_eq!(claimed_1.status, TaskStatus::Executing);
+
+    // second_id is still Scheduled and cannot be claimed yet
+    assert!(service.store().claim_next_queued().await.unwrap().is_none());
+
+    // At +60s: second_id becomes due, is promoted, and can now be claimed
+    let promoted_2 = service.dispatch_due_tasks(due_second, None).await.unwrap();
+    assert_eq!(promoted_2, vec![second_id.clone()]);
+    let claimed_2 = service
+        .store()
+        .claim_next_queued()
+        .await
+        .unwrap()
+        .expect("second due task should be claimable");
+    assert_eq!(claimed_2.id, second_id);
+    assert_eq!(claimed_2.status, TaskStatus::Executing);
+}
+
+#[tokio::test]
+async fn test_interval_and_cron_schedules_automatically_spawn_and_execute_tasks_periodically() {
+    let service = build_test_service();
+    let (engine, exec_count) = CountingMockEngine::new();
+    let t0 = Utc.with_ymd_and_hms(2026, 11, 7, 18, 0, 0).single().unwrap();
+
+    // Register a fixed-interval schedule (every 30 seconds)
+    let interval_sched = service
+        .register_interval_task(
+            "Heartbeat Probe",
+            "Verify worker liveness every 30s",
+            Priority::High,
+            std::time::Duration::from_secs(30),
+            t0,
+        )
+        .await
+        .expect("register interval schedule");
+
+    assert_eq!(
+        interval_sched.spec,
+        ScheduleSpec::Interval { interval_ms: 30_000 }
+    );
+    assert_eq!(interval_sched.next_run_at, t0 + Duration::seconds(30));
+
+    // Also register a @every cron descriptor schedule (every 60 seconds)
+    let cron_every_sched = service
+        .register_cron_task(
+            "Minute Snapshot",
+            "Capture state every 60s",
+            Priority::Normal,
+            "@every 60s",
+            t0,
+        )
+        .await
+        .expect("register @every cron schedule");
+    assert_eq!(cron_every_sched.next_run_at, t0 + Duration::seconds(60));
+
+    // Before 30s: neither schedule triggers
+    let tick_early = service
+        .tick_scheduler(t0 + Duration::seconds(29), Some(engine.clone()))
+        .await
+        .unwrap();
+    assert!(tick_early.spawned_cron_tasks.is_empty());
+    assert_eq!(exec_count.load(Ordering::SeqCst), 0);
+
+    // At +30s: interval schedule spawns its 1st task and advances to +60s
+    let t_30s = t0 + Duration::seconds(30);
+    let tick_30s = service
+        .tick_scheduler(t_30s, Some(engine.clone()))
+        .await
+        .unwrap();
+    assert_eq!(tick_30s.spawned_cron_tasks.len(), 1);
+    assert!(service.drain(std::time::Duration::from_secs(5)).await.unwrap());
+    assert_eq!(exec_count.load(Ordering::SeqCst), 1);
+
+    let first_spawned = service
+        .get_task(&tick_30s.spawned_cron_tasks[0])
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(first_spawned.status, TaskStatus::Completed);
+
+    let updated_interval = service
+        .get_schedule(&interval_sched.schedule_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(updated_interval.run_count, 1);
+    assert_eq!(updated_interval.next_run_at, t0 + Duration::seconds(60));
+
+    // At +60s: BOTH interval schedule (run #2) and @every 60s cron schedule (run #1) trigger and execute
+    let t_60s = t0 + Duration::seconds(60);
+    let tick_60s = service
+        .tick_scheduler(t_60s, Some(engine.clone()))
+        .await
+        .unwrap();
+    assert_eq!(tick_60s.spawned_cron_tasks.len(), 2);
+    assert!(service.drain(std::time::Duration::from_secs(5)).await.unwrap());
+    assert_eq!(exec_count.load(Ordering::SeqCst), 3);
+
+    for spawned_id in &tick_60s.spawned_cron_tasks {
+        let task = service.get_task(spawned_id).await.unwrap().unwrap();
+        assert_eq!(task.status, TaskStatus::Completed);
+    }
+
+    let updated_interval_2 = service
+        .get_schedule(&interval_sched.schedule_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(updated_interval_2.run_count, 2);
+    assert_eq!(updated_interval_2.next_run_at, t0 + Duration::seconds(90));
+
+    let updated_cron_1 = service
+        .get_schedule(&cron_every_sched.schedule_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(updated_cron_1.run_count, 1);
+    assert_eq!(updated_cron_1.next_run_at, t0 + Duration::seconds(120));
+}
+
+#[tokio::test]
+async fn test_poll_and_due_inspection_without_affecting_existing_apis() {
+    let service = build_test_service();
+    let t0 = Utc.with_ymd_and_hms(2026, 11, 7, 19, 0, 0).single().unwrap();
+    let due_at = t0 + Duration::seconds(45);
+
+    // Existing submit_task API continues to queue immediately and is ready at t0
+    let immediate_id = service
+        .submit_task("Immediate Task", "Run right away", Priority::Normal)
+        .await
+        .expect("submit immediate task");
+    let immediate_task = service.get_task(&immediate_id).await.unwrap().unwrap();
+    assert_eq!(immediate_task.status, TaskStatus::Queued);
+    assert!(immediate_task.is_ready_to_execute(t0));
+    assert!(service.is_task_due(&immediate_id, t0).await.unwrap());
+
+    // Delayed task is stored as Scheduled and is not due before due_at
+    let delayed_id = service
+        .submit_delayed_task("Delayed Poll Task", "Wait 45s", Priority::High, due_at)
+        .await
+        .expect("submit delayed task");
+    assert!(!service.is_task_due(&delayed_id, t0).await.unwrap());
+
+    let scheduled_list = service.list_scheduled_tasks(10, 0).await.unwrap();
+    assert_eq!(scheduled_list.len(), 1);
+    assert_eq!(scheduled_list[0].id, delayed_id);
+
+    // Register a recurring interval schedule (every 45s)
+    let sched = service
+        .register_interval_task(
+            "Poll Interval Job",
+            "Run every 45s",
+            Priority::Normal,
+            std::time::Duration::from_secs(45),
+            t0,
+        )
+        .await
+        .expect("register interval schedule");
+
+    assert!(service.list_due_schedules(t0 + Duration::seconds(30)).await.unwrap().is_empty());
+    let due_schedules = service.list_due_schedules(due_at).await.unwrap();
+    assert!(due_schedules.iter().any(|s| s.schedule_id == sched.schedule_id));
+
+    // Poll at due_at moves both the delayed task and interval task into the execution queue
+    let poll_report = service.poll_due_tasks(due_at, None).await.unwrap();
+    assert_eq!(poll_report.promoted_delayed_tasks, vec![delayed_id.clone()]);
+    assert_eq!(poll_report.spawned_cron_tasks.len(), 1);
+    assert!(service.is_task_due(&delayed_id, due_at).await.unwrap());
+    assert!(service.list_scheduled_tasks(10, 0).await.unwrap().is_empty());
 }
 
 struct BaseTick;

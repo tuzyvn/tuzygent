@@ -2173,7 +2173,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261106-8c8959: Bộ lập lịch Cron Scheduler & Delayed Task Queue tích hợp sẵn trong TaskService
 - **Phân loại**: `Feature Expansion / Resilience & Automation`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 18:01:24 UTC)
 - **Lý do cần nghiên cứu**: Cho phép đăng ký các tác vụ chạy định kỳ (cron expression hoặc interval) và tác vụ hẹn giờ (`run_after` timestamp) trực tiếp trong `SqliteTaskStore` và `TaskService` mà không phụ thuộc vào crontab của hệ điều hành.
 - **Tiêu chuẩn nghiệm thu**: Bổ sung cấu trúc `ScheduleSpec` và bảng lưu lịch chạy trong `task_store`; hỗ trợ đánh thức task đúng hạn; viết test TDD xác minh task hẹn giờ chỉ được dispatch khi đến thời điểm `run_after`.
 

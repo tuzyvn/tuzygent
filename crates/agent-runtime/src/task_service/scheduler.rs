@@ -114,6 +114,32 @@ impl TaskService {
         Ok(record)
     }
 
+    /// Register a recurring fixed-interval schedule (`ScheduleSpec::Interval`).
+    pub async fn register_interval_task(
+        &self,
+        title: &str,
+        goal: &str,
+        priority: Priority,
+        interval: std::time::Duration,
+        now: DateTime<Utc>,
+    ) -> Result<TaskScheduleRecord> {
+        if interval.is_zero() {
+            anyhow::bail!(agent_domain::ScheduleError::InvalidInterval(
+                "interval must be > 0".into()
+            ));
+        }
+        let spec = ScheduleSpec::every(interval);
+        let record = TaskScheduleRecord::new(title, goal, priority, spec, now)?;
+        self.store.save_schedule(&record).await?;
+        info!(
+            "🔁 [TaskService] Interval schedule {} ({:?}) registered, next run at {}",
+            record.schedule_id,
+            interval,
+            record.next_run_at.to_rfc3339()
+        );
+        Ok(record)
+    }
+
     /// Evaluate both the Delayed Task Queue and Recurring Cron Schedules at explicit timestamp `now`.
     pub async fn tick_scheduler(
         &self,
@@ -135,6 +161,52 @@ impl TaskService {
             promoted_delayed_tasks,
             spawned_cron_tasks,
         })
+    }
+
+    /// Poll due delayed tasks and recurring cron/interval schedules at `now`, moving them to `Queued`
+    /// and optionally dispatching them onto `engine`.
+    pub async fn poll_due_tasks(
+        &self,
+        now: DateTime<Utc>,
+        engine: Option<Arc<dyn ComputeEngine>>,
+    ) -> Result<SchedulerTickReport> {
+        self.tick_scheduler(now, engine).await
+    }
+
+    /// Poll due delayed tasks and recurring schedules using the current system UTC time.
+    pub async fn poll_scheduler(
+        &self,
+        engine: Option<Arc<dyn ComputeEngine>>,
+    ) -> Result<SchedulerTickReport> {
+        self.tick_scheduler(Utc::now(), engine).await
+    }
+
+    /// Check whether a task has reached its due time (`scheduled_at` / `run_after <= now`).
+    pub async fn is_task_due(&self, id: &TaskId, now: DateTime<Utc>) -> Result<bool> {
+        let Some(task) = self.store.get_task(id).await? else {
+            return Ok(false);
+        };
+        let due_at = match task.status {
+            TaskStatus::Scheduled { run_after } => Some(task.scheduled_at.unwrap_or(run_after)),
+            _ => task.scheduled_at.or(task.run_after),
+        };
+        Ok(due_at.is_none_or(|t| t <= now))
+    }
+
+    /// List tasks currently waiting in the Delayed Task Queue (`TaskStatus::Scheduled`).
+    pub async fn list_scheduled_tasks(&self, limit: usize, offset: usize) -> Result<Vec<Task>> {
+        self.store
+            .list_tasks_by_status("Scheduled", limit, offset)
+            .await
+    }
+
+    /// List all enabled schedules whose `next_run_at <= now`.
+    pub async fn list_due_schedules(&self, now: DateTime<Utc>) -> Result<Vec<TaskScheduleRecord>> {
+        let schedules = self.store.list_schedules(usize::MAX, 0).await?;
+        Ok(schedules
+            .into_iter()
+            .filter(|rec| rec.is_due(now))
+            .collect())
     }
 
     pub async fn get_schedule(&self, schedule_id: &str) -> Result<Option<TaskScheduleRecord>> {

@@ -218,7 +218,8 @@ pub fn claim_queued(conn: &Mutex<Connection>, id: &TaskId) -> Result<Option<Task
     };
     let mut task: Task = serde_json::from_str(&raw)?;
     let now = chrono::Utc::now();
-    if task.status != TaskStatus::Queued || task.run_after.is_some_and(|t| t > now) {
+    let effective_now = now.max(task.updated_at);
+    if task.status != TaskStatus::Queued || task.run_after.is_some_and(|t| t > effective_now) {
         return Ok(None);
     }
     task.status = TaskStatus::Executing;
@@ -253,7 +254,8 @@ pub fn claim_next_queued(conn: &Mutex<Connection>) -> Result<Option<Task>> {
         let mut found = None;
         for raw in rows.flatten() {
             if let Ok(t) = serde_json::from_str::<Task>(&raw) {
-                if t.status == TaskStatus::Queued && t.run_after.is_none_or(|dt| dt <= now) {
+                let effective_now = now.max(t.updated_at);
+                if t.status == TaskStatus::Queued && t.run_after.is_none_or(|dt| dt <= effective_now) {
                     found = Some(t);
                     break;
                 }
