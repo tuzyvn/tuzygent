@@ -6,6 +6,7 @@
 pub mod bus;
 pub mod execution;
 pub mod harness;
+pub mod mcp_gateway;
 pub mod ooda;
 pub use ooda as ooda_loop;
 pub mod operator;
@@ -39,6 +40,14 @@ pub use harness::{
     HarnessBenchmarkStats, HarnessError, HarnessFault, HarnessFaultPolicy, HarnessLesson,
     HarnessLessonCache, HarnessMemoryStore, HarnessSelfHealer, ResilientHarnessMemory,
     ResilientHarnessMemoryStore,
+};
+pub use mcp_gateway::{
+    FnMcpToolHandler, McpContentBlock, McpGatewayError, McpJsonRpcError, McpJsonRpcRequest,
+    McpJsonRpcResponse, McpPropertyType, McpServerConfig, McpToolCallParams, McpToolCallResult,
+    McpToolDefinition, McpToolGateway, McpToolHandler, McpToolSchema, JSONRPC_VERSION,
+    MCP_ERR_EXECUTION_FAILED, MCP_ERR_INVALID_PARAMS, MCP_ERR_INVALID_REQUEST,
+    MCP_ERR_METHOD_NOT_FOUND, MCP_ERR_PARSE_ERROR, MCP_ERR_POLICY_BLOCKED,
+    MCP_ERR_SERVER_UNAVAILABLE,
 };
 pub use ooda::{
     AutonomousOodaLoop, GoalDecomposer, QueueExecutionOutcome, SubtaskExecutor,

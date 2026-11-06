@@ -2179,49 +2179,1135 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261106-994cc2: Model Context Protocol (MCP) Tool Gateway & Guardrail Policy Interceptor
 - **Phân loại**: `Feature Expansion / Security & Tooling`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 18:53:25 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Cho phép khai báo các MCP Server bên ngoài và kiểm duyệt mọi lệnh gọi MCP tool (`tools/call`) thông qua `GuardrailPolicy` và `AuditLedger` trước khi cho phép Agent thực thi.
 - **Tiêu chuẩn nghiệm thu**: Xây dựng module `McpToolGateway` chuẩn hóa JSON-RPC request/response của MCP; chặn các tool call vi phạm danh sách đen của `GuardrailPolicy`; viết test TDD xác minh chặn và ghi nhận audit.
 
 ### [P1] TOPIC-20261106-9987a9: Bộ đệm Replay sự kiện có Sequence Cursor cho WebSocket & SSE Reconnect
 - **Phân loại**: `Feature Expansion / Observability & Streaming`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 18:55:46 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Khi client WebSocket (`/api/v1/ws`) bị rớt mạng tạm thời hoặc đọc chậm (`RecvError::Lagged`), client cần có thể gửi `last_seq_id` để lấy bù các sự kiện bị nhỡ từ Ring Buffer hoặc TaskStore.
 - **Tiêu chuẩn nghiệm thu**: Gắn số thứ tự đơn điệu (`seq_id`) cho mọi sự kiện trên `InterAgentBus` và lưu ring-buffer có giới hạn; hỗ trợ truy vấn `events_since(seq_id)`; viết test TDD mô phỏng client kết nối lại và nhận đủ sự kiện bị thiếu.
 
 ### [P1] TOPIC-20261106-cfc0d6: Định tuyến thông minh theo độ phức tạp nhiệm vụ (Complexity-Aware Model Router)
 - **Phân loại**: `Feature Expansion / Adaptive Intelligence`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 18:58:07 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Tự động phân tích độ phức tạp của Subtask (Planning/Architecture vs Sửa lỗi nhỏ/Format/Test) trong `crates/agent-engine/src/router.rs` để chọn Tier model tối ưu chi phí và tốc độ.
 - **Tiêu chuẩn nghiệm thu**: Nâng cấp `ModelRouter` với bộ ước lượng độ phức tạp (`TaskComplexity::Low | Medium | High`); ánh xạ sang cấu hình engine phù hợp; viết test TDD xác minh phân loại và định tuyến chính xác.
 
 ### [P2] TOPIC-20261106-e38923: Thực thi song song Fan-Out / Fan-In MapReduce Node trong Workflow DAG
 - **Phân loại**: `Feature Expansion / Multi-Agent Collaboration`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 18:59:54 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Bổ sung khả năng chia nhỏ một tập dữ liệu đầu vào (Fan-Out / Map) cho nhiều Agent xử lý đồng thời có giới hạn concurrency, sau đó tổng hợp kết quả tại node hội tụ (Fan-In / Reduce) trong `workflow_dag`.
 - **Tiêu chuẩn nghiệm thu**: Hỗ trợ thực thi song song các nhánh độc lập và gom kết quả đầu ra theo thứ tự xác định trong `WorkflowDagOrchestrator`; viết test TDD kiểm chứng giới hạn concurrency và tính toàn vẹn dữ liệu gộp.
 
 ### [P2] TOPIC-20261106-e52d89: Sổ cái thống kê Token Usage & Cost Budget Enforcement theo từng Task và Account
 - **Phân loại**: `Feature Expansion / Observability & FinOps`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:01:45 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Theo dõi số lượng prompt/completion tokens, thời gian chạy và chi phí ước tính cho mỗi `task_id` và `account_id`, tự động tạm dừng task nếu vượt hạn mức ngân sách (`max_budget_usd` / `max_tokens_per_task`).
 - **Tiêu chuẩn nghiệm thu**: Cài đặt `UsageLedger` lưu trữ thống kê token/chi phí; kiểm tra hạn mức trước mỗi vòng lặp OODA; viết test TDD xác minh task dừng an toàn khi vượt ngưỡng ngân sách cấu hình.
 
 ### [P2] TOPIC-20261106-14baf2: Kiểm soát Outbound Network Egress Policy & Domain Whitelist cho Sandbox
 - **Phân loại**: `Feature Expansion / Security & Sandboxing`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:03:27 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Cấu hình chính sách mạng đầu ra (`NetworkEgressPolicy`: `Isolated`, `AllowList`, `Unrestricted`) trong `SandboxSpec` để ngăn chặn mã thực thi trong sandbox rò rỉ dữ liệu ra các máy chủ lạ bên ngoài.
 - **Tiêu chuẩn nghiệm thu**: Thêm `NetworkEgressPolicy` vào `crates/agent-runtime/src/sandbox/config.rs`; áp dụng cờ `--unshare-net` trong bubblewrap hoặc `--network none` trong Docker khi ở chế độ `Isolated`; viết test TDD kiểm chứng.
 
 ### [P2] TOPIC-20261106-ac92ef: Webhook Trigger Hub có xác thực chữ ký HMAC-SHA256 trong Agent Server
 - **Phân loại**: `Feature Expansion / Developer Ergonomics & Event-Driven Automation`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:05:08 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Cho phép GitHub Actions, GitLab hoặc Alertmanager bắn sự kiện trực tiếp vào `/api/v1/webhooks/trigger` (kèm xác thực chữ ký HMAC-SHA256 và chống replay) để tự động khởi tạo Task sửa lỗi.
 - **Tiêu chuẩn nghiệm thu**: Xây dựng handler và bộ xác thực chữ ký HMAC-SHA256 cho webhook payload trong `agent-server`; tự động chuyển đổi sự kiện hợp lệ thành Task trong hàng đợi; viết test TDD kiểm thử chữ ký đúng và sai.
 
 ### [P2] TOPIC-20261106-2069cb: Hợp nhất tri thức liên dự án & Suy giảm độ tin cậy bài học cũ (Memory Consolidation & Decay)
 - **Phân loại**: `Feature Expansion / Adaptive Intelligence`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:06:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Khi kho `DurableMemoryStore` lớn dần, các bài học trùng lặp cần được hợp nhất (deduplicate & merge) và các bài học lâu không sử dụng hoặc thất bại liên tiếp cần được giảm trọng số ưu tiên.
 - **Tiêu chuẩn nghiệm thu**: Cài đặt phương thức `consolidate_and_decay_lessons()` trong `crates/agent-memory/src/durable/`; gộp các bài học cùng lỗi và cập nhật điểm tin cậy; viết test TDD kiểm chứng.
+
+### [P2] TOPIC-20261106-2a3f7e: Phân tách cấu trúc tệp nguyên khối (555 dòng): crates/agent-runtime/src/mcp_gateway/mod.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:08:54 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/mcp_gateway/mod.rs có độ dài 555 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/mcp_gateway/mod.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261106-5b31bf: Phân tách cấu trúc tệp nguyên khối (483 dòng): crates/agent-memory/src/durable/ranking.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:11:09 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Tệp crates/agent-memory/src/durable/ranking.rs có độ dài 483 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-memory/src/durable/ranking.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261106-413a7c: Phân tách cấu trúc tệp nguyên khối (366 dòng): crates/agent-domain/src/schedule.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:12:50 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Tệp crates/agent-domain/src/schedule.rs có độ dài 366 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-domain/src/schedule.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261106-761d58: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-domain::audit
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:14:33 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-domain::audit` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-domain::audit`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-f5895f: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-domain::audit_ledger
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:16:14 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-domain::audit_ledger` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-domain::audit_ledger`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-e7d6f7: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-domain::checkpoint
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:17:55 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-domain::checkpoint` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-domain::checkpoint`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-038052: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-domain::event
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:19:36 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-domain::event` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-domain::event`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-bc3bad: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-domain::guardrail
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:21:16 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-domain::guardrail` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-domain::guardrail`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-d1274c: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-domain::identity
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:22:59 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-domain::identity` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-domain::identity`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-d63f79: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-domain::rig
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:24:41 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-domain::rig` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-domain::rig`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-6b94ff: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-domain::schedule
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:26:23 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-domain::schedule` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-domain::schedule`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-ca8d83: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-domain::task
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:28:04 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-domain::task` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-domain::task`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-ebfd8d: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-engine::accounts
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:29:50 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-engine::accounts` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-engine::accounts`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-7bb431: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-engine::api
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:31:30 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-engine::api` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-engine::api`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-0ec7e8: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-engine::backoff
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:33:11 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-engine::backoff` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-engine::backoff`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-c3735a: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-engine::cli
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:34:55 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-engine::cli` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-engine::cli`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-c0c374: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-engine::config
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:36:37 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-engine::config` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-engine::config`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-1f1b82: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-engine::process
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:38:20 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-engine::process` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-engine::process`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-d73434: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-engine::router
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:40:02 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-engine::router` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-engine::router`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-3939d9: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-engine::tmux
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:41:47 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-engine::tmux` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-engine::tmux`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-7d2449: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-engine::traits
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:43:28 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-engine::traits` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-engine::traits`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-2f31ec: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-memory::context_builder
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:45:10 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-memory::context_builder` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-memory::context_builder`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-c86fd8: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-memory::durable
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:46:52 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-memory::durable` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-memory::durable`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-b7fbdf: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-memory::persona
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:48:34 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-memory::persona` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-memory::persona`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-df5c61: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-memory::persona_memory
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:50:34 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-memory::persona_memory` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-memory::persona_memory`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-171eed: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-memory::scoped_scratchpad
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:52:18 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-memory::scoped_scratchpad` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-memory::scoped_scratchpad`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-0fe626: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-memory::scratchpad
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:54:01 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-memory::scratchpad` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-memory::scratchpad`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-895f00: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-memory::skills
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:55:44 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-memory::skills` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-memory::skills`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-1825e6: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::bus
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:57:28 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::bus` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::bus`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-db3fff: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::execution
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 19:59:14 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::execution` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::execution`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-d0c4a7: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::harness
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:01:00 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::harness` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::harness`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-7326b0: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::mcp_gateway
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:02:42 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::mcp_gateway` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::mcp_gateway`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-a37003: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::ooda
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:04:27 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::ooda` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::ooda`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-0e92e2: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::operator
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:06:09 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::operator` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::operator`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-02ddc0: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::processtree
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:07:51 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::processtree` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::processtree`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-1497b5: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::report_queue
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:09:42 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::report_queue` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::report_queue`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-0fb1d1: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::sandbox
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:11:27 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::sandbox` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::sandbox`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-7b586a: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::supervisor
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:13:45 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::supervisor` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::supervisor`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-43289e: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::supplement
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:15:40 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::supplement` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::supplement`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-e161d9: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::task_service
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:17:22 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::task_service` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::task_service`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-38ec90: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::task_store
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:19:04 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::task_store` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::task_store`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-f19524: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::tournament
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:20:47 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::tournament` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::tournament`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-fa3b4b: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::verifier
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:22:29 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::verifier` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::verifier`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-0d834c: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::watchdog
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:24:11 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::watchdog` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::watchdog`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-f9654e: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::workflow_dag
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:25:55 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::workflow_dag` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::workflow_dag`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-a125e1: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-runtime::wsrpc
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:27:38 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-runtime::wsrpc` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-runtime::wsrpc`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-335771: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-cli::cli
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:29:22 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-cli::cli` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-cli::cli`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-187028: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-cli::commands
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:31:05 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-cli::commands` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-cli::commands`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-92ddd9: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-cli::update
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:33:04 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-cli::update` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-cli::update`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-4e4ef2: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-server::auth
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:35:00 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-server::auth` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-server::auth`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-b8324d: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-server::dashboard_html
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:37:51 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-server::dashboard_html` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-server::dashboard_html`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-2314f0: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-server::gateway
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:39:36 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-server::gateway` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-server::gateway`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-d95063: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-server::handlers
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:41:53 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-server::handlers` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-server::handlers`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-dddcd8: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-server::metrics
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:43:42 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-server::metrics` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-server::metrics`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-85ec14: Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module agent-server::state
+- **Phân loại**: `Feature Expansion / State Invariant & Contract Verification`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:45:20 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, boundary contracts) cho `agent-server::state` với đầu vào biên và trạng thái bất thường.
+- **Tiêu chuẩn nghiệm thu**: Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `agent-server::state`, bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic.
+
+### [P2] TOPIC-20261106-f91f86: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-domain::audit
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:46:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-domain::audit` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-domain::audit` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-215d39: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-domain::audit_ledger
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:48:36 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-domain::audit_ledger` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-domain::audit_ledger` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-1150a7: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-domain::checkpoint
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:50:14 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-domain::checkpoint` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-domain::checkpoint` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-513e7b: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-domain::event
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:51:54 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-domain::event` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-domain::event` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-0c6414: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-domain::guardrail
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:53:32 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-domain::guardrail` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-domain::guardrail` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-167641: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-domain::identity
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:55:09 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-domain::identity` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-domain::identity` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-77f70b: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-domain::rig
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:56:50 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-domain::rig` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-domain::rig` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-4e3bf1: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-domain::schedule
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 20:58:41 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-domain::schedule` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-domain::schedule` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-1f8066: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-domain::task
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:00:23 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-domain::task` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-domain::task` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-df8d31: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-engine::accounts
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:02:39 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-engine::accounts` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-engine::accounts` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-faf5ea: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-engine::api
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:04:29 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-engine::api` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-engine::api` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-a1d60e: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-engine::backoff
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:06:06 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-engine::backoff` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-engine::backoff` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-373fab: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-engine::cli
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:08:14 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-engine::cli` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-engine::cli` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-6421c2: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-engine::config
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:09:51 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-engine::config` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-engine::config` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-68c2c9: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-engine::process
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:11:31 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-engine::process` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-engine::process` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-e836e0: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-engine::router
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:13:08 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-engine::router` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-engine::router` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-f05ca6: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-engine::tmux
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:14:47 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-engine::tmux` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-engine::tmux` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-b04aab: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-engine::traits
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:16:25 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-engine::traits` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-engine::traits` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-b7c3d8: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-memory::context_builder
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:18:03 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-memory::context_builder` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-memory::context_builder` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-c51abd: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-memory::durable
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:19:43 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-memory::durable` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-memory::durable` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-578697: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-memory::persona
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:21:22 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-memory::persona` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-memory::persona` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-47046a: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-memory::persona_memory
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:23:00 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-memory::persona_memory` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-memory::persona_memory` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-4d967b: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-memory::scoped_scratchpad
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:24:39 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-memory::scoped_scratchpad` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-memory::scoped_scratchpad` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-b79699: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-memory::scratchpad
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:26:22 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-memory::scratchpad` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-memory::scratchpad` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-9885e7: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-memory::skills
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:28:01 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-memory::skills` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-memory::skills` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-be1729: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::bus
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:29:43 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::bus` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::bus` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-053624: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::execution
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:31:23 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::execution` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::execution` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-bd589b: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::harness
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:33:01 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::harness` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::harness` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-c75bef: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::mcp_gateway
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:34:41 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::mcp_gateway` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::mcp_gateway` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-af1556: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::ooda
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:36:19 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::ooda` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::ooda` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-084923: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::operator
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:37:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::operator` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::operator` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-fccf58: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::processtree
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:39:36 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::processtree` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::processtree` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-709b7d: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::report_queue
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:41:16 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::report_queue` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::report_queue` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-1ced22: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::sandbox
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:42:54 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::sandbox` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::sandbox` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-afba9b: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::supervisor
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:44:34 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::supervisor` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::supervisor` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-a6f28d: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::supplement
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:46:12 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::supplement` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::supplement` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-b96de2: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::task_service
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:47:50 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::task_service` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::task_service` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-e926bd: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::task_store
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:49:29 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::task_store` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::task_store` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-004b5d: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::tournament
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:51:07 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::tournament` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::tournament` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-fd6500: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::verifier
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:52:45 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::verifier` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::verifier` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-a39f05: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::watchdog
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:55:20 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::watchdog` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::watchdog` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-81cf10: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::workflow_dag
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:57:00 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::workflow_dag` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::workflow_dag` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-24f05e: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-runtime::wsrpc
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 21:58:42 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-runtime::wsrpc` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-runtime::wsrpc` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-f343f2: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-cli::cli
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:00:22 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-cli::cli` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-cli::cli` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-877a4c: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-cli::commands
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:02:00 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-cli::commands` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-cli::commands` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-c25dc9: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-cli::update
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:03:39 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-cli::update` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-cli::update` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-26b7ea: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-server::auth
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:05:18 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-server::auth` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-server::auth` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-bddff7: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-server::dashboard_html
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:06:59 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-server::dashboard_html` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-server::dashboard_html` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-4a68ef: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-server::gateway
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:08:38 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-server::gateway` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-server::gateway` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-596bef: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-server::handlers
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:10:18 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-server::handlers` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-server::handlers` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-43d8be: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-server::metrics
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:11:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-server::metrics` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-server::metrics` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-c51554: Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho agent-server::state
+- **Phân loại**: `Feature Expansion / Resource Bounding & Backpressure`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:13:37 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Bảo vệ `agent-server::state` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế bounded capacity, timeout tường minh và từ chối sớm có kiểm soát.
+- **Tiêu chuẩn nghiệm thu**: Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `agent-server::state` xử lý mượt mà khi vượt ngưỡng tài nguyên.
+
+### [P2] TOPIC-20261106-e47f36: Chaos Engineering & Fault Injection Test cho module agent-domain::event
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:15:16 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::event` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-domain::event` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-c98625: Chaos Engineering & Fault Injection Test cho module agent-domain::guardrail
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:17:53 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::guardrail` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-domain::guardrail` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-0bf750: Chaos Engineering & Fault Injection Test cho module agent-domain::identity
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:19:32 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::identity` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-domain::identity` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-a0e7a2: Chaos Engineering & Fault Injection Test cho module agent-domain::rig
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:21:11 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::rig` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-domain::rig` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-37c627: Chaos Engineering & Fault Injection Test cho module agent-domain::schedule
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:22:50 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::schedule` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-domain::schedule` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-a1a7fc: Chaos Engineering & Fault Injection Test cho module agent-domain::task
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:24:30 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-domain::task` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-domain::task` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-47de48: Chaos Engineering & Fault Injection Test cho module agent-engine::cli
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:26:09 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::cli` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-engine::cli` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-700bfe: Chaos Engineering & Fault Injection Test cho module agent-engine::config
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:27:48 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::config` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-engine::config` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-d44b45: Chaos Engineering & Fault Injection Test cho module agent-engine::process
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:29:35 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::process` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-engine::process` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-a36964: Chaos Engineering & Fault Injection Test cho module agent-engine::router
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:31:15 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::router` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-engine::router` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-8b8fec: Chaos Engineering & Fault Injection Test cho module agent-engine::tmux
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:32:54 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::tmux` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-engine::tmux` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-b72b6b: Chaos Engineering & Fault Injection Test cho module agent-engine::traits
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:34:33 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-engine::traits` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-engine::traits` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-40bbbd: Chaos Engineering & Fault Injection Test cho module agent-memory::persona_memory
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:36:12 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::persona_memory` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-memory::persona_memory` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-ae3a0a: Chaos Engineering & Fault Injection Test cho module agent-memory::scoped_scratchpad
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:37:51 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::scoped_scratchpad` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-memory::scoped_scratchpad` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-9c1349: Chaos Engineering & Fault Injection Test cho module agent-memory::scratchpad
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:39:30 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::scratchpad` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-memory::scratchpad` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-8600e7: Chaos Engineering & Fault Injection Test cho module agent-memory::skills
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:41:10 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-memory::skills` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-memory::skills` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-58e2cc: Chaos Engineering & Fault Injection Test cho module agent-runtime::harness
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:42:51 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::harness` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::harness` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-38aff8: Chaos Engineering & Fault Injection Test cho module agent-runtime::mcp_gateway
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:44:32 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::mcp_gateway` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::mcp_gateway` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-6fff90: Chaos Engineering & Fault Injection Test cho module agent-runtime::ooda
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:47:11 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::ooda` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::ooda` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-018f7f: Chaos Engineering & Fault Injection Test cho module agent-runtime::operator
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:48:50 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::operator` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::operator` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-33e9b1: Chaos Engineering & Fault Injection Test cho module agent-runtime::processtree
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:50:32 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::processtree` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::processtree` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-312544: Chaos Engineering & Fault Injection Test cho module agent-runtime::report_queue
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:52:12 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::report_queue` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::report_queue` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-db5af8: Chaos Engineering & Fault Injection Test cho module agent-runtime::sandbox
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:53:52 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::sandbox` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::sandbox` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-169bfe: Chaos Engineering & Fault Injection Test cho module agent-runtime::supervisor
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:55:32 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::supervisor` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::supervisor` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-b3a898: Chaos Engineering & Fault Injection Test cho module agent-runtime::supplement
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:57:14 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::supplement` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::supplement` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-7cef72: Chaos Engineering & Fault Injection Test cho module agent-runtime::task_service
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 22:58:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::task_service` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::task_service` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-aabe62: Chaos Engineering & Fault Injection Test cho module agent-runtime::task_store
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:00:45 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::task_store` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::task_store` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-ca5bfa: Chaos Engineering & Fault Injection Test cho module agent-runtime::tournament
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:02:32 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::tournament` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::tournament` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-2983d3: Chaos Engineering & Fault Injection Test cho module agent-runtime::verifier
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:04:12 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::verifier` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::verifier` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-1defd3: Chaos Engineering & Fault Injection Test cho module agent-runtime::watchdog
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:05:52 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::watchdog` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::watchdog` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-eb8998: Chaos Engineering & Fault Injection Test cho module agent-runtime::workflow_dag
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:07:32 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::workflow_dag` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::workflow_dag` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-0d6b48: Chaos Engineering & Fault Injection Test cho module agent-runtime::wsrpc
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:09:12 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-runtime::wsrpc` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-runtime::wsrpc` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-d97d65: Chaos Engineering & Fault Injection Test cho module agent-cli::update
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:10:52 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-cli::update` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-cli::update` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-b14c42: Chaos Engineering & Fault Injection Test cho module agent-server::gateway
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:12:32 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::gateway` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-server::gateway` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-216362: Chaos Engineering & Fault Injection Test cho module agent-server::handlers
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:14:13 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::handlers` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-server::handlers` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-e10dbe: Chaos Engineering & Fault Injection Test cho module agent-server::metrics
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:15:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::metrics` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-server::metrics` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-5e628c: Chaos Engineering & Fault Injection Test cho module agent-server::state
+- **Phân loại**: `Feature Expansion / Chaos Engineering`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:17:38 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module `agent-server::state` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống.
+- **Tiêu chuẩn nghiệm thu**: Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `agent-server::state` phục hồi an toàn.
+
+### [P2] TOPIC-20261106-502068: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::event
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:19:18 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::event` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-839f16: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::guardrail
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:20:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::guardrail` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-271be9: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::identity
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:22:39 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::identity` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-60ebcf: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::rig
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:24:19 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::rig` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-4f22e5: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::schedule
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:26:01 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::schedule` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-baae2b: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-domain::task
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:27:44 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-domain::task` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-255bc1: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::cli
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:29:30 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::cli` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-7b0151: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::config
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:31:21 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::config` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-0bf51a: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::process
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:33:08 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::process` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-0f14c5: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::router
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:34:57 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::router` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-ab391e: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::tmux
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:36:39 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::tmux` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-0de50c: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-engine::traits
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:38:54 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-engine::traits` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-57b4c8: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::persona_memory
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:40:56 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::persona_memory` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-940bda: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::scoped_scratchpad
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:42:46 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::scoped_scratchpad` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-4477b5: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::scratchpad
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:45:23 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::scratchpad` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-b86d9f: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-memory::skills
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:47:10 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-memory::skills` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-1f2e4d: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::harness
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:48:51 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::harness` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-28d942: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::mcp_gateway
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:50:33 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::mcp_gateway` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-135015: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::ooda
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 23:51:38 UTC)
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::ooda` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-7fb00d: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::operator
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::operator` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-3add11: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::processtree
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::processtree` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-ef5301: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::report_queue
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::report_queue` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-cf7ca4: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::sandbox
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::sandbox` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-2c8497: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::supervisor
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::supervisor` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-de6986: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::supplement
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::supplement` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-8d0f01: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::task_service
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::task_service` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-7d8a2a: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::task_store
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::task_store` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-d2cfb5: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::tournament
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::tournament` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-2b24f4: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::verifier
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::verifier` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-367135: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::watchdog
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::watchdog` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-c69dd9: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::workflow_dag
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::workflow_dag` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-bb570b: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::wsrpc
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::wsrpc` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-396037: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-cli::update
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-cli::update` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-80c33c: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::gateway
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::gateway` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-421aae: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::handlers
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::handlers` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-709753: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::metrics
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::metrics` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+
+### [P2] TOPIC-20261106-f18326: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::state
+- **Phân loại**: `Feature Expansion / Performance & Scalability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::state` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
+- **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
