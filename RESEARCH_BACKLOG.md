@@ -1685,7 +1685,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261106-5a610b: Cơ chế In-flight Checkpointing & Resume State an toàn cho Long-Running Tasks
 - **Phân loại**: `Feature Expansion / Resilience & Fault Tolerance`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-06 10:30:00 UTC)
 - **Lý do cần nghiên cứu**: Với các tác vụ dài hơi gồm nhiều subtask, nếu server hoặc daemon bị restart đột ngột, task cần khả năng phục hồi chính xác từ subtask đã verified gần nhất thay vì chạy lại từ đầu.
 - **Tiêu chuẩn nghiệm thu**: Lưu checkpoint metadata vào `SqliteTaskStore` sau mỗi subtask hoàn tất; bổ sung phương thức `resume_task_from_checkpoint`; viết test TDD mô phỏng ngắt tiến trình giữa chừng và khôi phục an toàn.
 

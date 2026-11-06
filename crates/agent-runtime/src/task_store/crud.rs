@@ -227,11 +227,10 @@ pub fn save_checkpoint(
     if let Some(raw) = task_raw {
         if let Ok(mut task) = serde_json::from_str::<Task>(&raw) {
             task.subtasks = subtasks.to_vec();
-            task.updated_at = chrono::Utc::now();
             let new_raw = serde_json::to_string(&task)?;
             tx.execute(
-                "UPDATE tasks SET raw_json = ?1, updated_at = ?2 WHERE id = ?3",
-                params![new_raw, now, task_id.0],
+                "UPDATE tasks SET raw_json = ?1 WHERE id = ?2",
+                params![new_raw, task_id.0],
             )?;
         }
     }

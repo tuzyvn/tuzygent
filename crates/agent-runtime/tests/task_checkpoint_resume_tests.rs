@@ -541,8 +541,8 @@ async fn test_checkpoint_tampering_fails_integrity_check_and_prevents_unsafe_res
 
     // Tamper with SQLite directly: modify subtask payload in subtasks_json without updating metadata_json
     {
-        let db_path = ws.join("tasks.db");
-        let conn = rusqlite::Connection::open(&db_path).expect("open raw sqlite");
+        let db_path = store.db_path();
+        let conn = rusqlite::Connection::open(db_path).expect("open raw sqlite");
         let mut tampered_subtasks = task.subtasks.clone();
         tampered_subtasks[1].command_or_prompt = "malicious payload injection".into();
         let tampered_json = serde_json::to_string(&tampered_subtasks).unwrap();
