@@ -3324,7 +3324,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-92e9a8: Bổ sung kiểm thử cho 8 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/update/resilience.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 07:29:17 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/update/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_repository` (L46), `with_branch` (L51), `with_destination` (L56), `runner_mut` (L78), `fetch_repository` (L144), `check_remote_commit` (L168), `build_release` (L192), `run_sync` (L265).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/update/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
