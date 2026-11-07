@@ -3390,7 +3390,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-1ec261: Bổ sung kiểm thử cho 5 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/accounts/vault/mod.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 10:12:59 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/accounts/vault/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `default_dir` (L25), `accounts_read` (L46), `accounts_write` (L50), `rr_read` (L54), `rr_write` (L58).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/accounts/vault/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 

@@ -1,7 +1,107 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::accounts::types::AccountStatus;
+use crate::accounts::types::{AccountProfile, AccountStatus};
+
+#[test]
+fn test_vault_public_storage_and_copy_helpers() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "vault_public_helpers_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let source = temp_dir.join("source");
+    let destination = temp_dir.join("destination");
+    std::fs::create_dir_all(source.join("nested")).expect("create source directory");
+    std::fs::write(source.join("credentials.json"), "{\"token\":\"secret\"}")
+        .expect("write credential file");
+    std::fs::write(source.join("nested").join("auth.data"), "auth")
+        .expect("write nested credential file");
+    std::fs::write(source.join("notes.txt"), "not a credential").expect("write ordinary file");
+
+    copy_credential_dir(&source, &destination).expect("copy credential directory");
+    assert_eq!(
+        std::fs::read_to_string(destination.join("credentials.json")).unwrap(),
+        "{\"token\":\"secret\"}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(destination.join("nested").join("auth.data")).unwrap(),
+        "auth"
+    );
+    assert!(!destination.join("notes.txt").exists());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(&destination)
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        assert_eq!(
+            std::fs::metadata(destination.join("credentials.json"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+    }
+
+    let wrapper_destination = temp_dir.join("wrapper-destination");
+    copy_dir_recursive(&source, &wrapper_destination).expect("copy through recursive helper");
+    assert_eq!(
+        std::fs::read_to_string(wrapper_destination.join("credentials.json")).unwrap(),
+        "{\"token\":\"secret\"}"
+    );
+    assert!(!wrapper_destination.join("notes.txt").exists());
+    assert!(
+        copy_dir_recursive(
+            &temp_dir.join("missing-source"),
+            &temp_dir.join("failed-copy")
+        )
+        .is_err()
+    );
+
+    let base_dir = temp_dir.join("metadata");
+    let vault = AccountVault::new_with_dir(base_dir.clone());
+    let metadata_file = base_dir.join("accounts.json");
+    assert_eq!(vault.metadata_file(), metadata_file);
+
+    assert!(
+        load_profiles_from_file(&metadata_file)
+            .expect("missing metadata should load as empty")
+            .is_empty()
+    );
+    let profile = AccountProfile {
+        id: "saved-account".to_string(),
+        name: "Saved account".to_string(),
+        engine: AccountEngineKind::Antigravity,
+        home_dir: base_dir.join("antigravity").join("saved-account"),
+        status: AccountStatus::Ready,
+        requests_count: 3,
+        failure_count: 1,
+        last_used_at: None,
+        extra_env: HashMap::from([("TOKEN".to_string(), "secret".to_string())]),
+    };
+    save_profiles_to_file(&base_dir, &metadata_file, std::slice::from_ref(&profile))
+        .expect("save account profiles");
+    assert_eq!(
+        load_profiles_from_file(&metadata_file).expect("load saved profiles"),
+        vec![profile]
+    );
+
+    std::fs::write(&metadata_file, "not valid JSON").expect("write malformed metadata");
+    assert_eq!(
+        load_profiles_from_file(&metadata_file).unwrap_err().kind(),
+        std::io::ErrorKind::InvalidData
+    );
+    let invalid_meta_target = temp_dir.join("missing-parent").join("accounts.json");
+    assert!(save_profiles_to_file(&base_dir, &invalid_meta_target, &[]).is_err());
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
 
 #[test]
 fn test_lock_safety() {
