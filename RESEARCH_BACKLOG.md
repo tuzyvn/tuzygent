@@ -3762,7 +3762,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-5545a7: Kiểm chứng tương thích serialization cho 1 kiểu chưa có test: crates/agent-core/src/resilience.rs
 - **Phân loại**: `Source Finding / Serialization Compatibility`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 21:27:31 UTC)
 - **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-core/src/resilience.rs` chưa được tham chiếu trong Rust test: `CoreExecutionResult` (L9); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
 - **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-core/src/resilience.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
 

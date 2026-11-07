@@ -1,9 +1,38 @@
 use agent_core::benchmark::CoreBenchmarkHarness;
 use agent_core::fault::{CircuitState, CoreExecutionError, CoreFaultKind, CoreFaultPolicy};
-use agent_core::resilience::{ResilientCoreAgent, ResilientCoreAgentBuilder};
+use agent_core::resilience::{CoreExecutionResult, ResilientCoreAgent, ResilientCoreAgentBuilder};
 use agent_core::safe::{SafeGuard, SafeUnwrapExt};
 use agent_core::sharded::ShardedCoreAgentRunner;
 use std::sync::Arc;
+
+#[test]
+fn test_core_execution_result_serialization_compatibility() {
+    let result = CoreExecutionResult {
+        operation_id: "op-123".to_string(),
+        name: "summarize".to_string(),
+        output: "summary ready".to_string(),
+        duration_us: 42,
+        retries_used: 2,
+        recovered_from_fault: true,
+    };
+
+    let serialized = serde_json::to_value(&result).expect("serialize execution result");
+    assert_eq!(
+        serialized,
+        serde_json::json!({
+            "operation_id": "op-123",
+            "name": "summarize",
+            "output": "summary ready",
+            "duration_us": 42,
+            "retries_used": 2,
+            "recovered_from_fault": true,
+        })
+    );
+
+    let deserialized: CoreExecutionResult =
+        serde_json::from_value(serialized).expect("deserialize execution result");
+    assert_eq!(deserialized, result);
+}
 
 #[test]
 fn test_safe_unwrap_eliminates_panics_on_option_and_result() {
