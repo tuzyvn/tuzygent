@@ -1,11 +1,12 @@
 use super::TaskService;
 use crate::task_store::SqliteTaskStore;
-use agent_domain::{Priority, ScheduleSpec, TaskStatus};
+use agent_domain::{Priority, ScheduleSpec, TaskId, TaskStatus};
 use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use async_trait::async_trait;
 use chrono::{Duration, TimeZone, Utc};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use tokio::sync::{Notify, Semaphore};
 
 struct CountingMockEngine {
     executions: Arc<AtomicUsize>,
@@ -51,6 +52,117 @@ impl ComputeEngine for CountingMockEngine {
 fn build_test_service() -> TaskService {
     let store = Arc::new(SqliteTaskStore::memory().expect("in-memory sqlite store"));
     TaskService::new(store, "/tmp", 2, None, None)
+}
+
+struct BlockingMockEngine {
+    started: Arc<Notify>,
+    release: Arc<Semaphore>,
+}
+
+impl BlockingMockEngine {
+    fn new() -> (Arc<Self>, Arc<Notify>, Arc<Semaphore>) {
+        let started = Arc::new(Notify::new());
+        let release = Arc::new(Semaphore::new(0));
+        (
+            Arc::new(Self {
+                started: started.clone(),
+                release: release.clone(),
+            }),
+            started,
+            release,
+        )
+    }
+}
+
+#[async_trait]
+impl ComputeEngine for BlockingMockEngine {
+    async fn execute(&self, _input: &EngineInput) -> Result<EngineOutput, EngineError> {
+        self.started.notify_one();
+        self.release
+            .acquire()
+            .await
+            .expect("release semaphore remains open")
+            .forget();
+        Ok(EngineOutput {
+            stdout_content: "Controlled task completed.".to_string(),
+            exit_code: 0,
+            execution_duration_ms: 1,
+            engine_used: EngineKind::Mock,
+            session_id: None,
+        })
+    }
+
+    fn engine_kind(&self) -> EngineKind {
+        EngineKind::Mock
+    }
+}
+
+async fn dispatch_blocked_task(service: &TaskService) -> (TaskId, Arc<Semaphore>) {
+    let task_id = service
+        .submit_task(
+            "Activity API test",
+            "Hold execution until released",
+            Priority::Normal,
+        )
+        .await
+        .expect("submit task");
+    let (engine, started, release) = BlockingMockEngine::new();
+    service.dispatch(task_id.clone(), engine);
+    tokio::time::timeout(std::time::Duration::from_secs(5), started.notified())
+        .await
+        .expect("engine execution should start");
+    (task_id, release)
+}
+
+#[tokio::test]
+async fn test_active_task_count_tracks_running_task_lifecycle() {
+    let service = build_test_service();
+    assert_eq!(service.active_task_count().await, 0);
+
+    let (task_id, release) = dispatch_blocked_task(&service).await;
+    assert!(service.is_active(&task_id).await);
+    assert_eq!(service.active_task_count().await, 1);
+
+    release.add_permits(10);
+    assert!(service
+        .drain(std::time::Duration::from_secs(5))
+        .await
+        .expect("drain service"));
+    assert_eq!(service.active_task_count().await, 0);
+}
+
+#[tokio::test]
+async fn test_is_active_tracks_running_task_and_unknown_ids() {
+    let service = build_test_service();
+    let (task_id, release) = dispatch_blocked_task(&service).await;
+    let unknown_id = TaskId("unknown-activity-test-task".to_string());
+
+    assert!(!service.is_active(&unknown_id).await);
+    assert!(service.is_active(&task_id).await);
+
+    release.add_permits(10);
+    assert!(service
+        .drain(std::time::Duration::from_secs(5))
+        .await
+        .expect("drain service"));
+    assert!(!service.is_active(&task_id).await);
+    assert!(!service.is_active(&unknown_id).await);
+}
+
+#[tokio::test]
+async fn test_active_task_ids_lists_running_tasks_and_cleans_up() {
+    let service = build_test_service();
+    assert!(service.active_task_ids().await.is_empty());
+
+    let (task_id, release) = dispatch_blocked_task(&service).await;
+    assert!(service.active_task_ids().await.contains(&task_id));
+
+    release.add_permits(10);
+    assert!(service
+        .drain(std::time::Duration::from_secs(5))
+        .await
+        .expect("drain service"));
+    assert!(service.active_task_ids().await.is_empty());
 }
 
 #[tokio::test]
