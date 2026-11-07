@@ -54,6 +54,31 @@ fn build_test_service() -> TaskService {
 }
 
 #[tokio::test]
+async fn test_dispatch_executes_queued_task_and_cleans_up_tracking() {
+    let service = build_test_service();
+    let (engine, exec_count) = CountingMockEngine::new();
+    let task_id = service
+        .submit_task(
+            "Dispatch smoke test",
+            "Run through dispatch",
+            Priority::Normal,
+        )
+        .await
+        .expect("submit task");
+
+    service.dispatch(task_id.clone(), engine);
+
+    assert!(service
+        .drain(std::time::Duration::from_secs(5))
+        .await
+        .unwrap());
+    let task = service.get_task(&task_id).await.unwrap().unwrap();
+    assert_eq!(task.status, TaskStatus::Completed);
+    assert_eq!(exec_count.load(Ordering::SeqCst), 1);
+    assert!(!service.is_active(&task_id).await);
+}
+
+#[tokio::test]
 async fn test_delayed_task_queue_promotion_with_explicit_timestamps() {
     let service = build_test_service();
     let t0 = Utc
