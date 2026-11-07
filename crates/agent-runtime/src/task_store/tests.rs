@@ -143,6 +143,29 @@ fn schedule(id: &str, spec: ScheduleSpec, next_run_at: DateTime<Utc>) -> TaskSch
 }
 
 #[tokio::test]
+async fn task_crud_save_then_get_preserves_task_data() {
+    let store = SqliteTaskStore::memory().expect("in-memory task store");
+    let task = Task::new("persisted task", "verify CRUD persistence", Priority::High);
+    let task_id = task.id.clone();
+
+    TaskStore::save_task(&store, &task)
+        .await
+        .expect("save task");
+
+    let loaded = TaskStore::get_task(&store, &task_id)
+        .await
+        .expect("read task")
+        .expect("saved task exists");
+    assert_eq!(loaded.id, task.id);
+    assert_eq!(loaded.title, task.title);
+    assert_eq!(loaded.goal_description, task.goal_description);
+    assert_eq!(loaded.priority, task.priority);
+    assert_eq!(loaded.status, task.status);
+    assert_eq!(loaded.created_at, task.created_at);
+    assert_eq!(loaded.updated_at, task.updated_at);
+}
+
+#[tokio::test]
 async fn save_schedule_inserts_and_updates_existing_record() {
     let store = SqliteTaskStore::memory().expect("in-memory task store");
     let first = schedule(
