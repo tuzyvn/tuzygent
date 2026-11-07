@@ -3342,7 +3342,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-fba891: Bổ sung kiểm thử cho 7 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/resilience.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 08:14:50 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `recent_actions` (L106), `is_bounded` (L110), `run_resilient_sync` (L255), `run_batch_operations` (L314), `execute_batch_commands` (L321), `shard_idx` (L374), `shard_for` (L384).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
