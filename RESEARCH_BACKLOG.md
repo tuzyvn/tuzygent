@@ -3738,7 +3738,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-66b7d0: Kiểm chứng tương thích serialization cho 2 kiểu chưa có test: crates/agent-cli/src/commands/inspect.rs
 - **Phân loại**: `Source Finding / Serialization Compatibility`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 20:41:12 UTC)
 - **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-cli/src/commands/inspect.rs` chưa được tham chiếu trong Rust test: `TaskInspectPayload` (L10), `DagListPayload` (L367); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
 - **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-cli/src/commands/inspect.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
 

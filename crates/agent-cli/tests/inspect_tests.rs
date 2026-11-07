@@ -1,4 +1,5 @@
 use agent_cli::cli::{Cli, InspectArgs, InspectTarget, OutputFormat};
+use agent_runtime::{WorkflowDefinition, WorkflowRunReport};
 use clap::Parser;
 use std::process::Command;
 
@@ -383,4 +384,99 @@ fn test_inspect_execution_dag_table_and_json() {
     assert_eq!(parsed["id"], "wf-deploy-pipeline");
 
     let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn workflow_definition_serialization_round_trip_preserves_json_shape() {
+    let input = serde_json::json!({
+        "id": "wf-deploy-pipeline",
+        "name": "Deployment Pipeline",
+        "description": "Build and deploy the service",
+        "version": "1.2.0",
+        "nodes": [{
+            "id": "build",
+            "type": "buildNode",
+            "data": {
+                "label": "Build Binary",
+                "personaId": "release-bot",
+                "promptTemplate": "Build {{project}}",
+                "requiredVotes": 2,
+                "reviewers": ["alice", "bob"],
+                "quorumThreshold": 0.75
+            }
+        }],
+        "edges": [{
+            "id": "build-deploy",
+            "source": "build",
+            "target": "deploy",
+            "sourceHandle": "success",
+            "label": "on-success"
+        }]
+    });
+
+    let definition: WorkflowDefinition = serde_json::from_value(input).unwrap();
+    let serialized = serde_json::to_value(&definition).unwrap();
+    let round_tripped: WorkflowDefinition = serde_json::from_value(serialized.clone()).unwrap();
+    let round_tripped_json = serde_json::to_value(round_tripped).unwrap();
+
+    assert_eq!(serialized, round_tripped_json);
+    assert_eq!(serialized["nodes"][0]["type"], "buildNode");
+    assert_eq!(serialized["nodes"][0]["data"]["personaId"], "release-bot");
+    assert_eq!(serialized["nodes"][0]["data"]["promptTemplate"], "Build {{project}}");
+    assert_eq!(serialized["nodes"][0]["data"]["requiredVotes"], 2);
+    assert_eq!(serialized["nodes"][0]["data"]["reviewers"], serde_json::json!(["alice", "bob"]));
+    assert_eq!(serialized["nodes"][0]["data"]["quorumThreshold"], 0.75);
+    assert_eq!(serialized["edges"][0]["sourceHandle"], "success");
+}
+
+#[test]
+fn workflow_run_report_serialization_round_trip_preserves_json_shape() {
+    let input = serde_json::json!({
+        "run_id": "run-2026-11-07-001",
+        "workflow_id": "wf-deploy-pipeline",
+        "workflow_name": "Deployment Pipeline",
+        "workflow_version": "1.2.0",
+        "triggered_by": "release-bot",
+        "trigger_type": "manual",
+        "status": "completed",
+        "started_at": "2026-11-07T10:00:00Z",
+        "completed_at": "2026-11-07T10:00:04Z",
+        "duration_ms": 4000,
+        "total_tokens_used": 128,
+        "node_results": {
+            "build": {
+                "node_id": "build",
+                "node_name": "Build Binary",
+                "node_type": "buildNode",
+                "status": "completed",
+                "started_at": "2026-11-07T10:00:00Z",
+                "finished_at": "2026-11-07T10:00:03Z",
+                "execution_ms": 3000,
+                "engine_used": "cargo",
+                "input": {"project": "tuzygent"},
+                "output": {"artifact": "agent-cli"},
+                "error": null,
+                "healed": false,
+                "healing_attempts": 0,
+                "lesson_learned": null
+            }
+        },
+        "timeline": [{
+            "timestamp": "2026-11-07T10:00:00Z",
+            "level": "info",
+            "message": "Run started"
+        }]
+    });
+
+    let report: WorkflowRunReport = serde_json::from_value(input).unwrap();
+    let serialized = serde_json::to_value(&report).unwrap();
+    let round_tripped: WorkflowRunReport = serde_json::from_value(serialized.clone()).unwrap();
+    let round_tripped_json = serde_json::to_value(round_tripped).unwrap();
+
+    assert_eq!(serialized, round_tripped_json);
+    assert_eq!(serialized["run_id"], "run-2026-11-07-001");
+    assert_eq!(serialized["duration_ms"], 4000);
+    assert_eq!(serialized["node_results"]["build"]["input"]["project"], "tuzygent");
+    assert_eq!(serialized["node_results"]["build"]["output"]["artifact"], "agent-cli");
+    assert_eq!(serialized["timeline"][0]["message"], "Run started");
 }
