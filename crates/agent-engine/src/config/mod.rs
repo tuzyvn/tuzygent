@@ -13,6 +13,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn single_engine_config_serialization_and_defaults() {
+        let config = SingleEngineConfig {
+            kind: "generic".into(),
+            binary_path: Some("/usr/bin/runner".into()),
+            args: vec!["--model".into(), "{prompt}".into()],
+            model: Some("model-v1".into()),
+            interactive_fallback: Some("tmux".into()),
+            output_parser: Some("json".into()),
+            env: [("MODE".into(), "safe".into())].into(),
+        };
+
+        let serialized = serde_json::to_value(&config).expect("Must serialize config");
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "kind": "generic",
+                "binary_path": "/usr/bin/runner",
+                "args": ["--model", "{prompt}"],
+                "model": "model-v1",
+                "interactive_fallback": "tmux",
+                "output_parser": "json",
+                "env": {"MODE": "safe"}
+            })
+        );
+
+        let parsed: SingleEngineConfig =
+            serde_json::from_value(serialized.clone()).expect("Must deserialize config");
+        let round_tripped = serde_json::to_value(parsed).expect("Must serialize parsed config");
+        assert_eq!(round_tripped, serialized);
+
+        let minimal: SingleEngineConfig = toml::from_str("kind = \"mock\"")
+            .expect("Must deserialize minimal config with defaults");
+        assert_eq!(minimal.kind, "mock");
+        assert_eq!(minimal.binary_path, None);
+        assert!(minimal.args.is_empty());
+        assert_eq!(minimal.model, None);
+        assert_eq!(minimal.interactive_fallback, None);
+        assert_eq!(minimal.output_parser, None);
+        assert!(minimal.env.is_empty());
+    }
+
+    #[test]
     fn test_engines_config_serialization() {
         let config = EnginesConfig::default();
         let toml_str = config.to_toml_string().expect("Must serialize to toml");
