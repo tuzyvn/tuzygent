@@ -424,4 +424,136 @@ mod unit_tests {
             unwrap_calls
         );
     }
+
+    #[tokio::test]
+    async fn test_lock_memory_file_creates_parent_and_lock_file() -> anyhow::Result<()> {
+        use crate::durable::storage::lock_memory_file;
+        use std::path::PathBuf;
+
+        let temp_dir = std::env::temp_dir().join(format!(
+            "test_memory_lock_{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let memory_path = temp_dir.join("nested").join("MEMORY.md");
+        let lock_path = memory_path.with_extension("lock");
+
+        let lock = lock_memory_file(&memory_path).await?;
+        assert!(memory_path.parent().is_some_and(std::path::Path::is_dir));
+        assert!(lock_path.is_file());
+        assert!(lock.metadata()?.is_file());
+        drop(lock);
+
+        // A parent that is a regular file cannot contain the lock file.
+        let blocking_parent = temp_dir.join("regular-file");
+        fs::write(&blocking_parent, "file").await?;
+        let impossible_path: PathBuf = blocking_parent.join("MEMORY.md");
+        let err = lock_memory_file(&impossible_path)
+            .await
+            .expect_err("opening a lock beneath a regular file must fail");
+        assert!(matches!(
+            err.kind(),
+            std::io::ErrorKind::NotADirectory | std::io::ErrorKind::PermissionDenied
+        ));
+
+        let _ = fs::remove_dir_all(&temp_dir).await;
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_query_tokens_normalizes_and_filters_terms() {
+        use crate::durable::storage::extract_query_tokens;
+
+        let tokens = extract_query_tokens("API, Git! k8s SQL bug a x và trong Fix-this_");
+        assert_eq!(tokens, vec!["api", "git", "k8s", "sql", "bug", "fix-this_"]);
+        assert!(extract_query_tokens("the và a x !!!").is_empty());
+    }
+
+    #[test]
+    fn test_text_matches_keywords_checks_tokens_and_empty_keywords() {
+        use crate::durable::storage::text_matches_keywords;
+
+        let keywords = vec!["port".to_string(), "redis".to_string()];
+        assert!(text_matches_keywords("Redis connection reset", &keywords));
+        assert!(!text_matches_keywords(
+            "important report",
+            &["port".to_string()]
+        ));
+        assert!(!text_matches_keywords("Redis connection reset", &[]));
+    }
+
+    #[test]
+    fn test_parse_lesson_blocks_keeps_multiline_blocks_and_drops_preamble() {
+        use crate::durable::storage::parse_lesson_blocks;
+
+        let content = "Preamble is ignored\n\n  - [Learned 2026-11-01] First lesson\n  detail line\n\n- [Learned 2026-11-02] Second lesson\nlast detail\n";
+        assert_eq!(
+            parse_lesson_blocks(content),
+            vec![
+                "  - [Learned 2026-11-01] First lesson\n  detail line\n",
+                "- [Learned 2026-11-02] Second lesson\nlast detail"
+            ]
+        );
+        assert!(parse_lesson_blocks("header only\nno lesson here").is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_load_long_term_context_includes_directives_and_recent_lessons(
+    ) -> anyhow::Result<()> {
+        use crate::durable::storage::DurableMemoryStore;
+
+        let temp_dir = std::env::temp_dir().join(format!(
+            "test_long_term_context_{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let store = DurableMemoryStore::new(&temp_dir);
+        store
+            .save_user_directive("  Keep durable notes concise.  ")
+            .await?;
+        store.save_lesson("Use atomic writes for state").await?;
+
+        let context = store.load_long_term_context().await?;
+        assert!(context.contains("# USER DIRECTIVES:"));
+        assert!(context.contains("Keep durable notes concise."));
+        assert!(context.contains("# DURABLE MEMORY & RELEVANT LESSONS:"));
+        assert!(context.contains("Use atomic writes for state"));
+
+        let empty_store = DurableMemoryStore::new(temp_dir.join("empty"));
+        assert_eq!(empty_store.load_long_term_context().await?, "");
+
+        let _ = fs::remove_dir_all(&temp_dir).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_save_user_directive_writes_header_and_appends_trimmed_entries(
+    ) -> anyhow::Result<()> {
+        use crate::durable::storage::DurableMemoryStore;
+
+        let temp_dir = std::env::temp_dir().join(format!(
+            "test_user_directive_{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let store = DurableMemoryStore::new(&temp_dir);
+
+        store
+            .save_user_directive("  Prefer explicit error handling.  ")
+            .await?;
+        store
+            .save_user_directive("  Keep tests deterministic.\n")
+            .await?;
+
+        let content = fs::read_to_string(store.user_file()).await?;
+        assert!(content.starts_with(
+            "# USER DIRECTIVES\n\nStable user preferences and operational directives:\n"
+        ));
+        assert_eq!(content.matches("# USER DIRECTIVES").count(), 1);
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        assert!(content.contains(&format!("<!-- observed: {today} | status: active -->")));
+        assert!(content.contains("| status: active -->\nPrefer explicit error handling.\n"));
+        assert!(content.contains("| status: active -->\nKeep tests deterministic.\n"));
+        assert!(!content.contains("  Prefer explicit error handling.  "));
+
+        let _ = fs::remove_dir_all(&temp_dir).await;
+        Ok(())
+    }
 }
