@@ -177,4 +177,72 @@ channels:
         let roundtrip_spec = RigSpec::from_yaml_str(&serialized).expect("Must parse roundtrip");
         assert_eq!(spec, roundtrip_spec);
     }
+
+    #[test]
+    fn test_seat_snapshot_json_roundtrip() {
+        let snapshot = SeatSnapshot {
+            seat_id: "backend-dev".to_string(),
+            name: "Backend".to_string(),
+            role: "Developer".to_string(),
+            harness: "process".to_string(),
+            is_active: true,
+            terminal_buffer: Some("ready\n".to_string()),
+        };
+        let expected_json = serde_json::json!({
+            "seat_id": "backend-dev",
+            "name": "Backend",
+            "role": "Developer",
+            "harness": "process",
+            "is_active": true,
+            "terminal_buffer": "ready\n"
+        });
+
+        let serialized = serde_json::to_value(&snapshot).expect("Must serialize SeatSnapshot");
+        assert_eq!(serialized, expected_json);
+
+        let deserialized: SeatSnapshot =
+            serde_json::from_value(expected_json).expect("Must deserialize SeatSnapshot JSON");
+        assert_eq!(deserialized, snapshot);
+    }
+
+    #[test]
+    fn test_rig_snapshot_json_roundtrip() {
+        let snapshot = RigSnapshot {
+            snapshot_id: "snap_software-dev_20261107_120000".to_string(),
+            rig_id: "software-dev".to_string(),
+            rig_name: "Software Engineering Rig".to_string(),
+            created_at: "2026-11-07T12:00:00Z".to_string(),
+            seats: vec![SeatSnapshot {
+                seat_id: "backend-dev".to_string(),
+                name: "Backend".to_string(),
+                role: "Developer".to_string(),
+                harness: "process".to_string(),
+                is_active: true,
+                terminal_buffer: None,
+            }],
+            spec_yaml: "rig:\n  id: software-dev\n".to_string(),
+        };
+        let expected_json = serde_json::json!({
+            "snapshot_id": "snap_software-dev_20261107_120000",
+            "rig_id": "software-dev",
+            "rig_name": "Software Engineering Rig",
+            "created_at": "2026-11-07T12:00:00Z",
+            "seats": [{
+                "seat_id": "backend-dev",
+                "name": "Backend",
+                "role": "Developer",
+                "harness": "process",
+                "is_active": true,
+                "terminal_buffer": null
+            }],
+            "spec_yaml": "rig:\n  id: software-dev\n"
+        });
+
+        let serialized = serde_json::to_value(&snapshot).expect("Must serialize RigSnapshot");
+        assert_eq!(serialized, expected_json);
+
+        let serialized = serde_json::to_string(&expected_json).expect("Must encode JSON fixture");
+        let deserialized = RigSnapshot::from_json(&serialized).expect("Must deserialize RigSnapshot");
+        assert_eq!(deserialized, snapshot);
+    }
 }
