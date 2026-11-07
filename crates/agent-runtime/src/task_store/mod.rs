@@ -168,3 +168,6 @@ pub struct SqliteTaskStore {
     db_path: PathBuf,
     conn: Arc<Mutex<Connection>>,
 }
+
+#[cfg(test)]
+mod tests;
