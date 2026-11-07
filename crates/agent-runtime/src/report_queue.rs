@@ -146,3 +146,66 @@ impl TerminalReportStore {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod serialization_tests {
+    use super::{TerminalReportKind, TerminalTaskReport};
+    use chrono::{TimeZone, Utc};
+
+    #[test]
+    fn terminal_report_kind_serialization_is_stable_and_round_trips() {
+        for (kind, expected) in [
+            (TerminalReportKind::Completed, "\"Completed\""),
+            (TerminalReportKind::Failed, "\"Failed\""),
+            (TerminalReportKind::Aborted, "\"Aborted\""),
+        ] {
+            let serialized = serde_json::to_string(&kind).expect("kind should serialize");
+
+            assert_eq!(serialized, expected);
+
+            let restored: TerminalReportKind =
+                serde_json::from_str(&serialized).expect("kind should deserialize");
+            assert_eq!(
+                serde_json::to_string(&restored).expect("restored kind should serialize"),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn terminal_task_report_serialization_is_stable_and_round_trips() {
+        let created_at = Utc.with_ymd_and_hms(2026, 11, 8, 0, 0, 0).unwrap();
+        let report = TerminalTaskReport {
+            version: 1,
+            created_at,
+            kind: TerminalReportKind::Completed,
+            task_id: "task-1".to_owned(),
+            agent_id: "agent-test".to_owned(),
+            output: Some("finished".to_owned()),
+            error_message: None,
+            retry_count: 0,
+            failure_reason: None,
+        };
+        let expected = serde_json::json!({
+            "version": 1,
+            "created_at": "2026-11-08T00:00:00Z",
+            "kind": "Completed",
+            "task_id": "task-1",
+            "agent_id": "agent-test",
+            "output": "finished",
+            "error_message": null,
+            "retry_count": 0,
+            "failure_reason": null
+        });
+
+        let serialized = serde_json::to_value(&report).expect("report should serialize");
+        assert_eq!(serialized, expected);
+
+        let restored: TerminalTaskReport =
+            serde_json::from_value(serialized).expect("report should deserialize");
+        assert_eq!(
+            serde_json::to_value(restored).expect("restored report should serialize"),
+            expected
+        );
+    }
+}
