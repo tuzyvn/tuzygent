@@ -3330,7 +3330,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-21ebd9: Bổ sung kiểm thử cho 8 API công khai chưa được nhắc tới trong test: crates/agent-server/src/gateway/resilience.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 07:43:11 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/gateway/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_history_buffer` (L80), `with_sharded_history_buffer` (L86), `with_buffer` (L92), `with_shared_cache` (L103), `history_buffer` (L112), `sharded_history_buffer` (L116), `check_fault_injection` (L159), `set_fault_policy` (L173).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/gateway/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
