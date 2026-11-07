@@ -64,3 +64,51 @@ pub async fn create_agent_handler(
         })),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::CreateAgentReq;
+
+    #[test]
+    fn create_agent_request_serialization_preserves_json_contract() {
+        let request = CreateAgentReq {
+            id: "agent-42".to_string(),
+            name: "Research Agent".to_string(),
+            description: Some("Reviews source material".to_string()),
+            autonomy: None,
+        };
+
+        let serialized = serde_json::to_value(&request).expect("request serializes");
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "id": "agent-42",
+                "name": "Research Agent",
+                "description": "Reviews source material",
+                "autonomy": null,
+            })
+        );
+
+        let round_trip: CreateAgentReq =
+            serde_json::from_value(serialized).expect("serialized request deserializes");
+        assert_eq!(round_trip.id, request.id);
+        assert_eq!(round_trip.name, request.name);
+        assert_eq!(round_trip.description, request.description);
+        assert_eq!(round_trip.autonomy, request.autonomy);
+    }
+
+    #[test]
+    fn create_agent_request_defaults_missing_optional_fields_and_ignores_unknown_fields() {
+        let request: CreateAgentReq = serde_json::from_value(serde_json::json!({
+            "id": "agent-7",
+            "name": "Default Agent",
+            "future_field": true,
+        }))
+        .expect("optional fields default and unknown fields are ignored");
+
+        assert_eq!(request.id, "agent-7");
+        assert_eq!(request.name, "Default Agent");
+        assert_eq!(request.description, None);
+        assert_eq!(request.autonomy, None);
+    }
+}
