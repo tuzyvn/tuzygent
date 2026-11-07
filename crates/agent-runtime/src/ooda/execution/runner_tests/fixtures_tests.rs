@@ -36,6 +36,24 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_mock_remediation_fixture_shape() -> anyhow::Result<()> {
+        let output = mock_remediation("fixture-1", "Repair fixture", "touch verified_fixture");
+        let remediation: serde_json::Value = serde_json::from_str(&output.stdout_content)?;
+
+        assert_eq!(remediation["id"], "fixture-1");
+        assert_eq!(remediation["title"], "Repair fixture");
+        assert_eq!(remediation["command_or_prompt"], "touch verified_fixture");
+        assert_eq!(
+            remediation["expected_verification"],
+            "file: verified_fixture"
+        );
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.engine_used, EngineKind::Mock);
+        assert_eq!(output.session_id, None);
+        Ok(())
+    }
+
     #[tokio::test]
     async fn test_callback_mock_engine_and_executors() -> anyhow::Result<()> {
         let mock_engine = Arc::new(CallbackMockEngine::with_constant_output("hello response"));

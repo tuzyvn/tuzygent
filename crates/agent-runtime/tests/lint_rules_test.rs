@@ -1381,25 +1381,30 @@ async fn test_topic_4338d8_root_cause_eliminated_for_runner_tests_and_fixtures()
         );
     }
 
-    // 5. Inspect fixtures.rs for resilient patterns
-    let fixtures_content = std::fs::read_to_string(runner_tests_dir.join("fixtures.rs"))
-        .unwrap_or_else(|_| panic!("Failed to read fixtures.rs"));
+    // 5. Inspect the fixture modules for resilient patterns.
+    let engine_fixture_content =
+        std::fs::read_to_string(runner_tests_dir.join("fixtures/engine.rs"))
+            .unwrap_or_else(|_| panic!("Failed to read fixtures/engine.rs"));
+    let executor_fixture_content =
+        std::fs::read_to_string(runner_tests_dir.join("fixtures/executor.rs"))
+            .unwrap_or_else(|_| panic!("Failed to read fixtures/executor.rs"));
 
     assert!(
-        fixtures_content.contains("pub fn with_exit_code"),
-        "fixtures.rs must provide with_exit_code helper for non-zero exit code testing"
+        engine_fixture_content.contains("pub fn with_exit_code"),
+        "fixtures/engine.rs must provide with_exit_code helper for non-zero exit code testing"
     );
     assert!(
-        fixtures_content.contains("pub fn with_error"),
-        "fixtures.rs must provide with_error helper"
+        engine_fixture_content.contains("pub fn with_error"),
+        "fixtures/engine.rs must provide with_error helper"
     );
     assert!(
-        fixtures_content.contains("pub fn with_sequence"),
-        "fixtures.rs must provide with_sequence helper for multi-step responses"
+        engine_fixture_content.contains("pub fn with_sequence"),
+        "fixtures/engine.rs must provide with_sequence helper for multi-step responses"
     );
     assert!(
-        fixtures_content.contains("Some(0)") || fixtures_content.contains("timeout_secs == 0"),
-        "fixtures.rs must handle zero timeout gracefully by falling back to safe default"
+        executor_fixture_content.contains("Some(0)")
+            || executor_fixture_content.contains("timeout_secs == 0"),
+        "fixtures/executor.rs must handle zero timeout gracefully by falling back to safe default"
     );
 }
 
