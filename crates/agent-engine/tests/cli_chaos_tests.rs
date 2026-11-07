@@ -4,9 +4,10 @@ use std::sync::Arc;
 
 use agent_domain::{AuditEventType, AuditLedger};
 use agent_engine::{
-    simulate_cli_fault, BackoffPolicy, BenchmarkMockCliEngine, CliBenchmarkHarness,
-    CliBenchmarkStats, CliError, CliFault, CliFaultPolicy, ComputeEngine, EngineError, EngineInput,
-    EngineKind, EngineOutput, GenericCliEngine, ResilientCliEngine, ResilientCliWrapper,
+    is_retryable_cli_error_message, simulate_cli_fault, BackoffPolicy, BenchmarkMockCliEngine,
+    CliBenchmarkHarness, CliBenchmarkStats, CliError, CliFault, CliFaultPolicy, ComputeEngine,
+    EngineError, EngineInput, EngineKind, EngineOutput, GenericCliEngine, ResilientCliEngine,
+    ResilientCliWrapper,
 };
 use std::time::{Duration, Instant};
 
@@ -219,6 +220,106 @@ fn test_cli_fault_simulation_and_taxonomy() {
     assert!(matches!(
         CliFault::CliNotFound.to_engine_error(),
         EngineError::CliNotFound(_)
+    ));
+}
+
+#[test]
+fn test_cli_fault_simulate_fault_alias_matches_fault_method() {
+    for (fault, expected) in [
+        (CliFault::SocketTimeout, CliError::SocketTimeout),
+        (CliFault::ProcessTimeout, CliError::ProcessTimeout),
+        (CliFault::BrokenPipe, CliError::BrokenPipe),
+        (
+            CliFault::TransientIo,
+            CliError::TransientIo(
+                "Simulated transient I/O failure during CLI process execution".to_string(),
+            ),
+        ),
+        (
+            CliFault::ProcessFailed,
+            CliError::ProcessFailed(
+                "Simulated CLI process failure with non-zero exit code".to_string(),
+            ),
+        ),
+        (
+            CliFault::CorruptedOutput,
+            CliError::CorruptedOutput("Corrupted or malformed CLI stream output".to_string()),
+        ),
+        (
+            CliFault::CliNotFound,
+            CliError::CliNotFound("Simulated CLI binary not found in PATH".to_string()),
+        ),
+    ] {
+        assert_eq!(
+            agent_engine::cli::simulate_fault(&fault),
+            Err(expected.clone()),
+            "free function should map {:?} to its documented CLI error",
+            fault
+        );
+        assert_eq!(
+            fault.simulate_fault(),
+            Err(expected),
+            "method should map {:?} to its documented CLI error",
+            fault
+        );
+    }
+}
+
+#[test]
+fn test_cli_retryable_error_message_classification() {
+    for message in [
+        "Socket TIMEOUT",
+        "process timed out",
+        "broken pipe",
+        "connection reset by peer",
+        "connection closed unexpectedly",
+        "resource temporarily unavailable",
+        "OS error 32",
+        "OS error 11",
+        "OS error 104",
+        "interrupted system call",
+        "I/O error while reading",
+        "io error while writing",
+        "transient CLI failure",
+    ] {
+        assert!(
+            is_retryable_cli_error_message(message),
+            "expected retryable classification for {message:?}"
+        );
+    }
+
+    for message in [
+        "",
+        "invalid arguments",
+        "permission denied",
+        "malformed response",
+    ] {
+        assert!(
+            !is_retryable_cli_error_message(message),
+            "expected non-retryable classification for {message:?}"
+        );
+    }
+}
+
+#[test]
+fn test_cli_retryable_engine_error_classification() {
+    assert!(agent_engine::cli::is_retryable_engine_error(
+        &EngineError::Timeout
+    ));
+    assert!(agent_engine::cli::is_retryable_engine_error(
+        &EngineError::ProcessFailed("broken pipe".to_string())
+    ));
+    assert!(!agent_engine::cli::is_retryable_engine_error(
+        &EngineError::ProcessFailed("invalid arguments".to_string())
+    ));
+    assert!(!agent_engine::cli::is_retryable_engine_error(
+        &EngineError::CliNotFound("missing binary".to_string())
+    ));
+    assert!(!agent_engine::cli::is_retryable_engine_error(
+        &EngineError::ApiRequestFailed("timeout".to_string())
+    ));
+    assert!(!agent_engine::cli::is_retryable_engine_error(
+        &EngineError::ProcessFailed(String::new())
     ));
 }
 
