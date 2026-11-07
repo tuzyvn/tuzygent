@@ -43,7 +43,9 @@ impl CronSchedule {
                 }
             })?;
             if ms == 0 {
-                return Err(ScheduleError::InvalidInterval("@every duration must be > 0".into()));
+                return Err(ScheduleError::InvalidInterval(
+                    "@every duration must be > 0".into(),
+                ));
             }
             return Ok(Self {
                 seconds: vec![0],
@@ -70,7 +72,9 @@ impl CronSchedule {
         let fields: Vec<&str> = normalized.split_whitespace().collect();
         let (sec_str, min_str, hour_str, dom_str, month_str, dow_str) = match fields.len() {
             5 => ("0", fields[0], fields[1], fields[2], fields[3], fields[4]),
-            6 => (fields[0], fields[1], fields[2], fields[3], fields[4], fields[5]),
+            6 => (
+                fields[0], fields[1], fields[2], fields[3], fields[4], fields[5],
+            ),
             _ => {
                 return Err(ScheduleError::InvalidCronExpression {
                     expression: expression.to_string(),
@@ -97,12 +101,24 @@ impl CronSchedule {
         }
 
         let base = add_duration(after, Duration::seconds(1))?;
-        let mut cur = make_utc(base.year(), base.month(), base.day(), base.hour(), base.minute(), base.second(), &after)?;
+        let mut cur = make_utc(
+            base.year(),
+            base.month(),
+            base.day(),
+            base.hour(),
+            base.minute(),
+            base.second(),
+            &after,
+        )?;
         let max_year = cur.year() + 5;
 
         while cur.year() <= max_year {
             if !self.months.contains(&cur.month()) {
-                let (ny, nm) = if cur.month() == 12 { (cur.year() + 1, 1) } else { (cur.year(), cur.month() + 1) };
+                let (ny, nm) = if cur.month() == 12 {
+                    (cur.year() + 1, 1)
+                } else {
+                    (cur.year(), cur.month() + 1)
+                };
                 cur = make_utc(ny, nm, 1, 0, 0, 0, &after)?;
                 continue;
             }
@@ -119,15 +135,39 @@ impl CronSchedule {
             }
             if !self.minutes.contains(&cur.minute()) {
                 let nmin = add_duration(cur, Duration::minutes(1))?;
-                cur = make_utc(nmin.year(), nmin.month(), nmin.day(), nmin.hour(), nmin.minute(), 0, &after)?;
+                cur = make_utc(
+                    nmin.year(),
+                    nmin.month(),
+                    nmin.day(),
+                    nmin.hour(),
+                    nmin.minute(),
+                    0,
+                    &after,
+                )?;
                 continue;
             }
             if !self.seconds.contains(&cur.second()) {
                 if let Some(&next_sec) = self.seconds.iter().find(|&&s| s > cur.second()) {
-                    cur = make_utc(cur.year(), cur.month(), cur.day(), cur.hour(), cur.minute(), next_sec, &after)?;
+                    cur = make_utc(
+                        cur.year(),
+                        cur.month(),
+                        cur.day(),
+                        cur.hour(),
+                        cur.minute(),
+                        next_sec,
+                        &after,
+                    )?;
                 } else {
                     let nmin = add_duration(cur, Duration::minutes(1))?;
-                    cur = make_utc(nmin.year(), nmin.month(), nmin.day(), nmin.hour(), nmin.minute(), 0, &after)?;
+                    cur = make_utc(
+                        nmin.year(),
+                        nmin.month(),
+                        nmin.day(),
+                        nmin.hour(),
+                        nmin.minute(),
+                        0,
+                        &after,
+                    )?;
                 }
                 continue;
             }
@@ -143,13 +183,24 @@ fn add_duration(reference: DateTime<Utc>, delta: Duration) -> Result<DateTime<Ut
         .ok_or_else(|| ScheduleError::NoNextOccurrence(reference.to_rfc3339()))
 }
 
-fn add_milliseconds(reference: DateTime<Utc>, milliseconds: u64) -> Result<DateTime<Utc>, ScheduleError> {
+fn add_milliseconds(
+    reference: DateTime<Utc>,
+    milliseconds: u64,
+) -> Result<DateTime<Utc>, ScheduleError> {
     let milliseconds = i64::try_from(milliseconds)
         .map_err(|_| ScheduleError::NoNextOccurrence(reference.to_rfc3339()))?;
     add_duration(reference, Duration::milliseconds(milliseconds))
 }
 
-fn make_utc(y: i32, m: u32, d: u32, h: u32, min: u32, s: u32, r: &DateTime<Utc>) -> Result<DateTime<Utc>, ScheduleError> {
+fn make_utc(
+    y: i32,
+    m: u32,
+    d: u32,
+    h: u32,
+    min: u32,
+    s: u32,
+    r: &DateTime<Utc>,
+) -> Result<DateTime<Utc>, ScheduleError> {
     Utc.with_ymd_and_hms(y, m, d, h, min, s)
         .single()
         .ok_or_else(|| ScheduleError::NoNextOccurrence(r.to_rfc3339()))
@@ -159,30 +210,53 @@ fn parse_duration_ms(raw: &str) -> Option<u64> {
     if let Some(v) = raw.strip_suffix("ms") {
         v.trim().parse::<u64>().ok()
     } else if let Some(v) = raw.strip_suffix('s') {
-        v.trim().parse::<u64>().ok().map(|s| s.saturating_mul(1_000))
+        v.trim()
+            .parse::<u64>()
+            .ok()
+            .map(|s| s.saturating_mul(1_000))
     } else if let Some(v) = raw.strip_suffix('m') {
-        v.trim().parse::<u64>().ok().map(|m| m.saturating_mul(60_000))
+        v.trim()
+            .parse::<u64>()
+            .ok()
+            .map(|m| m.saturating_mul(60_000))
     } else if let Some(v) = raw.strip_suffix('h') {
-        v.trim().parse::<u64>().ok().map(|h| h.saturating_mul(3_600_000))
+        v.trim()
+            .parse::<u64>()
+            .ok()
+            .map(|h| h.saturating_mul(3_600_000))
     } else {
         None
     }
 }
 
-fn parse_cron_field(field: &str, min: u32, max: u32, norm_sun: bool, expr: &str) -> Result<Vec<u32>, ScheduleError> {
+fn parse_cron_field(
+    field: &str,
+    min: u32,
+    max: u32,
+    norm_sun: bool,
+    expr: &str,
+) -> Result<Vec<u32>, ScheduleError> {
     let mut values = Vec::new();
     for part in field.split(',') {
         let part = part.trim();
         if part.is_empty() {
-            return Err(ScheduleError::InvalidCronExpression { expression: expr.into(), reason: "empty segment".into() });
+            return Err(ScheduleError::InvalidCronExpression {
+                expression: expr.into(),
+                reason: "empty segment".into(),
+            });
         }
         let (range_part, step) = if let Some((r, s)) = part.split_once('/') {
-            let st = s.parse::<u32>().map_err(|_| ScheduleError::InvalidCronExpression {
-                expression: expr.into(),
-                reason: format!("invalid step '{s}'"),
-            })?;
+            let st = s
+                .parse::<u32>()
+                .map_err(|_| ScheduleError::InvalidCronExpression {
+                    expression: expr.into(),
+                    reason: format!("invalid step '{s}'"),
+                })?;
             if st == 0 {
-                return Err(ScheduleError::InvalidCronExpression { expression: expr.into(), reason: "step cannot be 0".into() });
+                return Err(ScheduleError::InvalidCronExpression {
+                    expression: expr.into(),
+                    reason: "step cannot be 0".into(),
+                });
             }
             (r, st)
         } else {
@@ -192,18 +266,44 @@ fn parse_cron_field(field: &str, min: u32, max: u32, norm_sun: bool, expr: &str)
         let (start, end) = if range_part == "*" {
             (min, max)
         } else if let Some((a, b)) = range_part.split_once('-') {
-            let s = a.parse::<u32>().map_err(|_| ScheduleError::InvalidCronExpression { expression: expr.into(), reason: format!("invalid start '{a}'") })?;
-            let e = b.parse::<u32>().map_err(|_| ScheduleError::InvalidCronExpression { expression: expr.into(), reason: format!("invalid end '{b}'") })?;
+            let s = a
+                .parse::<u32>()
+                .map_err(|_| ScheduleError::InvalidCronExpression {
+                    expression: expr.into(),
+                    reason: format!("invalid start '{a}'"),
+                })?;
+            let e = b
+                .parse::<u32>()
+                .map_err(|_| ScheduleError::InvalidCronExpression {
+                    expression: expr.into(),
+                    reason: format!("invalid end '{b}'"),
+                })?;
             if s < min || e > max || s > e {
-                return Err(ScheduleError::InvalidCronExpression { expression: expr.into(), reason: format!("range {s}-{e} out of [{min},{max}]") });
+                return Err(ScheduleError::InvalidCronExpression {
+                    expression: expr.into(),
+                    reason: format!("range {s}-{e} out of [{min},{max}]"),
+                });
             }
             (s, e)
         } else {
-            let val = range_part.parse::<u32>().map_err(|_| ScheduleError::InvalidCronExpression { expression: expr.into(), reason: format!("invalid value '{range_part}'") })?;
+            let val =
+                range_part
+                    .parse::<u32>()
+                    .map_err(|_| ScheduleError::InvalidCronExpression {
+                        expression: expr.into(),
+                        reason: format!("invalid value '{range_part}'"),
+                    })?;
             if val < min || val > max {
-                return Err(ScheduleError::InvalidCronExpression { expression: expr.into(), reason: format!("value {val} out of [{min},{max}]") });
+                return Err(ScheduleError::InvalidCronExpression {
+                    expression: expr.into(),
+                    reason: format!("value {val} out of [{min},{max}]"),
+                });
             }
-            if part.contains('/') { (val, max) } else { (val, val) }
+            if part.contains('/') {
+                (val, max)
+            } else {
+                (val, val)
+            }
         };
 
         let mut v = start;
@@ -222,10 +322,19 @@ fn parse_cron_field(field: &str, min: u32, max: u32, norm_sun: bool, expr: &str)
 /// Unified schedule specification for Delayed Task Queue and Recurring Cron / Interval tasks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScheduleSpec {
-    OnceAt { run_after: DateTime<Utc> },
-    Delayed { delay_ms: u64, run_after: DateTime<Utc> },
-    Interval { interval_ms: u64 },
-    Cron { expression: String },
+    OnceAt {
+        run_after: DateTime<Utc>,
+    },
+    Delayed {
+        delay_ms: u64,
+        run_after: DateTime<Utc>,
+    },
+    Interval {
+        interval_ms: u64,
+    },
+    Cron {
+        expression: String,
+    },
 }
 
 impl ScheduleSpec {
@@ -240,17 +349,26 @@ impl ScheduleSpec {
     pub fn after_delay_from(now: DateTime<Utc>, delay: std::time::Duration) -> Self {
         let delay_ms = u64::try_from(delay.as_millis()).unwrap_or(u64::MAX);
         let delta = Duration::milliseconds(i64::try_from(delay_ms).unwrap_or(i64::MAX));
-        let run_after = now.checked_add_signed(delta).unwrap_or(DateTime::<Utc>::MAX_UTC);
-        Self::Delayed { delay_ms, run_after }
+        let run_after = now
+            .checked_add_signed(delta)
+            .unwrap_or(DateTime::<Utc>::MAX_UTC);
+        Self::Delayed {
+            delay_ms,
+            run_after,
+        }
     }
 
     pub fn every(interval: std::time::Duration) -> Self {
-        let ms = u64::try_from(interval.as_millis()).unwrap_or(u64::MAX).max(1);
+        let ms = u64::try_from(interval.as_millis())
+            .unwrap_or(u64::MAX)
+            .max(1);
         Self::Interval { interval_ms: ms }
     }
 
     pub fn every_seconds(secs: u64) -> Self {
-        Self::Interval { interval_ms: secs.max(1).saturating_mul(1_000) }
+        Self::Interval {
+            interval_ms: secs.max(1).saturating_mul(1_000),
+        }
     }
 
     pub fn cron(expression: impl Into<String>) -> Result<Self, ScheduleError> {
@@ -268,7 +386,9 @@ impl ScheduleSpec {
             Self::OnceAt { run_after } | Self::Delayed { run_after, .. } => Ok(*run_after),
             Self::Interval { interval_ms } => {
                 if *interval_ms == 0 {
-                    return Err(ScheduleError::InvalidInterval("interval_ms must be > 0".into()));
+                    return Err(ScheduleError::InvalidInterval(
+                        "interval_ms must be > 0".into(),
+                    ));
                 }
                 add_milliseconds(now, *interval_ms)
             }
@@ -276,18 +396,25 @@ impl ScheduleSpec {
         }
     }
 
-    pub fn next_run_after(&self, reference: DateTime<Utc>) -> Result<Option<DateTime<Utc>>, ScheduleError> {
+    pub fn next_run_after(
+        &self,
+        reference: DateTime<Utc>,
+    ) -> Result<Option<DateTime<Utc>>, ScheduleError> {
         match self {
             Self::OnceAt { run_after } | Self::Delayed { run_after, .. } => {
                 Ok((reference < *run_after).then_some(*run_after))
             }
             Self::Interval { interval_ms } => {
                 if *interval_ms == 0 {
-                    return Err(ScheduleError::InvalidInterval("interval_ms must be > 0".into()));
+                    return Err(ScheduleError::InvalidInterval(
+                        "interval_ms must be > 0".into(),
+                    ));
                 }
                 Ok(Some(add_milliseconds(reference, *interval_ms)?))
             }
-            Self::Cron { expression } => Ok(Some(CronSchedule::parse(expression)?.next_after(reference)?)),
+            Self::Cron { expression } => Ok(Some(
+                CronSchedule::parse(expression)?.next_after(reference)?,
+            )),
         }
     }
 }
@@ -313,7 +440,13 @@ pub struct TaskScheduleRecord {
 }
 
 impl TaskScheduleRecord {
-    pub fn new(title: &str, goal: &str, priority: Priority, spec: ScheduleSpec, now: DateTime<Utc>) -> Result<Self, ScheduleError> {
+    pub fn new(
+        title: &str,
+        goal: &str,
+        priority: Priority,
+        spec: ScheduleSpec,
+        now: DateTime<Utc>,
+    ) -> Result<Self, ScheduleError> {
         let next_run_at = spec.initial_run_at(now)?;
         Ok(Self {
             schedule_id: format!("SCHED-{}", Uuid::new_v4().simple()),
@@ -354,7 +487,11 @@ impl TaskScheduleRecord {
         self.enabled && self.next_run_at <= now
     }
 
-    pub fn advance_after_trigger(&mut self, triggered_at: DateTime<Utc>, spawned_task_id: TaskId) -> Result<Option<DateTime<Utc>>, ScheduleError> {
+    pub fn advance_after_trigger(
+        &mut self,
+        triggered_at: DateTime<Utc>,
+        spawned_task_id: TaskId,
+    ) -> Result<Option<DateTime<Utc>>, ScheduleError> {
         self.run_count = self.run_count.saturating_add(1);
         self.last_run_at = Some(triggered_at);
         self.last_spawned_task_id = Some(spawned_task_id);
@@ -382,11 +519,14 @@ mod tests {
     use super::*;
 
     fn at(y: i32, m: u32, d: u32, h: u32, min: u32, sec: u32) -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(y, m, d, h, min, sec).single().expect("valid schedule test fixture")
+        Utc.with_ymd_and_hms(y, m, d, h, min, sec)
+            .single()
+            .expect("valid schedule test fixture")
     }
 
     fn record(spec: ScheduleSpec, now: DateTime<Utc>) -> TaskScheduleRecord {
-        TaskScheduleRecord::new("title", "goal", Priority::Normal, spec, now).expect("valid schedule test fixture")
+        TaskScheduleRecord::new("title", "goal", Priority::Normal, spec, now)
+            .expect("valid schedule test fixture")
     }
 
     #[test]
@@ -428,14 +568,24 @@ mod tests {
     fn cron_next_after_is_strict_and_handles_every_and_exhaustion() {
         let start = at(2026, 11, 7, 9, 30, 0);
         let cron = CronSchedule::parse("0 30 9 * * *").expect("valid schedule test fixture");
-        assert_eq!(cron.next_after(start).expect("valid schedule test fixture"), at(2026, 11, 8, 9, 30, 0));
+        assert_eq!(
+            cron.next_after(start).expect("valid schedule test fixture"),
+            at(2026, 11, 8, 9, 30, 0)
+        );
 
         let every = CronSchedule::parse("@every 5s").expect("valid schedule test fixture");
-        assert_eq!(every.next_after(start).expect("valid schedule test fixture"), at(2026, 11, 7, 9, 30, 5));
+        assert_eq!(
+            every
+                .next_after(start)
+                .expect("valid schedule test fixture"),
+            at(2026, 11, 7, 9, 30, 5)
+        );
 
         let secondly = CronSchedule::parse("* * * * * *").expect("valid schedule test fixture");
         assert_eq!(
-            secondly.next_after(start + Duration::milliseconds(500)).expect("valid schedule test fixture"),
+            secondly
+                .next_after(start + Duration::milliseconds(500))
+                .expect("valid schedule test fixture"),
             start + Duration::seconds(1)
         );
 
@@ -534,7 +684,9 @@ mod tests {
         assert!(!ScheduleSpec::once_at(now).is_recurring());
         assert!(!ScheduleSpec::after_delay_from(now, std::time::Duration::ZERO).is_recurring());
         assert!(ScheduleSpec::every_seconds(1).is_recurring());
-        assert!(ScheduleSpec::cron("@daily").expect("valid schedule test fixture").is_recurring());
+        assert!(ScheduleSpec::cron("@daily")
+            .expect("valid schedule test fixture")
+            .is_recurring());
     }
 
     #[test]
@@ -542,7 +694,9 @@ mod tests {
         let now = at(2026, 11, 7, 9, 30, 0);
         let future = now + Duration::hours(1);
         assert_eq!(
-            ScheduleSpec::once_at(future).initial_run_at(now).expect("valid schedule test fixture"),
+            ScheduleSpec::once_at(future)
+                .initial_run_at(now)
+                .expect("valid schedule test fixture"),
             future
         );
         assert_eq!(
@@ -552,7 +706,9 @@ mod tests {
             now + Duration::seconds(5)
         );
         assert_eq!(
-            ScheduleSpec::every_seconds(10).initial_run_at(now).expect("valid schedule test fixture"),
+            ScheduleSpec::every_seconds(10)
+                .initial_run_at(now)
+                .expect("valid schedule test fixture"),
             now + Duration::seconds(10)
         );
         assert_eq!(
@@ -573,10 +729,19 @@ mod tests {
         let now = at(2026, 11, 7, 9, 30, 0);
         let future = now + Duration::seconds(1);
         let once = ScheduleSpec::once_at(future);
-        assert_eq!(once.next_run_after(now).expect("valid schedule test fixture"), Some(future));
-        assert_eq!(once.next_run_after(future).expect("valid schedule test fixture"), None);
         assert_eq!(
-            once.next_run_after(future + Duration::seconds(1)).expect("valid schedule test fixture"),
+            once.next_run_after(now)
+                .expect("valid schedule test fixture"),
+            Some(future)
+        );
+        assert_eq!(
+            once.next_run_after(future)
+                .expect("valid schedule test fixture"),
+            None
+        );
+        assert_eq!(
+            once.next_run_after(future + Duration::seconds(1))
+                .expect("valid schedule test fixture"),
             None
         );
         assert_eq!(
@@ -687,18 +852,28 @@ mod tests {
         .expect("valid schedule test fixture")
         .with_max_runs(2);
         assert_eq!(
-            recurring.advance_after_trigger(triggered_at, spawned_task_id.clone()).expect("valid schedule test fixture"),
+            recurring
+                .advance_after_trigger(triggered_at, spawned_task_id.clone())
+                .expect("valid schedule test fixture"),
             Some(triggered_at + Duration::seconds(60))
         );
         assert_eq!(recurring.run_count, 1);
         assert_eq!(recurring.last_run_at, Some(triggered_at));
-        assert_eq!(recurring.last_spawned_task_id, Some(spawned_task_id.clone()));
+        assert_eq!(
+            recurring.last_spawned_task_id,
+            Some(spawned_task_id.clone())
+        );
         assert_eq!(recurring.updated_at, triggered_at);
         assert_eq!(recurring.next_run_at, triggered_at + Duration::seconds(60));
         assert!(recurring.enabled);
 
         assert_eq!(
-            recurring.advance_after_trigger(triggered_at + Duration::seconds(60), spawned_task_id.clone()).expect("valid schedule test fixture"),
+            recurring
+                .advance_after_trigger(
+                    triggered_at + Duration::seconds(60),
+                    spawned_task_id.clone()
+                )
+                .expect("valid schedule test fixture"),
             None
         );
         assert_eq!(recurring.run_count, 2);
@@ -712,7 +887,12 @@ mod tests {
             now,
         )
         .expect("valid schedule test fixture");
-        assert_eq!(one_shot.advance_after_trigger(triggered_at, spawned_task_id).expect("valid schedule test fixture"), None);
+        assert_eq!(
+            one_shot
+                .advance_after_trigger(triggered_at, spawned_task_id)
+                .expect("valid schedule test fixture"),
+            None
+        );
         assert_eq!(one_shot.run_count, 1);
         assert!(!one_shot.enabled);
     }

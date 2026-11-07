@@ -200,7 +200,8 @@ mod tests {
 
         let test_rig = "test_lifecycle";
         let test_seat = "agent_01";
-        let session_name = match TmuxSessionManager::create_seat_session(test_rig, test_seat, None) {
+        let session_name = match TmuxSessionManager::create_seat_session(test_rig, test_seat, None)
+        {
             Ok(session_name) => session_name,
             Err(error) if error.contains("Operation not permitted") => {
                 println!("tmux socket access is restricted; skipping lifecycle test.");

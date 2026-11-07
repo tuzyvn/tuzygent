@@ -267,4 +267,3 @@ pub fn submit_idempotent(
     tx.commit()?;
     Ok(IdempotentSubmission::Created(task.id.clone()))
 }
-

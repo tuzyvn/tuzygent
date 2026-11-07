@@ -1,6 +1,6 @@
-use super::InterAgentEvent;
 use super::fault::EventFaultPolicy;
 use super::resilience::ResilientEventProcessor;
+use super::InterAgentEvent;
 use crate::identity::AgentId;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};

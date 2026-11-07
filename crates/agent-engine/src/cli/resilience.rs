@@ -1,8 +1,8 @@
+use crate::cli::fault::CliFaultPolicy;
+use crate::traits::EngineOutput;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use crate::cli::fault::CliFaultPolicy;
-use crate::traits::EngineOutput;
 
 /// Wrapper tự phục hồi cho ComputeEngine CLI với cơ chế retry có kiểm soát, bounded memory cache và injection fault testing
 #[derive(Clone)]

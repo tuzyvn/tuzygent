@@ -11,8 +11,21 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tracing::{error, info};
 
-fn make_task_result(id: TaskId, status: TaskStatus, summary: String, engine: Option<String>) -> TaskResult {
-    TaskResult { task_id: id, status, summary, artifacts: Vec::new(), verifications: Vec::new(), duration_ms: 0, engine_used: engine }
+fn make_task_result(
+    id: TaskId,
+    status: TaskStatus,
+    summary: String,
+    engine: Option<String>,
+) -> TaskResult {
+    TaskResult {
+        task_id: id,
+        status,
+        summary,
+        artifacts: Vec::new(),
+        verifications: Vec::new(),
+        duration_ms: 0,
+        engine_used: engine,
+    }
 }
 
 impl TaskService {

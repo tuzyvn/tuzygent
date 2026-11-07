@@ -266,4 +266,3 @@ async fn test_execute_queue_fatal_quota_or_auth_error_aborts_immediately(
     assert!(matches!(task.subtasks[0].status, TaskStatus::Failed { .. }));
     Ok(())
 }
-

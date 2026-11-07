@@ -2,11 +2,11 @@ use async_trait::async_trait;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use agent_domain::{ActionSeverity, AuditEventType, AuditLedger};
-use crate::cli::fault::{is_retryable_engine_error, CliFault};
 use crate::cli::fault::CliFaultPolicy;
+use crate::cli::fault::{is_retryable_engine_error, CliFault};
 use crate::cli::resilience::ResilientCliEngine;
 use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+use agent_domain::{ActionSeverity, AuditEventType, AuditLedger};
 
 impl<E: ComputeEngine> ResilientCliEngine<E> {
     async fn execute_with_optional_ledger(

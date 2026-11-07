@@ -4,9 +4,9 @@ pub mod lifecycle;
 pub mod resume;
 pub mod review;
 pub mod scheduler;
-mod worker;
 #[cfg(test)]
 mod tests;
+mod worker;
 
 pub use dead_letter::DEFAULT_POISON_THRESHOLD;
 pub use scheduler::SchedulerTickReport;

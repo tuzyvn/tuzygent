@@ -1,11 +1,11 @@
 pub mod crud;
-pub mod lifecycle;
 pub mod idempotency;
+pub mod lifecycle;
 pub mod results;
 pub mod review;
-mod sqlite_impl;
 pub mod schedule;
 pub mod schema;
+mod sqlite_impl;
 
 use agent_domain::{SubTask, Task, TaskId, TaskResult, TaskScheduleRecord};
 use anyhow::{anyhow, Result};
@@ -168,4 +168,3 @@ pub struct SqliteTaskStore {
     db_path: PathBuf,
     conn: Arc<Mutex<Connection>>,
 }
-

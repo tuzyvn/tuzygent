@@ -320,4 +320,3 @@ pub fn get_checkpoint_metadata(
         Ok(None)
     }
 }
-
