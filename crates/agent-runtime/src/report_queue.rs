@@ -150,7 +150,20 @@ impl TerminalReportStore {
 #[cfg(test)]
 mod serialization_tests {
     use super::{TerminalReportKind, TerminalTaskReport};
-    use chrono::{TimeZone, Utc};
+    use chrono::{DateTime, TimeZone, Utc};
+
+    fn utc_timestamp(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        minute: u32,
+        second: u32,
+    ) -> Result<DateTime<Utc>, &'static str> {
+        Utc.with_ymd_and_hms(year, month, day, hour, minute, second)
+            .single()
+            .ok_or("timestamp is not a valid unique UTC time")
+    }
 
     #[test]
     fn terminal_report_kind_serialization_is_stable_and_round_trips() {
@@ -173,8 +186,14 @@ mod serialization_tests {
     }
 
     #[test]
-    fn terminal_task_report_serialization_is_stable_and_round_trips() {
-        let created_at = Utc.with_ymd_and_hms(2026, 11, 8, 0, 0, 0).unwrap();
+    fn utc_timestamp_returns_error_when_date_does_not_exist() {
+        assert!(utc_timestamp(2026, 2, 30, 0, 0, 0).is_err());
+    }
+
+    #[test]
+    fn terminal_task_report_serialization_is_stable_and_round_trips(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let created_at = utc_timestamp(2026, 11, 8, 0, 0, 0)?;
         let report = TerminalTaskReport {
             version: 1,
             created_at,
@@ -198,14 +217,11 @@ mod serialization_tests {
             "failure_reason": null
         });
 
-        let serialized = serde_json::to_value(&report).expect("report should serialize");
+        let serialized = serde_json::to_value(&report)?;
         assert_eq!(serialized, expected);
 
-        let restored: TerminalTaskReport =
-            serde_json::from_value(serialized).expect("report should deserialize");
-        assert_eq!(
-            serde_json::to_value(restored).expect("restored report should serialize"),
-            expected
-        );
+        let restored: TerminalTaskReport = serde_json::from_value(serialized)?;
+        assert_eq!(serde_json::to_value(restored)?, expected);
+        Ok(())
     }
 }
