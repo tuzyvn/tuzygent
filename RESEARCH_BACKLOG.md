@@ -3354,7 +3354,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-7d862e: Bổ sung kiểm thử cho 7 API công khai chưa được nhắc tới trong test: crates/agent-server/src/handlers/tasks.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 08:42:29 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/handlers/tasks.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `run_task_handler` (L36), `submit_task_handler` (L117), `list_tasks_handler` (L183), `get_task_handler` (L190), `review_task_handler` (L215), `cancel_task_handler` (L227), `approve_task_handler` (L239).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/handlers/tasks.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 

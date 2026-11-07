@@ -2,7 +2,7 @@
 #[tokio::test]
 async fn authenticated_task_delegates_to_codex_via_rest() -> Result<(), Box<dyn std::error::Error>>
 {
-    use crate::{build_app, AppState, AuthState};
+    use crate::{AppState, AuthState, build_app};
     use agent_core::prelude::*;
     use axum::{body::Body, http::Request, http::StatusCode};
     use std::os::unix::fs::PermissionsExt;
@@ -162,7 +162,7 @@ async fn idempotency_key_replays_and_rejects_conflicting_requests() {
 
 #[tokio::test]
 async fn manual_review_endpoint_requires_auth_and_current_revision() {
-    use crate::{build_app, AppState, AuthState};
+    use crate::{AppState, AuthState, build_app};
     use agent_core::prelude::*;
     use agent_runtime::TaskStore;
     use axum::{
@@ -254,7 +254,7 @@ async fn manual_review_endpoint_requires_auth_and_current_revision() {
 
 #[tokio::test]
 async fn cancel_task_endpoint_cancels_queued_task_and_requires_auth() {
-    use crate::{build_app, AppState, AuthState};
+    use crate::{AppState, AuthState, build_app};
     use agent_core::prelude::*;
     use agent_runtime::TaskStore;
     use axum::{
@@ -337,4 +337,250 @@ async fn cancel_task_endpoint_cancels_queued_task_and_requires_auth() {
         .unwrap();
     let not_found_resp = app.oneshot(not_found_req).await.unwrap();
     assert_eq!(not_found_resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn run_task_handler_rejects_an_unknown_engine() {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    let app = super::common::app().unwrap();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/tasks/run")
+                .header("authorization", "Bearer test-secret")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"agent_id":"test","goal":"test","engine":"missing-engine"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn submit_task_handler_rejects_an_invalid_idempotency_key() {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    let app = super::common::app().unwrap();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/tasks")
+                .header("authorization", "Bearer test-secret")
+                .header("content-type", "application/json")
+                .header("idempotency-key", "invalid key")
+                .body(Body::from(r#"{"title":"test","goal":"test"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn list_tasks_handler_returns_an_empty_task_list() {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    let app = super::common::app().unwrap();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/tasks")
+                .header("authorization", "Bearer test-secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 8192)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(body["tasks"], serde_json::json!([]));
+}
+
+#[tokio::test]
+async fn get_task_handler_returns_not_found_for_an_unknown_task() {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    let app = super::common::app().unwrap();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/tasks/missing-task")
+                .header("authorization", "Bearer test-secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn review_task_handler_returns_not_found_for_an_unknown_task() {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    let app = super::common::app().unwrap();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/tasks/missing-task/review")
+                .header("authorization", "Bearer test-secret")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"revision":"revision","reviewer":"operator","approved":true}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn cancel_task_handler_returns_not_found_for_an_unknown_task() {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    let app = super::common::app().unwrap();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/tasks/missing-task/cancel")
+                .header("authorization", "Bearer test-secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn approve_task_handler_returns_not_found_for_an_unknown_task() {
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+
+    let app = super::common::app().unwrap();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/tasks/missing-task/approve")
+                .header("authorization", "Bearer test-secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn approve_task_handler_rejects_a_task_that_is_not_waiting_for_approval() {
+    use crate::{AppState, AuthState, build_app};
+    use agent_core::prelude::*;
+    use agent_runtime::TaskStore;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    let store = Arc::new(agent_runtime::SqliteTaskStore::memory().unwrap());
+    let service = Arc::new(agent_runtime::TaskService::new(
+        store.clone(),
+        "/tmp",
+        1,
+        None,
+        None,
+    ));
+    let task = Task::new("not awaiting approval", "task goal", Priority::Normal);
+    let task_id = task.id.to_string();
+    store.save_task(&task).await.unwrap();
+
+    let bus = InterAgentBus::new(16);
+    let app = build_app(
+        AppState {
+            supervisor: Arc::new(AgentSupervisor::new(bus.clone())),
+            bus,
+            workspace: "/tmp".into(),
+            vault: Arc::new(agent_engine::AccountVault::new_with_dir(
+                std::env::temp_dir().join(format!("vault-{}", uuid::Uuid::new_v4())),
+            )),
+            task_service: service,
+            metrics: Arc::new(crate::metrics::ResilientMetricsService::default()),
+        },
+        AuthState::new(Arc::new("test-secret".into()), vec![]),
+    );
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/tasks/{task_id}/approve"))
+                .header("authorization", "Bearer test-secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 8192)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("not in WaitingApproval status")
+    );
 }
