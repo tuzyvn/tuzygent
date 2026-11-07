@@ -133,3 +133,7 @@ pub async fn verify_account_handler(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "accounts_tests.rs"]
+mod tests;

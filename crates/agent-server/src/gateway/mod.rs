@@ -23,15 +23,12 @@ pub use types::*;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use std::sync::Arc;
 
+    use crate::AppState;
     use agent_engine::AccountEngineKind;
     use agent_runtime::{AgentSupervisor, InterAgentBus};
     use axum::extract::State;
-    use axum::Json;
-
-    use crate::AppState;
 
     fn create_test_state() -> Result<AppState, Box<dyn std::error::Error>> {
         let bus = InterAgentBus::new(16);
@@ -52,53 +49,6 @@ mod tests {
             task_service,
             metrics: Arc::new(crate::metrics::ResilientMetricsService::default()),
         })
-    }
-
-    #[tokio::test]
-    async fn test_gateway_account_profile_sanitization() -> Result<(), Box<dyn std::error::Error>> {
-        let state = create_test_state()?;
-
-        let mut env = HashMap::new();
-        env.insert(
-            "SECRET_API_KEY".to_string(),
-            "sk-super-secret-12345".to_string(),
-        );
-        env.insert("ANTHROPIC_AUTH".to_string(), "token-999".to_string());
-
-        let req = AddAccountReq {
-            engine: "antigravity".to_string(),
-            id: "safe-acc-01".to_string(),
-            name: "Sanitized Test Account".to_string(),
-            extra_env: env,
-        };
-
-        // 1. Add account and check returned profile is sanitized (SafeAccountProfile)
-        let add_res = add_account_handler(State(state.clone()), Json(req)).await;
-        assert!(add_res.is_ok());
-        let safe_profile = add_res.map_err(|(code, msg)| format!("{code}: {msg}"))?.0;
-        assert_eq!(safe_profile.id, "safe-acc-01");
-        assert_eq!(safe_profile.name, "Sanitized Test Account");
-        assert!(safe_profile
-            .extra_env_keys
-            .contains(&"SECRET_API_KEY".to_string()));
-        assert!(safe_profile
-            .extra_env_keys
-            .contains(&"ANTHROPIC_AUTH".to_string()));
-
-        // Serialized representation must not leak the raw secret value
-        let serialized = serde_json::to_string(&safe_profile)?;
-        assert!(!serialized.contains("sk-super-secret-12345"));
-        assert!(!serialized.contains("token-999"));
-
-        // 2. Listing accounts also returns sanitized profiles
-        let list_res = list_accounts_handler(State(state)).await;
-        let list_json = list_res.0;
-        let list_str = list_json.to_string();
-        assert!(!list_str.contains("sk-super-secret-12345"));
-        assert!(!list_str.contains("token-999"));
-        assert!(list_str.contains("safe-acc-01"));
-
-        Ok(())
     }
 
     #[tokio::test]
