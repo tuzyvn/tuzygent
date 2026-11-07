@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::sleep;
@@ -930,6 +930,151 @@ async fn test_execute_and_record_with_audit_ledger() {
     assert_eq!(resilient.recovered_count(), 1);
     assert_eq!(resilient.resolved_count(), 1);
     assert_eq!(ledger.len(), 2); // 1 retry attempt event + 1 success event
+}
+
+#[tokio::test]
+async fn test_resilient_retry_delay_is_applied_between_attempts() {
+    let inner = MockEngineWithFailures {
+        failures_remaining: AtomicUsize::new(1),
+        fail_error: EngineError::ApiRequestFailed("503 Service Unavailable".to_string()),
+    };
+    let resilient =
+        ResilientApiEngine::new(inner, ApiFaultPolicy::none(), 1).with_retry_delay_ms(20);
+
+    let started = Instant::now();
+    let result = resilient
+        .execute(&create_test_input("retry delay", 5))
+        .await;
+
+    assert!(result.is_ok());
+    assert!(started.elapsed() >= Duration::from_millis(20));
+    assert_eq!(resilient.recovered_count(), 1);
+    assert_eq!(resilient.resolved_count(), 1);
+}
+
+#[test]
+fn test_resilient_backoff_policy_getter_reports_configured_and_missing_policy() {
+    let without_policy = ResilientApiEngine::with_engine(BenchmarkMockApiEngine);
+    assert!(without_policy.backoff_policy().is_none());
+
+    let policy = BackoffPolicy::fixed(Duration::from_millis(7));
+    let resilient =
+        ResilientApiEngine::with_engine(BenchmarkMockApiEngine).with_backoff_policy(policy.clone());
+    assert_eq!(resilient.backoff_policy(), Some(&policy));
+}
+
+#[test]
+fn test_resilient_capacity_reservation_and_cache_operations() {
+    let resilient = ResilientApiEngine::with_engine(BenchmarkMockApiEngine)
+        .with_capacity(2)
+        .with_max_capacity(2);
+    let output = EngineOutput {
+        stdout_content: "first response".to_string(),
+        exit_code: 0,
+        execution_duration_ms: 8,
+        engine_used: EngineKind::CustomAgentApi,
+        session_id: Some("session-1".to_string()),
+    };
+
+    assert!(resilient.get_cached("missing").is_none());
+    resilient.cache_response("prompt", &output);
+    let cached = resilient
+        .get_cached("prompt")
+        .expect("response should be cached");
+    assert_eq!(cached.stdout_content, "first response");
+    assert_eq!(cached.session_id.as_deref(), Some("session-1"));
+
+    let replacement = EngineOutput {
+        stdout_content: "replacement".to_string(),
+        ..output
+    };
+    resilient.cache_response("prompt", &replacement);
+    assert_eq!(
+        resilient.get_cached("prompt").unwrap().stdout_content,
+        "replacement",
+        "updating a key should replace its cached value"
+    );
+
+    resilient.cache_response("second", &replacement);
+    resilient.cache_response("third", &replacement);
+    assert!(resilient.get_cached("prompt").is_none());
+    assert!(resilient.get_cached("third").is_some());
+
+    let disabled_cache = ResilientApiEngine::with_engine(BenchmarkMockApiEngine).with_capacity(2);
+    disabled_cache.cache_response("ignored", &replacement);
+    assert!(disabled_cache.get_cached("ignored").is_none());
+
+    let zero_capacity =
+        ResilientApiEngine::with_engine(BenchmarkMockApiEngine).with_max_capacity(0);
+    zero_capacity.cache_response("ignored", &replacement);
+    assert!(zero_capacity.get_cached("ignored").is_none());
+}
+
+#[test]
+fn test_resilient_retry_limit_and_inner_accessors() {
+    let mut resilient = ResilientApiEngine::new(
+        MockEngineWithFailures {
+            failures_remaining: AtomicUsize::new(2),
+            fail_error: EngineError::Timeout,
+        },
+        ApiFaultPolicy::none(),
+        2,
+    );
+
+    assert_eq!(resilient.max_retries(), 2);
+    assert_eq!(
+        resilient.inner().failures_remaining.load(Ordering::SeqCst),
+        2
+    );
+    resilient
+        .inner_mut()
+        .failures_remaining
+        .store(1, Ordering::SeqCst);
+    assert_eq!(
+        resilient.inner().failures_remaining.load(Ordering::SeqCst),
+        1
+    );
+}
+
+#[tokio::test]
+async fn test_resilient_fault_policy_getter_and_setter_share_policy() {
+    let resilient = ResilientApiEngine::with_engine(BenchmarkMockApiEngine);
+    let policy_handle = resilient.fault_policy();
+    assert!(policy_handle.lock().unwrap().fault().is_none());
+
+    resilient.set_fault_policy(ApiFaultPolicy::always(ApiFault::CorruptedResponse));
+    assert_eq!(
+        policy_handle.lock().unwrap().fault(),
+        Some(&ApiFault::CorruptedResponse),
+        "the returned policy handle should observe replacements"
+    );
+    let result = resilient.execute(&create_test_input("rejected", 5)).await;
+    assert!(matches!(result, Err(EngineError::ApiRequestFailed(_))));
+    assert_eq!(resilient.rejected_count(), 1);
+}
+
+#[tokio::test]
+async fn test_resilient_reset_metrics_clears_all_counters() {
+    let resilient = ResilientApiEngine::new(
+        MockEngineWithFailures {
+            failures_remaining: AtomicUsize::new(1),
+            fail_error: EngineError::ApiRequestFailed("503 Service Unavailable".to_string()),
+        },
+        ApiFaultPolicy::none(),
+        1,
+    );
+    assert!(resilient
+        .execute(&create_test_input("metrics", 5))
+        .await
+        .is_ok());
+    assert_eq!(resilient.resolved_count(), 1);
+    assert_eq!(resilient.recovered_count(), 1);
+    assert_eq!(resilient.rejected_count(), 0);
+
+    resilient.reset_metrics();
+    assert_eq!(resilient.resolved_count(), 0);
+    assert_eq!(resilient.recovered_count(), 0);
+    assert_eq!(resilient.rejected_count(), 0);
 }
 
 #[tokio::test]
