@@ -245,3 +245,86 @@ impl ResilientAuthValidator {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{AuthFaultPolicy, ResilientAuthValidator};
+    use crate::auth::{AuthError, AuthFault};
+    use axum::body::Body;
+    use axum::http::{HeaderValue, Request};
+    use std::sync::Arc;
+
+    fn validator() -> ResilientAuthValidator {
+        ResilientAuthValidator::new(
+            Arc::new("primary-token".into()),
+            vec![],
+            AuthFaultPolicy::none(),
+            2,
+        )
+    }
+
+    #[test]
+    fn max_capacity_returns_configured_history_limit() {
+        assert_eq!(validator().max_capacity(), None);
+        assert_eq!(validator().with_max_capacity(2).max_capacity(), Some(2));
+    }
+
+    #[test]
+    fn reset_counts_clears_validation_and_rejection_counters() {
+        let mut validator = validator().with_fallback_token(Arc::new("fallback-token".into()));
+        assert_eq!(
+            validator.validate_token_resilient("primary-token"),
+            Ok(true)
+        );
+        assert_eq!(
+            validator.validate_token_resilient("fallback-token"),
+            Ok(true)
+        );
+        assert_eq!(validator.validate_token_resilient("wrong-token"), Ok(false));
+        assert_eq!(validator.validated_count(), 2);
+        assert_eq!(validator.fallback_count(), 1);
+        assert_eq!(validator.rejected_count(), 1);
+
+        validator.reset_counts();
+
+        assert_eq!(validator.validated_count(), 0);
+        assert_eq!(validator.recovered_count(), 0);
+        assert_eq!(validator.fallback_count(), 0);
+        assert_eq!(validator.rejected_count(), 0);
+    }
+
+    #[test]
+    fn fault_policy_mut_changes_fault_injection_behavior() {
+        let mut validator = validator();
+        *validator.fault_policy_mut() = AuthFaultPolicy::always(AuthFault::TokenDecodingFailure);
+
+        assert_eq!(
+            validator.validate_token_resilient("primary-token"),
+            Err(AuthError::TokenDecodingFailure(
+                "Failed to decode token from request".into()
+            ))
+        );
+    }
+
+    #[test]
+    fn is_retryable_error_classifies_transient_and_client_errors() {
+        let validator = validator();
+        assert!(validator.is_retryable_error(&AuthError::SocketTimeout));
+        assert!(!validator.is_retryable_error(&AuthError::Unauthorized));
+    }
+
+    #[test]
+    fn validate_request_resilient_accepts_authorized_bearer_token() {
+        let mut validator = validator();
+        let request = Request::builder()
+            .header(
+                "authorization",
+                HeaderValue::from_static("Bearer primary-token"),
+            )
+            .body(Body::empty())
+            .expect("request builds");
+
+        assert_eq!(validator.validate_request_resilient(&request), Ok(true));
+        assert_eq!(validator.validated_count(), 1);
+    }
+}
