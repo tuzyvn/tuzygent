@@ -3498,7 +3498,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P0] TOPIC-20261107-5bfa0b: Refactor 28 lệnh unwrap() tại crates/agent-domain/src/schedule.rs sang cơ chế xử lý lỗi an toàn
 - **Phân loại**: `Reliability / Panic Prevention`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 06:44:31 UTC)
 - **Lý do cần nghiên cứu**: Phát hiện 28 lệnh unwrap() trong mã sản xuất tại crates/agent-domain/src/schedule.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
 - **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-domain/src/schedule.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
 

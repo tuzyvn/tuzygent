@@ -93,11 +93,10 @@ impl CronSchedule {
     /// Computes the strictly next execution timestamp after `after`.
     pub fn next_after(&self, after: DateTime<Utc>) -> Result<DateTime<Utc>, ScheduleError> {
         if let Some(ms) = self.interval_ms_override {
-            let delta = Duration::milliseconds(i64::try_from(ms.max(1)).unwrap_or(i64::MAX));
-            return Ok(after + delta);
+            return add_milliseconds(after, ms.max(1));
         }
 
-        let base = after + Duration::seconds(1);
+        let base = add_duration(after, Duration::seconds(1))?;
         let mut cur = make_utc(base.year(), base.month(), base.day(), base.hour(), base.minute(), base.second(), &after)?;
         let max_year = cur.year() + 5;
 
@@ -109,17 +108,17 @@ impl CronSchedule {
             }
             let dow = cur.weekday().num_days_from_sunday();
             if !self.days_of_month.contains(&cur.day()) || !self.days_of_week.contains(&dow) {
-                let nd = cur + Duration::days(1);
+                let nd = add_duration(cur, Duration::days(1))?;
                 cur = make_utc(nd.year(), nd.month(), nd.day(), 0, 0, 0, &after)?;
                 continue;
             }
             if !self.hours.contains(&cur.hour()) {
-                let nh = cur + Duration::hours(1);
+                let nh = add_duration(cur, Duration::hours(1))?;
                 cur = make_utc(nh.year(), nh.month(), nh.day(), nh.hour(), 0, 0, &after)?;
                 continue;
             }
             if !self.minutes.contains(&cur.minute()) {
-                let nmin = cur + Duration::minutes(1);
+                let nmin = add_duration(cur, Duration::minutes(1))?;
                 cur = make_utc(nmin.year(), nmin.month(), nmin.day(), nmin.hour(), nmin.minute(), 0, &after)?;
                 continue;
             }
@@ -127,7 +126,7 @@ impl CronSchedule {
                 if let Some(&next_sec) = self.seconds.iter().find(|&&s| s > cur.second()) {
                     cur = make_utc(cur.year(), cur.month(), cur.day(), cur.hour(), cur.minute(), next_sec, &after)?;
                 } else {
-                    let nmin = cur + Duration::minutes(1);
+                    let nmin = add_duration(cur, Duration::minutes(1))?;
                     cur = make_utc(nmin.year(), nmin.month(), nmin.day(), nmin.hour(), nmin.minute(), 0, &after)?;
                 }
                 continue;
@@ -136,6 +135,18 @@ impl CronSchedule {
         }
         Err(ScheduleError::NoNextOccurrence(after.to_rfc3339()))
     }
+}
+
+fn add_duration(reference: DateTime<Utc>, delta: Duration) -> Result<DateTime<Utc>, ScheduleError> {
+    reference
+        .checked_add_signed(delta)
+        .ok_or_else(|| ScheduleError::NoNextOccurrence(reference.to_rfc3339()))
+}
+
+fn add_milliseconds(reference: DateTime<Utc>, milliseconds: u64) -> Result<DateTime<Utc>, ScheduleError> {
+    let milliseconds = i64::try_from(milliseconds)
+        .map_err(|_| ScheduleError::NoNextOccurrence(reference.to_rfc3339()))?;
+    add_duration(reference, Duration::milliseconds(milliseconds))
 }
 
 fn make_utc(y: i32, m: u32, d: u32, h: u32, min: u32, s: u32, r: &DateTime<Utc>) -> Result<DateTime<Utc>, ScheduleError> {
@@ -259,7 +270,7 @@ impl ScheduleSpec {
                 if *interval_ms == 0 {
                     return Err(ScheduleError::InvalidInterval("interval_ms must be > 0".into()));
                 }
-                Ok(now + Duration::milliseconds(i64::try_from(*interval_ms).unwrap_or(i64::MAX)))
+                add_milliseconds(now, *interval_ms)
             }
             Self::Cron { expression } => CronSchedule::parse(expression)?.next_after(now),
         }
@@ -274,7 +285,7 @@ impl ScheduleSpec {
                 if *interval_ms == 0 {
                     return Err(ScheduleError::InvalidInterval("interval_ms must be > 0".into()));
                 }
-                Ok(Some(reference + Duration::milliseconds(i64::try_from(*interval_ms).unwrap_or(i64::MAX))))
+                Ok(Some(add_milliseconds(reference, *interval_ms)?))
             }
             Self::Cron { expression } => Ok(Some(CronSchedule::parse(expression)?.next_after(reference)?)),
         }
@@ -371,11 +382,11 @@ mod tests {
     use super::*;
 
     fn at(y: i32, m: u32, d: u32, h: u32, min: u32, sec: u32) -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(y, m, d, h, min, sec).single().unwrap()
+        Utc.with_ymd_and_hms(y, m, d, h, min, sec).single().expect("valid schedule test fixture")
     }
 
     fn record(spec: ScheduleSpec, now: DateTime<Utc>) -> TaskScheduleRecord {
-        TaskScheduleRecord::new("title", "goal", Priority::Normal, spec, now).unwrap()
+        TaskScheduleRecord::new("title", "goal", Priority::Normal, spec, now).expect("valid schedule test fixture")
     }
 
     #[test]
@@ -416,19 +427,19 @@ mod tests {
     #[test]
     fn cron_next_after_is_strict_and_handles_every_and_exhaustion() {
         let start = at(2026, 11, 7, 9, 30, 0);
-        let cron = CronSchedule::parse("0 30 9 * * *").unwrap();
-        assert_eq!(cron.next_after(start).unwrap(), at(2026, 11, 8, 9, 30, 0));
+        let cron = CronSchedule::parse("0 30 9 * * *").expect("valid schedule test fixture");
+        assert_eq!(cron.next_after(start).expect("valid schedule test fixture"), at(2026, 11, 8, 9, 30, 0));
 
-        let every = CronSchedule::parse("@every 5s").unwrap();
-        assert_eq!(every.next_after(start).unwrap(), at(2026, 11, 7, 9, 30, 5));
+        let every = CronSchedule::parse("@every 5s").expect("valid schedule test fixture");
+        assert_eq!(every.next_after(start).expect("valid schedule test fixture"), at(2026, 11, 7, 9, 30, 5));
 
-        let secondly = CronSchedule::parse("* * * * * *").unwrap();
+        let secondly = CronSchedule::parse("* * * * * *").expect("valid schedule test fixture");
         assert_eq!(
-            secondly.next_after(start + Duration::milliseconds(500)).unwrap(),
+            secondly.next_after(start + Duration::milliseconds(500)).expect("valid schedule test fixture"),
             start + Duration::seconds(1)
         );
 
-        let impossible = CronSchedule::parse("0 0 0 31 2 *").unwrap();
+        let impossible = CronSchedule::parse("0 0 0 31 2 *").expect("valid schedule test fixture");
         assert!(matches!(
             impossible.next_after(start),
             Err(ScheduleError::NoNextOccurrence(_))
@@ -515,7 +526,7 @@ mod tests {
         assert!(!ScheduleSpec::once_at(now).is_recurring());
         assert!(!ScheduleSpec::after_delay_from(now, std::time::Duration::ZERO).is_recurring());
         assert!(ScheduleSpec::every_seconds(1).is_recurring());
-        assert!(ScheduleSpec::cron("@daily").unwrap().is_recurring());
+        assert!(ScheduleSpec::cron("@daily").expect("valid schedule test fixture").is_recurring());
     }
 
     #[test]
@@ -523,24 +534,24 @@ mod tests {
         let now = at(2026, 11, 7, 9, 30, 0);
         let future = now + Duration::hours(1);
         assert_eq!(
-            ScheduleSpec::once_at(future).initial_run_at(now).unwrap(),
+            ScheduleSpec::once_at(future).initial_run_at(now).expect("valid schedule test fixture"),
             future
         );
         assert_eq!(
             ScheduleSpec::after_delay_from(now, std::time::Duration::from_secs(5))
                 .initial_run_at(now)
-                .unwrap(),
+                .expect("valid schedule test fixture"),
             now + Duration::seconds(5)
         );
         assert_eq!(
-            ScheduleSpec::every_seconds(10).initial_run_at(now).unwrap(),
+            ScheduleSpec::every_seconds(10).initial_run_at(now).expect("valid schedule test fixture"),
             now + Duration::seconds(10)
         );
         assert_eq!(
             ScheduleSpec::cron("0 0 10 * * *")
-                .unwrap()
+                .expect("valid schedule test fixture")
                 .initial_run_at(now)
-                .unwrap(),
+                .expect("valid schedule test fixture"),
             at(2026, 11, 7, 10, 0, 0)
         );
         assert!(matches!(
@@ -554,40 +565,70 @@ mod tests {
         let now = at(2026, 11, 7, 9, 30, 0);
         let future = now + Duration::seconds(1);
         let once = ScheduleSpec::once_at(future);
-        assert_eq!(once.next_run_after(now).unwrap(), Some(future));
-        assert_eq!(once.next_run_after(future).unwrap(), None);
+        assert_eq!(once.next_run_after(now).expect("valid schedule test fixture"), Some(future));
+        assert_eq!(once.next_run_after(future).expect("valid schedule test fixture"), None);
         assert_eq!(
-            once.next_run_after(future + Duration::seconds(1)).unwrap(),
+            once.next_run_after(future + Duration::seconds(1)).expect("valid schedule test fixture"),
             None
         );
         assert_eq!(
             ScheduleSpec::after_delay_from(now, std::time::Duration::from_secs(2))
                 .next_run_after(now)
-                .unwrap(),
+                .expect("valid schedule test fixture"),
             Some(now + Duration::seconds(2))
         );
         assert_eq!(
             ScheduleSpec::after_delay_from(now, std::time::Duration::ZERO)
                 .next_run_after(now)
-                .unwrap(),
+                .expect("valid schedule test fixture"),
             None
         );
         assert_eq!(
             ScheduleSpec::Interval { interval_ms: 500 }
                 .next_run_after(now)
-                .unwrap(),
+                .expect("valid schedule test fixture"),
             Some(now + Duration::milliseconds(500))
         );
         assert_eq!(
             ScheduleSpec::cron("0 0 10 * * *")
-                .unwrap()
+                .expect("valid schedule test fixture")
                 .next_run_after(now)
-                .unwrap(),
+                .expect("valid schedule test fixture"),
             Some(at(2026, 11, 7, 10, 0, 0))
         );
         assert!(matches!(
             ScheduleSpec::Interval { interval_ms: 0 }.next_run_after(now),
             Err(ScheduleError::InvalidInterval(_))
+        ));
+    }
+
+    #[test]
+    fn next_run_after_reports_timestamp_overflow_for_interval() {
+        let schedule = ScheduleSpec::every_seconds(1);
+
+        assert!(matches!(
+            schedule.next_run_after(DateTime::<Utc>::MAX_UTC),
+            Err(ScheduleError::NoNextOccurrence(_))
+        ));
+    }
+
+    #[test]
+    fn initial_run_at_reports_timestamp_overflow_for_interval() {
+        let schedule = ScheduleSpec::every_seconds(1);
+
+        assert!(matches!(
+            schedule.initial_run_at(DateTime::<Utc>::MAX_UTC),
+            Err(ScheduleError::NoNextOccurrence(_))
+        ));
+    }
+
+    #[test]
+    fn cron_every_reports_timestamp_overflow() {
+        let cron = CronSchedule::parse("@every 1s").expect("valid schedule test fixture");
+
+        assert!(matches!(
+            cron.next_after(DateTime::<Utc>::MAX_UTC),
+            Err(ScheduleError::NoNextOccurrence(_))
         ));
     }
 
@@ -635,10 +676,10 @@ mod tests {
             ScheduleSpec::every_seconds(60),
             now,
         )
-        .unwrap()
+        .expect("valid schedule test fixture")
         .with_max_runs(2);
         assert_eq!(
-            recurring.advance_after_trigger(triggered_at, spawned_task_id.clone()).unwrap(),
+            recurring.advance_after_trigger(triggered_at, spawned_task_id.clone()).expect("valid schedule test fixture"),
             Some(triggered_at + Duration::seconds(60))
         );
         assert_eq!(recurring.run_count, 1);
@@ -649,7 +690,7 @@ mod tests {
         assert!(recurring.enabled);
 
         assert_eq!(
-            recurring.advance_after_trigger(triggered_at + Duration::seconds(60), spawned_task_id.clone()).unwrap(),
+            recurring.advance_after_trigger(triggered_at + Duration::seconds(60), spawned_task_id.clone()).expect("valid schedule test fixture"),
             None
         );
         assert_eq!(recurring.run_count, 2);
@@ -662,8 +703,8 @@ mod tests {
             ScheduleSpec::once_at(now),
             now,
         )
-        .unwrap();
-        assert_eq!(one_shot.advance_after_trigger(triggered_at, spawned_task_id).unwrap(), None);
+        .expect("valid schedule test fixture");
+        assert_eq!(one_shot.advance_after_trigger(triggered_at, spawned_task_id).expect("valid schedule test fixture"), None);
         assert_eq!(one_shot.run_count, 1);
         assert!(!one_shot.enabled);
     }
