@@ -305,3 +305,85 @@ mod serialization_tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod public_api_tests {
+    use super::{MetricsSnapshot, OodaMetrics, TestMetrics};
+
+    #[test]
+    fn ooda_average_duration_is_zero_without_cycles_and_averages_recorded_duration() {
+        assert_eq!(OodaMetrics::default().average_duration_seconds(), 0.0);
+
+        let metrics = OodaMetrics {
+            total_cycles: 4,
+            total_duration_seconds: 7.5,
+            ..OodaMetrics::default()
+        };
+        assert_eq!(metrics.average_duration_seconds(), 1.875);
+    }
+
+    #[test]
+    fn test_success_ratio_is_one_without_tests_and_uses_passed_count_otherwise() {
+        assert_eq!(TestMetrics::default().success_ratio(), 1.0);
+
+        let metrics = TestMetrics {
+            total_tests: 20,
+            passed_tests: 18,
+            failed_tests: 2,
+        };
+        assert_eq!(metrics.success_ratio(), 0.9);
+    }
+
+    #[test]
+    fn metrics_snapshot_renders_standard_and_custom_prometheus_metrics() {
+        let snapshot = MetricsSnapshot {
+            tasks: super::super::TaskMetrics {
+                total: 12,
+                completed: 9,
+                failed: 3,
+            },
+            ooda: OodaMetrics {
+                total_cycles: 4,
+                last_duration_seconds: 1.25,
+                total_duration_seconds: 7.5,
+            },
+            remediations: super::super::RemediationMetrics {
+                total_remediations: 6,
+                successful_remediations: 5,
+            },
+            tests: TestMetrics {
+                total_tests: 20,
+                passed_tests: 18,
+                failed_tests: 2,
+            },
+            custom_counters: vec![("requests_total".to_owned(), 17)],
+            custom_gauges: vec![("queue_depth".to_owned(), 2.5)],
+            ..MetricsSnapshot::default()
+        };
+
+        let rendered = snapshot.to_prometheus_text();
+
+        for expected in [
+            "# TYPE agent_tasks_total counter\n",
+            "agent_tasks_total{status=\"completed\"} 9\n",
+            "agent_tasks_total{status=\"failed\"} 3\n",
+            "agent_tasks_total 12\n\n",
+            "agent_ooda_duration_seconds 1.250000\n\n",
+            "agent_ooda_cycles_total 4\n\n",
+            "agent_remediations_total 6\n\n",
+            "agent_tests_success_ratio 0.9000\n\n",
+            "requests_total 17\n",
+            "queue_depth 2.500000\n",
+        ] {
+            assert!(
+                rendered.contains(expected),
+                "missing {expected:?} in output: {rendered}"
+            );
+        }
+
+        assert!(
+            rendered.find("requests_total 17").unwrap()
+                < rendered.find("queue_depth 2.500000").unwrap()
+        );
+    }
+}
