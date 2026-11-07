@@ -7,9 +7,10 @@ use tokio::time::sleep;
 
 use agent_domain::AuditLedger;
 use agent_engine::{
-    simulate_api_fault, ApiBenchmarkHarness, ApiBenchmarkStats, ApiError, ApiFault, ApiFaultPolicy,
-    BackoffPolicy, BenchmarkMockApiEngine, ComputeEngine, CustomAgentApiEngine, EngineError,
-    EngineInput, EngineKind, EngineOutput, OpenAiCompatibleEngine, ResilientApiEngine,
+    is_retryable_api_error_message, is_retryable_engine_error, simulate_api_fault,
+    ApiBenchmarkHarness, ApiBenchmarkStats, ApiError, ApiFault, ApiFaultPolicy, BackoffPolicy,
+    BenchmarkMockApiEngine, ComputeEngine, CustomAgentApiEngine, EngineError, EngineInput,
+    EngineKind, EngineOutput, OpenAiCompatibleEngine, ResilientApiEngine,
 };
 
 fn create_test_input(prompt: &str, timeout_seconds: u64) -> EngineInput {
@@ -831,6 +832,78 @@ async fn test_fault_simulation_and_taxonomy() {
         simulate_api_fault(&ApiFault::ServiceUnavailable),
         Err(ApiError::ServiceUnavailable(_))
     ));
+}
+
+#[test]
+fn test_api_fault_conversion_methods_cover_each_fault() {
+    let cases = [
+        (ApiFault::SocketTimeout, ApiError::SocketTimeout),
+        (ApiFault::ConnectionReset, ApiError::ConnectionReset),
+        (
+            ApiFault::RateLimitExceeded,
+            ApiError::RateLimitExceeded("429 Too Many Requests / Rate limit exceeded".to_string()),
+        ),
+        (
+            ApiFault::TransientIo,
+            ApiError::TransientIo("Simulated transient I/O network failure".to_string()),
+        ),
+        (
+            ApiFault::CorruptedResponse,
+            ApiError::CorruptedResponse("Corrupted or malformed API response".to_string()),
+        ),
+        (
+            ApiFault::ServiceUnavailable,
+            ApiError::ServiceUnavailable("503 Service Temporarily Unavailable".to_string()),
+        ),
+    ];
+
+    for (fault, expected_api_error) in cases {
+        assert_eq!(fault.to_api_error(), expected_api_error);
+        assert_eq!(fault.simulate_fault(), Err(expected_api_error.clone()));
+        match fault.to_engine_error() {
+            EngineError::ApiRequestFailed(message) => {
+                assert_eq!(message, expected_api_error.to_string())
+            }
+            other => panic!("expected API request error, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn test_api_error_retry_classifier_handles_retryable_and_permanent_messages() {
+    for message in [
+        "request TIMEOUT",
+        "connection reset by peer",
+        "HTTP 503 Service Unavailable",
+        "429 Too Many Requests",
+        "transient network failure",
+    ] {
+        assert!(
+            is_retryable_api_error_message(message),
+            "expected retryable message: {message}"
+        );
+    }
+
+    for message in ["invalid API key", "400 Bad Request", "permanent validation error", ""] {
+        assert!(
+            !is_retryable_api_error_message(message),
+            "expected non-retryable message: {message}"
+        );
+    }
+}
+
+#[test]
+fn test_engine_error_retry_classifier_handles_variants() {
+    assert!(is_retryable_engine_error(&EngineError::Timeout));
+    assert!(is_retryable_engine_error(&EngineError::ApiRequestFailed(
+        "gateway timeout".to_string()
+    )));
+    assert!(!is_retryable_engine_error(&EngineError::ApiRequestFailed(
+        "invalid API key".to_string()
+    )));
+    assert!(!is_retryable_engine_error(&EngineError::ProcessFailed(
+        "connection timeout in command output".to_string()
+    )));
 }
 
 #[tokio::test]

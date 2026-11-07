@@ -3666,7 +3666,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-afc93a: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/api/fault.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 18:40:08 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/api/fault.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `to_api_error` (L35), `is_retryable_api_error_message` (L148), `is_retryable_engine_error` (L174).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/api/fault.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
