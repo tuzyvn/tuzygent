@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub enum MetricType {
     Counter,
     Gauge,
@@ -9,6 +10,7 @@ pub enum MetricType {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub struct TaskMetrics {
     pub total: u64,
     pub completed: u64,
@@ -16,6 +18,7 @@ pub struct TaskMetrics {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub struct OodaMetrics {
     pub total_cycles: u64,
     pub last_duration_seconds: f64,
@@ -33,12 +36,14 @@ impl OodaMetrics {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub struct RemediationMetrics {
     pub total_remediations: u64,
     pub successful_remediations: u64,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub struct TestMetrics {
     pub total_tests: u64,
     pub passed_tests: u64,
@@ -56,6 +61,7 @@ impl TestMetrics {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub struct MetricsSnapshot {
     pub timestamp: DateTime<Utc>,
     pub tasks: TaskMetrics,
@@ -142,5 +148,147 @@ impl MetricsSnapshot {
         }
 
         out
+    }
+}
+
+#[cfg(test)]
+mod serialization_tests {
+    use super::{
+        MetricType, MetricsSnapshot, OodaMetrics, RemediationMetrics, TaskMetrics, TestMetrics,
+    };
+    use chrono::{TimeZone, Utc};
+
+    #[test]
+    fn metric_type_serialization_is_compatible() {
+        for (metric_type, expected) in [
+            (MetricType::Counter, "Counter"),
+            (MetricType::Gauge, "Gauge"),
+            (MetricType::Histogram, "Histogram"),
+        ] {
+            let value = serde_json::to_value(metric_type).unwrap();
+            assert_eq!(value, expected);
+            assert_eq!(serde_json::from_value::<MetricType>(value).unwrap(), metric_type);
+        }
+    }
+
+    #[test]
+    fn task_metrics_serialization_is_compatible() {
+        let metrics = TaskMetrics {
+            total: 12,
+            completed: 9,
+            failed: 3,
+        };
+        let value = serde_json::to_value(&metrics).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({"total": 12, "completed": 9, "failed": 3})
+        );
+        assert_eq!(serde_json::from_value::<TaskMetrics>(value).unwrap(), metrics);
+    }
+
+    #[test]
+    fn ooda_metrics_serialization_is_compatible() {
+        let metrics = OodaMetrics {
+            total_cycles: 4,
+            last_duration_seconds: 1.25,
+            total_duration_seconds: 7.5,
+        };
+        let value = serde_json::to_value(&metrics).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "total_cycles": 4,
+                "last_duration_seconds": 1.25,
+                "total_duration_seconds": 7.5
+            })
+        );
+        assert_eq!(serde_json::from_value::<OodaMetrics>(value).unwrap(), metrics);
+    }
+
+    #[test]
+    fn remediation_metrics_serialization_is_compatible() {
+        let metrics = RemediationMetrics {
+            total_remediations: 6,
+            successful_remediations: 5,
+        };
+        let value = serde_json::to_value(&metrics).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "total_remediations": 6,
+                "successful_remediations": 5
+            })
+        );
+        assert_eq!(
+            serde_json::from_value::<RemediationMetrics>(value).unwrap(),
+            metrics
+        );
+    }
+
+    #[test]
+    fn test_metrics_serialization_is_compatible() {
+        let metrics = TestMetrics {
+            total_tests: 20,
+            passed_tests: 18,
+            failed_tests: 2,
+        };
+        let value = serde_json::to_value(&metrics).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({"total_tests": 20, "passed_tests": 18, "failed_tests": 2})
+        );
+        assert_eq!(serde_json::from_value::<TestMetrics>(value).unwrap(), metrics);
+    }
+
+    #[test]
+    fn metrics_snapshot_serialization_is_compatible() {
+        let snapshot = MetricsSnapshot {
+            timestamp: Utc.with_ymd_and_hms(2026, 11, 7, 12, 30, 0).unwrap(),
+            tasks: TaskMetrics {
+                total: 12,
+                completed: 9,
+                failed: 3,
+            },
+            ooda: OodaMetrics {
+                total_cycles: 4,
+                last_duration_seconds: 1.25,
+                total_duration_seconds: 7.5,
+            },
+            remediations: RemediationMetrics {
+                total_remediations: 6,
+                successful_remediations: 5,
+            },
+            tests: TestMetrics {
+                total_tests: 20,
+                passed_tests: 18,
+                failed_tests: 2,
+            },
+            custom_gauges: vec![("queue_depth".to_owned(), 2.5)],
+            custom_counters: vec![("requests_total".to_owned(), 17)],
+        };
+        let value = serde_json::to_value(&snapshot).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "timestamp": "2026-11-07T12:30:00Z",
+                "tasks": {"total": 12, "completed": 9, "failed": 3},
+                "ooda": {
+                    "total_cycles": 4,
+                    "last_duration_seconds": 1.25,
+                    "total_duration_seconds": 7.5
+                },
+                "remediations": {
+                    "total_remediations": 6,
+                    "successful_remediations": 5
+                },
+                "tests": {"total_tests": 20, "passed_tests": 18, "failed_tests": 2},
+                "custom_gauges": [["queue_depth", 2.5]],
+                "custom_counters": [["requests_total", 17]]
+            })
+        );
+        assert_eq!(
+            serde_json::from_value::<MetricsSnapshot>(value).unwrap(),
+            snapshot
+        );
     }
 }
