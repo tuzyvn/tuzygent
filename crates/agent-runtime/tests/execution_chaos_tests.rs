@@ -201,6 +201,24 @@ async fn test_persistent_failure_exceeds_max_retries() {
 }
 
 #[tokio::test]
+async fn test_resilient_execution_stops_after_exact_retry_limit() {
+    let engine = Arc::new(ChaosMockEngine::new("retry_limit"));
+    let service = ExecutionService::new("/tmp", None, None);
+    let policy = ExecutionFaultPolicy::always(ExecutionFault::SocketTimeout);
+    let mut resilient = ResilientExecutionService::new(service, policy, 2);
+    let input = EngineInput::new("echo 'retry-limit'", "/tmp");
+
+    let result = resilient.execute_resilient(engine.clone(), &input).await;
+
+    assert!(matches!(result, Err(EngineError::Timeout)));
+    assert_eq!(resilient.recovered_count(), 2);
+    assert_eq!(resilient.failed_count(), 1);
+    assert_eq!(resilient.total_executed(), 0);
+    assert_eq!(engine.invocation_count(), 0);
+    assert_eq!(resilient.policy().injected_count(), 3);
+}
+
+#[tokio::test]
 async fn test_panic_resilience_and_recovery() {
     // Inject panic fault intermittently with 3 retries
     let engine = Arc::new(ChaosMockEngine::new("panic_test"));
