@@ -596,6 +596,46 @@ mod tests {
     }
 
     #[test]
+    fn test_cli_execution_buffer_pop_returns_oldest_item_and_none_when_empty() {
+        let mut buf = CliExecutionBuffer::new(2);
+        assert_eq!(buf.pop(), None);
+
+        buf.push("first");
+        buf.push("second");
+        assert_eq!(buf.pop(), Some("first"));
+        assert_eq!(buf.pop(), Some("second"));
+        assert_eq!(buf.pop(), None);
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn test_cli_execution_buffer_clear_empties_items_without_resetting_drop_count() {
+        let mut buf = CliExecutionBuffer::new(1);
+        buf.push("kept until overflow");
+        buf.push("evicts first");
+        assert_eq!(buf.dropped_count(), 1);
+
+        buf.clear();
+
+        assert!(buf.is_empty());
+        assert_eq!(buf.len(), 0);
+        assert_eq!(buf.dropped_count(), 1);
+        assert_eq!(buf.pop(), None);
+    }
+
+    #[test]
+    fn test_try_parse_safe_returns_structured_error_for_test_harness_arguments() {
+        // The test process arguments are not an agent-ctl command, so safe parsing
+        // should report a structured parse error instead of exiting the process.
+        let result = Cli::try_parse_safe();
+
+        assert!(matches!(
+            result,
+            Err(crate::fault::CliExecutionError::ParseError { .. })
+        ));
+    }
+
+    #[test]
     fn test_cli_validate() {
         let empty_run = Cli {
             short_version: None,
