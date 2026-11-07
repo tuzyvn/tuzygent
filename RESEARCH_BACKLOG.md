@@ -3624,7 +3624,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-116969: Refactor 2 lệnh unwrap() tại crates/agent-memory/src/durable/resilience.rs sang cơ chế xử lý lỗi an toàn
 - **Phân loại**: `Reliability / Panic Prevention`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 17:25:25 UTC)
 - **Lý do cần nghiên cứu**: Phát hiện 2 lệnh unwrap() trong mã sản xuất tại crates/agent-memory/src/durable/resilience.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
 - **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-memory/src/durable/resilience.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
 

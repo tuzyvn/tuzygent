@@ -267,9 +267,30 @@ impl ResilientDurableMemoryStore {
 #[cfg(test)]
 mod tests {
     use super::ResilientDurableMemoryStore;
-    use crate::durable::fault::DurableMemoryFault;
+    use crate::durable::fault::{DurableMemoryError, DurableMemoryFault};
     use crate::durable::policy::DurableMemoryFaultPolicy;
     use crate::durable::storage::{DurableMemoryStore, StructuredLesson};
+    use anyhow::Context;
+
+    #[test]
+    fn resilience_tests_contain_no_unwrap_calls() {
+        let pattern = format!(".{}()", "unwrap");
+        let file_content = include_str!("resilience.rs");
+        let unwrap_calls: Vec<(usize, &str)> = file_content
+            .lines()
+            .enumerate()
+            .filter(|(_, line)| {
+                let trimmed = line.trim();
+                !trimmed.starts_with("//") && trimmed.contains(&pattern)
+            })
+            .collect();
+
+        assert!(
+            unwrap_calls.is_empty(),
+            "crates/agent-memory/src/durable/resilience.rs must contain zero unwrap calls, found: {:?}",
+            unwrap_calls
+        );
+    }
 
     fn store(name: &str) -> DurableMemoryStore {
         DurableMemoryStore::new(
@@ -287,6 +308,48 @@ mod tests {
             general_insight: format!("Insight for {id}"),
             success: true,
         }
+    }
+
+    async fn make_structured_lessons_path_a_directory(name: &str) -> std::path::PathBuf {
+        let workspace =
+            std::env::temp_dir().join(format!("resilience_{name}_{}", uuid::Uuid::new_v4()));
+        let store = DurableMemoryStore::new(&workspace);
+        let lessons_path = store.lessons_json_file().to_path_buf();
+        tokio::fs::create_dir_all(lessons_path.parent().expect("lessons path has a parent"))
+            .await
+            .expect("create lessons parent directory");
+        tokio::fs::create_dir(&lessons_path)
+            .await
+            .expect("create directory at lessons file path");
+        workspace
+    }
+
+    #[tokio::test]
+    async fn save_structured_lesson_returns_io_error_without_panicking() {
+        let workspace = make_structured_lessons_path_a_directory("save_io_error").await;
+        let mut resilient =
+            ResilientDurableMemoryStore::with_store(DurableMemoryStore::new(&workspace));
+
+        let result = resilient
+            .save_structured_lesson(&lesson("save-error"))
+            .await;
+
+        assert!(matches!(result, Err(DurableMemoryError::Io(_))));
+        assert_eq!(resilient.saved_count(), 0);
+        let _ = tokio::fs::remove_dir_all(workspace).await;
+    }
+
+    #[tokio::test]
+    async fn load_structured_lessons_returns_io_error_without_panicking() {
+        let workspace = make_structured_lessons_path_a_directory("load_io_error").await;
+        let mut resilient =
+            ResilientDurableMemoryStore::with_store(DurableMemoryStore::new(&workspace));
+
+        let result = resilient.load_structured_lessons().await;
+
+        assert!(matches!(result, Err(DurableMemoryError::Io(_))));
+        assert_eq!(resilient.loaded_count(), 0);
+        let _ = tokio::fs::remove_dir_all(workspace).await;
     }
 
     #[test]
@@ -366,7 +429,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reset_counts_clears_counters_and_lesson_indexes() {
+    async fn reset_counts_clears_counters_and_lesson_indexes() -> anyhow::Result<()> {
         let mut resilient = ResilientDurableMemoryStore::with_store(store("reset"));
         resilient.record_lesson_cached(&lesson("cached"));
         resilient.set_policy(DurableMemoryFaultPolicy::always(
@@ -382,8 +445,11 @@ mod tests {
         resilient
             .save_structured_lesson(&lesson("persisted"))
             .await
-            .unwrap();
-        resilient.load_structured_lessons().await.unwrap();
+            .context("failed to persist lesson before resetting counts")?;
+        resilient
+            .load_structured_lessons()
+            .await
+            .context("failed to load persisted lesson before resetting counts")?;
         assert_eq!(resilient.saved_count(), 2);
         assert_eq!(resilient.loaded_count(), 1);
         assert_eq!(resilient.rejected_count(), 1);
@@ -398,6 +464,7 @@ mod tests {
         assert!(resilient.cached_lessons().is_empty());
         assert!(!resilient.has_lesson("cached"));
         assert!(!resilient.has_lesson("saved"));
+        Ok(())
     }
 
     #[test]
