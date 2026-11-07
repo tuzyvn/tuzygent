@@ -3726,7 +3726,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-23de2e: Kiểm chứng tương thích serialization cho 3 kiểu chưa có test: crates/agent-server/src/handlers/tasks.rs
 - **Phân loại**: `Source Finding / Serialization Compatibility`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 20:21:39 UTC)
 - **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-server/src/handlers/tasks.rs` chưa được tham chiếu trong Rust test: `RunTaskReq` (L12), `SubmitTaskReq` (L21), `ReviewTaskReq` (L29); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
 - **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-server/src/handlers/tasks.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
 

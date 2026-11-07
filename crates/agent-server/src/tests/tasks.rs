@@ -1,3 +1,77 @@
+#[test]
+fn run_task_req_serde_shape_and_compatible_values() {
+    use crate::handlers::tasks::RunTaskReq;
+
+    let request = RunTaskReq {
+        agent_id: "agent-1".into(),
+        goal: "ship feature".into(),
+        engine: None,
+        sandbox: None,
+        persona_path: None,
+    };
+    assert_eq!(
+        serde_json::to_value(&request).unwrap(),
+        serde_json::json!({
+            "agent_id": "agent-1",
+            "goal": "ship feature",
+            "engine": null,
+            "sandbox": null,
+            "persona_path": null
+        })
+    );
+
+    let decoded: RunTaskReq = serde_json::from_value(serde_json::json!({
+        "agent_id": "agent-2",
+        "goal": "review change"
+    }))
+    .unwrap();
+    assert_eq!(decoded.agent_id, "agent-2");
+    assert_eq!(decoded.goal, "review change");
+    assert_eq!(decoded.engine, None);
+    assert_eq!(decoded.sandbox, None);
+    assert_eq!(decoded.persona_path, None);
+}
+
+#[test]
+fn submit_task_req_deserializes_optional_fields_and_omissions() {
+    use crate::handlers::tasks::SubmitTaskReq;
+
+    let decoded: SubmitTaskReq = serde_json::from_value(serde_json::json!({
+        "title": "Implement feature",
+        "goal": "Add endpoint",
+        "priority": "high",
+        "engine": "codex"
+    }))
+    .unwrap();
+    assert_eq!(decoded.title, "Implement feature");
+    assert_eq!(decoded.goal, "Add endpoint");
+    assert_eq!(decoded.priority.as_deref(), Some("high"));
+    assert_eq!(decoded.engine.as_deref(), Some("codex"));
+
+    let decoded: SubmitTaskReq = serde_json::from_value(serde_json::json!({
+        "title": "Minimal task",
+        "goal": "Check defaults"
+    }))
+    .unwrap();
+    assert_eq!(decoded.priority, None);
+    assert_eq!(decoded.engine, None);
+}
+
+#[test]
+fn review_task_req_deserializes_compatible_value() {
+    use crate::handlers::tasks::ReviewTaskReq;
+
+    let decoded: ReviewTaskReq = serde_json::from_value(serde_json::json!({
+        "revision": "rev-123",
+        "reviewer": "operator",
+        "approved": true
+    }))
+    .unwrap();
+    assert_eq!(decoded.revision, "rev-123");
+    assert_eq!(decoded.reviewer, "operator");
+    assert!(decoded.approved);
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn authenticated_task_delegates_to_codex_via_rest() -> Result<(), Box<dyn std::error::Error>>
