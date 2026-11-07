@@ -4,7 +4,7 @@ use std::sync::Arc;
 use agent_cli::cli::{Cli, Commands};
 use agent_cli::commands::{
     execute_command_resilient, run_command_resilient, CommandsBenchmarkHarness,
-    CommandsBenchmarkStats, ResilientCommandDispatcher,
+    CommandsBenchmarkStats, ResilientCommandDispatcher, ShardedResilientCommandDispatcher,
 };
 use agent_cli::{
     is_retryable_cli_error, CliExecutionError, CliFault, CliFaultPolicy, ResilientCliRunner,
@@ -359,4 +359,88 @@ async fn test_topic_ed30f7_d26a5b_commands_benchmark_and_high_load_resilience() 
 #[tokio::test]
 async fn test_commands_high_load_concurrency() {
     execute_high_load_concurrency_benchmark().await;
+}
+
+#[tokio::test]
+async fn test_resilient_command_dispatch_retries_and_records_execution() {
+    let policy = CliFaultPolicy::intermittent(CliFault::SocketTimeout, 2).with_max_injections(1);
+    let mut dispatcher = ResilientCommandDispatcher::with_policy(policy, 2);
+    let cli = Cli {
+        short_version: None,
+        command: Commands::List,
+    };
+
+    let result = dispatcher.dispatch(cli).await;
+
+    assert!(result.is_ok(), "List dispatch should recover: {result:?}");
+    assert_eq!(dispatcher.recovered_count(), 1);
+    assert_eq!(dispatcher.total_executed(), 1);
+    assert_eq!(dispatcher.failed_count(), 0);
+}
+
+#[tokio::test]
+async fn test_resilient_batch_command_dispatch_preserves_results_and_counts() {
+    let mut dispatcher = ResilientCommandDispatcher::default();
+    let temp_dir = std::env::temp_dir().join(format!("batch_dispatch_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    let blocker = temp_dir.join("not_a_directory");
+    std::fs::write(&blocker, "force sample export to fail").unwrap();
+    let commands = [
+        Cli {
+            short_version: None,
+            command: Commands::InitSamplePersonas {
+                output_dir: blocker.to_string_lossy().into_owned(),
+            },
+        },
+        Cli {
+            short_version: None,
+            command: Commands::List,
+        },
+    ];
+
+    let results = dispatcher.dispatch_batch_commands(&commands).await;
+
+    assert_eq!(results.len(), commands.len());
+    assert!(results[0].is_err(), "The blocked export should fail");
+    assert!(
+        results[1].is_ok(),
+        "Later commands should still be dispatched"
+    );
+    assert_eq!(dispatcher.total_executed(), 1);
+    assert_eq!(dispatcher.failed_count(), 1);
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[tokio::test]
+async fn test_sharded_command_dispatch_operation_routes_and_aggregates_counts() {
+    let policy = CliFaultPolicy::intermittent(CliFault::SocketTimeout, 2).with_max_injections(1);
+    let dispatcher = ShardedResilientCommandDispatcher::new(policy, 2, 4);
+
+    let result = dispatcher
+        .dispatch_operation("sharded_operation_recovery", || async { Ok("recovered") })
+        .await;
+
+    assert_eq!(result.unwrap(), "recovered");
+    assert_eq!(dispatcher.total_executed().await, 1);
+    assert_eq!(dispatcher.recovered_count().await, 1);
+    assert_eq!(dispatcher.failed_count().await, 0);
+}
+
+#[tokio::test]
+async fn test_sharded_command_dispatch_routes_cli_and_aggregates_counts() {
+    let dispatcher = ShardedResilientCommandDispatcher::new(CliFaultPolicy::none(), 2, 4);
+    let cli = Cli {
+        short_version: None,
+        command: Commands::List,
+    };
+
+    let result = dispatcher.dispatch(cli).await;
+
+    assert!(
+        result.is_ok(),
+        "Sharded List dispatch should succeed: {result:?}"
+    );
+    assert_eq!(dispatcher.total_executed().await, 1);
+    assert_eq!(dispatcher.recovered_count().await, 0);
+    assert_eq!(dispatcher.failed_count().await, 0);
 }
