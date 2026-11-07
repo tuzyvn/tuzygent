@@ -116,6 +116,25 @@ fn test_resilient_cli_with_capacity_reserves_cache_storage() {
     assert!(with_reservation.get_cached("reserved-only").is_none());
 }
 
+#[test]
+fn test_resilient_cli_cache_evicts_oldest_response_at_capacity() {
+    let engine = ResilientCliEngine::with_engine(BenchmarkMockCliEngine).with_max_capacity(2);
+
+    engine.cache_response("first", &create_test_output("first-response"));
+    engine.cache_response("second", &create_test_output("second-response"));
+    engine.cache_response("third", &create_test_output("third-response"));
+
+    assert!(engine.get_cached("first").is_none());
+    assert_eq!(
+        engine.get_cached("second").unwrap().stdout_content,
+        "second-response"
+    );
+    assert_eq!(
+        engine.get_cached("third").unwrap().stdout_content,
+        "third-response"
+    );
+}
+
 #[async_trait::async_trait]
 impl ComputeEngine for MockFailingCliEngine {
     async fn execute(&self, _input: &EngineInput) -> Result<EngineOutput, EngineError> {
