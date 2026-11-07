@@ -1,5 +1,4 @@
 use super::fixtures::*;
-use super::verification::{mock_ok, mock_remediation};
 use crate::ooda::execution::runner::QueueExecutionOutcome;
 use agent_domain::{GuardrailPolicy, Priority, SubTask, Task, TaskStatus};
 use agent_engine::{EngineError, EngineKind, EngineOutput};
@@ -186,5 +185,69 @@ async fn test_execute_queue_exhausts_retries_and_fails() -> Result<(), Box<dyn s
 
     let memory = executor.durable.load_long_term_context().await?;
     assert!(memory.contains("Exhausted retries in subtask"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_execute_queue_recovers_from_exit_code_failure_via_remediation(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let env = TestEnv::new("test_runner_exit_code_recovery");
+    let workdir = env.path();
+
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let attempts_clone = attempts.clone();
+
+    let engine = Arc::new(CallbackMockEngine::new(move |input, _| {
+        if input
+            .prompt_or_command
+            .contains("Autonomous AI Problem Solver")
+        {
+            Ok(mock_remediation(
+                "ST-BUILD-FIX-1",
+                "Install missing build tools",
+                "install-tools",
+            ))
+        } else if input.prompt_or_command == "install-tools" {
+            Ok(mock_ok("Tools installed successfully"))
+        } else if attempts_clone.fetch_add(1, Ordering::SeqCst) == 0 {
+            Ok(EngineOutput {
+                stdout_content: "Compilation error: missing toolchain".to_string(),
+                exit_code: 1,
+                execution_duration_ms: 15,
+                engine_used: EngineKind::Mock,
+                session_id: None,
+            })
+        } else {
+            Ok(mock_ok("Build completed successfully"))
+        }
+    }));
+
+    let executor = setup_test_executor(engine, None, workdir);
+    let mut task = Task::new("Build Task", "Compile mission artifact", Priority::Normal);
+    task.subtasks.push(SubTask::new(
+        "ST-BUILD",
+        "Build project",
+        "compile-project",
+        "file: verified_fixture",
+    ));
+
+    let mut verifs = Vec::new();
+    let mut context = String::new();
+    let outcome = executor
+        .execute_queue(&mut task, workdir, "system ctx", &mut verifs, &mut context)
+        .await?;
+
+    assert_eq!(outcome, QueueExecutionOutcome::Completed);
+    assert_eq!(task.subtasks.len(), 2);
+    assert_eq!(task.subtasks[0].id, "ST-BUILD-FIX-1");
+    assert_eq!(task.subtasks[0].status, TaskStatus::Completed);
+    assert!(task.subtasks[0].is_remediation());
+    assert_eq!(task.subtasks[1].id, "ST-BUILD");
+    assert_eq!(task.subtasks[1].status, TaskStatus::Completed);
+    assert_eq!(task.subtasks[1].retry_count, 1);
+
+    let memory = executor.durable.load_long_term_context().await?;
+    assert!(memory.contains("Self-Correction"));
+    assert!(memory.contains("Install missing build tools"));
     Ok(())
 }
