@@ -381,9 +381,25 @@ mod public_api_tests {
             );
         }
 
+        let counter_position = rendered.find("requests_total 17");
+        let gauge_position = rendered.find("queue_depth 2.500000");
         assert!(
-            rendered.find("requests_total 17").unwrap()
-                < rendered.find("queue_depth 2.500000").unwrap()
+            matches!(
+                (counter_position, gauge_position),
+                (Some(counter), Some(gauge)) if counter < gauge
+            ),
+            "expected custom counter to appear before custom gauge; counter: {counter_position:?}, gauge: {gauge_position:?}"
         );
+    }
+
+    #[test]
+    fn metrics_snapshot_without_custom_metrics_handles_missing_positions_safely() {
+        let rendered = MetricsSnapshot::default().to_prometheus_text();
+
+        let counter_position = rendered.find("requests_total 17");
+        let gauge_position = rendered.find("queue_depth 2.500000");
+
+        assert_eq!(counter_position, None);
+        assert_eq!(gauge_position, None);
     }
 }

@@ -3826,3 +3826,27 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/update/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `checked_command` (L49), `run_resilient_command` (L75).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/update/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
+### [P1] TOPIC-20261107-ac8134: Refactor 2 lệnh unwrap() tại crates/agent-server/src/metrics/types.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 23:23:02 UTC)
+- **Lý do cần nghiên cứu**: Phát hiện 2 lệnh unwrap() trong mã sản xuất tại crates/agent-server/src/metrics/types.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-server/src/metrics/types.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P1] TOPIC-20261107-e7c6a4: Refactor 1 lệnh unwrap() tại crates/agent-runtime/src/report_queue.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 1 lệnh unwrap() trong mã sản xuất tại crates/agent-runtime/src/report_queue.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-runtime/src/report_queue.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P1] TOPIC-20261107-ae96db: Refactor 1 lệnh unwrap() tại crates/agent-server/src/handlers/health.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 1 lệnh unwrap() trong mã sản xuất tại crates/agent-server/src/handlers/health.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-server/src/handlers/health.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P2] TOPIC-20261107-d7fa74: Phân tách cấu trúc tệp nguyên khối (389 dòng): crates/agent-server/src/metrics/types.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-server/src/metrics/types.rs có độ dài 389 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-server/src/metrics/types.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
