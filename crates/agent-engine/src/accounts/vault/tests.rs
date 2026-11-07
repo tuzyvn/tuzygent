@@ -222,6 +222,35 @@ fn test_lock_safety() {
 }
 
 #[test]
+fn test_vault_clears_account_lock_poison_after_recovery() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "vault_poison_recovery_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let vault = AccountVault::new_with_dir(temp_dir.clone());
+    let accounts_lock = vault.accounts.clone();
+
+    let handle = std::thread::spawn(move || {
+        let _guard = accounts_lock
+            .write()
+            .expect("poison simulation should acquire accounts write lock");
+        panic!("simulate a worker panic while holding accounts lock");
+    });
+    assert!(handle.join().is_err(), "worker should panic and poison lock");
+    assert!(vault.accounts.is_poisoned(), "lock should be poisoned initially");
+
+    // A normal vault operation recovers the poisoned guard. Recovery should also
+    // clear the poison marker so later callers do not inherit stale poison state.
+    assert!(vault.list_accounts(None).is_empty());
+    assert!(
+        !vault.accounts.is_poisoned(),
+        "successful vault recovery should clear the accounts lock poison marker"
+    );
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
 fn test_recurring_system_error_cooldown_and_exhaustion_recovery() {
     let temp_dir =
         std::env::temp_dir().join(format!("vault_recurring_{}", uuid::Uuid::new_v4().simple()));

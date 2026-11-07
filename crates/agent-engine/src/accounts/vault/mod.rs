@@ -46,25 +46,45 @@ impl AccountVault {
     pub(crate) fn accounts_read(
         &self,
     ) -> RwLockReadGuard<'_, HashMap<AccountEngineKind, Vec<AccountProfile>>> {
-        self.accounts.read().unwrap_or_else(|e| e.into_inner())
+        match self.accounts.read() {
+            Ok(guard) => guard,
+            Err(error) => {
+                self.accounts.clear_poison();
+                error.into_inner()
+            }
+        }
     }
 
     pub(crate) fn accounts_write(
         &self,
     ) -> RwLockWriteGuard<'_, HashMap<AccountEngineKind, Vec<AccountProfile>>> {
-        self.accounts.write().unwrap_or_else(|e| e.into_inner())
+        match self.accounts.write() {
+            Ok(guard) => guard,
+            Err(error) => {
+                self.accounts.clear_poison();
+                error.into_inner()
+            }
+        }
     }
 
     pub(crate) fn rr_read(&self) -> RwLockReadGuard<'_, HashMap<AccountEngineKind, AtomicUsize>> {
-        self.round_robin_indices
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
+        match self.round_robin_indices.read() {
+            Ok(guard) => guard,
+            Err(error) => {
+                self.round_robin_indices.clear_poison();
+                error.into_inner()
+            }
+        }
     }
 
     pub(crate) fn rr_write(&self) -> RwLockWriteGuard<'_, HashMap<AccountEngineKind, AtomicUsize>> {
-        self.round_robin_indices
-            .write()
-            .unwrap_or_else(|e| e.into_inner())
+        match self.round_robin_indices.write() {
+            Ok(guard) => guard,
+            Err(error) => {
+                self.round_robin_indices.clear_poison();
+                error.into_inner()
+            }
+        }
     }
 
     pub fn base_dir(&self) -> &Path {
