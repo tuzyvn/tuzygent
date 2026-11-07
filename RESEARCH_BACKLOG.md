@@ -3348,7 +3348,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-c76249: Bổ sung kiểm thử cho 7 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/context_builder/builder.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 08:26:49 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/context_builder/builder.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `recent_logs` (L50), `subtask_history` (L54), `max_total_chars` (L62), `with_persona` (L66), `with_skills` (L71), `with_subtask_history` (L86), `build_safe` (L113).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/context_builder/builder.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
