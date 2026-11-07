@@ -1,6 +1,126 @@
 use super::{SqliteTaskStore, TaskStore};
 use agent_domain::{Priority, ScheduleSpec, Task, TaskScheduleRecord, TaskStatus};
 use chrono::{DateTime, TimeZone, Utc};
+use std::path::PathBuf;
+
+fn temp_workspace(label: &str) -> PathBuf {
+    std::env::temp_dir().join(format!(
+        "agent-runtime-{label}-{}",
+        uuid::Uuid::new_v4()
+    ))
+}
+
+fn table_exists(conn: &rusqlite::Connection, table: &str) -> bool {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+        [table],
+        |row| row.get(0),
+    )
+    .expect("query sqlite schema")
+}
+
+#[test]
+fn resolve_storage_dir_creates_storage_and_quarantines_a_file_at_that_path() {
+    let workspace = temp_workspace("resolve-storage");
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    let storage_path = workspace.join("storage");
+    std::fs::write(&storage_path, b"not a directory").expect("create conflicting file");
+
+    let resolved = super::schema::resolve_storage_dir(&workspace);
+
+    assert_eq!(resolved, storage_path);
+    assert!(resolved.is_dir());
+    assert!(std::fs::read_dir(&workspace)
+        .expect("list workspace")
+        .filter_map(Result::ok)
+        .any(|entry| entry.file_name().to_string_lossy().starts_with("storage_file_corrupt_")));
+    std::fs::remove_dir_all(workspace).expect("clean workspace");
+}
+
+#[test]
+fn open_resilient_sqlite_recreates_a_database_with_an_incompatible_schema() {
+    let workspace = temp_workspace("open-resilient");
+    let storage = workspace.join("storage");
+    std::fs::create_dir_all(&storage).expect("create storage directory");
+    let db_path = storage.join("tasks.db");
+    let malformed = rusqlite::Connection::open(&db_path).expect("create malformed database");
+    malformed
+        .execute_batch("CREATE TABLE tasks (id TEXT PRIMARY KEY);")
+        .expect("install incompatible tasks table");
+    drop(malformed);
+
+    let (opened_path, conn) = super::schema::open_resilient_sqlite(&workspace, 1_250, false)
+        .expect("recreate database with a valid schema");
+
+    assert_eq!(opened_path, db_path);
+    assert!(table_exists(&conn, "tasks"));
+    assert!(table_exists(&conn, "task_schedules"));
+    let title_column_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') WHERE name = 'title')",
+            [],
+            |row| row.get(0),
+        )
+        .expect("query recreated tasks columns");
+    assert!(title_column_exists);
+    assert_eq!(
+        conn.query_row("PRAGMA journal_mode", [], |row| row.get::<_, String>(0))
+            .expect("read journal mode"),
+        "delete"
+    );
+    assert!(std::fs::read_dir(&storage)
+        .expect("list storage directory")
+        .filter_map(Result::ok)
+        .any(|entry| entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with("tasks.db.malformed.")));
+    drop(conn);
+    std::fs::remove_dir_all(workspace).expect("clean workspace");
+}
+
+#[test]
+fn init_sqlite_schema_creates_expected_tables_and_is_repeatable() {
+    let conn = rusqlite::Connection::open_in_memory().expect("open in-memory database");
+
+    super::schema::init_sqlite_schema(&conn, false).expect("initialize schema");
+    super::schema::init_sqlite_schema(&conn, false).expect("initialize schema again");
+
+    for table in [
+        "tasks",
+        "subtask_checkpoints",
+        "task_results",
+        "task_idempotency",
+        "task_reviews",
+        "task_schedules",
+    ] {
+        assert!(table_exists(&conn, table), "missing table {table}");
+    }
+}
+
+#[test]
+fn init_sqlite_schema_with_options_applies_timeout_and_journal_mode() {
+    let workspace = temp_workspace("schema-options");
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    let conn = rusqlite::Connection::open(workspace.join("tasks.db"))
+        .expect("open file-backed database");
+
+    super::schema::init_sqlite_schema_with_options(&conn, true, 1_250, false)
+        .expect("initialize schema with custom options");
+
+    let timeout: i64 = conn
+        .query_row("PRAGMA busy_timeout", [], |row| row.get(0))
+        .expect("read busy timeout");
+    let journal_mode: String = conn
+        .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+        .expect("read journal mode");
+    assert_eq!(timeout, 1_250);
+    assert_eq!(journal_mode, "delete");
+    assert!(table_exists(&conn, "tasks"));
+
+    drop(conn);
+    std::fs::remove_dir_all(workspace).expect("clean workspace");
+}
 
 fn at(hour: u32, minute: u32) -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 11, 7, hour, minute, 0)
