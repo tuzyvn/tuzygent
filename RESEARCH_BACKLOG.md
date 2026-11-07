@@ -3678,7 +3678,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-96ac30: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/traits.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 18:59:36 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/traits.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `is_auth_or_quota` (L20), `from_name` (L57), `with_stream_callback` (L121).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/traits.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
