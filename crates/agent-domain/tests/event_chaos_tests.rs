@@ -149,6 +149,44 @@ fn test_duplicate_event_deduplication() {
 }
 
 #[test]
+fn test_bounded_deduplication_evicts_oldest_event_id() {
+    let agent = AgentId::new("agent-alpha");
+    let first = InterAgentEvent::new(
+        agent.clone(),
+        None,
+        "stream.update",
+        serde_json::json!({ "sequence": 1 }),
+    );
+    let second = InterAgentEvent::new(
+        agent.clone(),
+        None,
+        "stream.update",
+        serde_json::json!({ "sequence": 2 }),
+    );
+    let third = InterAgentEvent::new(
+        agent,
+        None,
+        "stream.update",
+        serde_json::json!({ "sequence": 3 }),
+    );
+    let mut processor =
+        ResilientEventProcessor::new(EventFaultPolicy::none(), 3).with_max_capacity(2);
+
+    assert!(processor.process_event(first.clone()).unwrap().is_some());
+    assert!(processor.process_event(second.clone()).unwrap().is_some());
+    assert_eq!(processor.seen_ids().len(), 2);
+
+    assert!(processor.process_event(third).unwrap().is_some());
+    assert!(!processor.seen_ids().contains(&first.id));
+    assert!(processor.seen_ids().contains(&second.id));
+
+    // The oldest ID has left the bounded cache, so it can be processed again.
+    assert!(processor.process_event(first.clone()).unwrap().is_some());
+    assert!(processor.seen_ids().contains(&first.id));
+    assert_eq!(processor.processed_count(), 4);
+}
+
+#[test]
 fn test_high_volume_chaos_resilience() {
     let agent_a = AgentId::new("worker-pool");
     let policy = EventFaultPolicy::intermittent(EventFault::SocketTimeout, 3);
