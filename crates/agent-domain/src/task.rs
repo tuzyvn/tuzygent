@@ -549,4 +549,82 @@ mod tests {
         };
         assert!(!is_completed);
     }
+
+    #[test]
+    fn new_delayed_schedules_future_tasks_and_queues_due_tasks() {
+        let now = chrono::Utc::now();
+        let future = now + chrono::Duration::minutes(5);
+        let scheduled = Task::new_delayed("future", "run later", Priority::High, future);
+
+        assert_eq!(scheduled.status, TaskStatus::Scheduled { run_after: future });
+        assert_eq!(scheduled.run_after, Some(future));
+        assert_eq!(scheduled.scheduled_at, Some(future));
+        assert_eq!(
+            scheduled.schedule_spec,
+            Some(crate::schedule::ScheduleSpec::OnceAt { run_after: future })
+        );
+
+        let past = now - chrono::Duration::minutes(5);
+        let queued = Task::new_delayed("due", "run now", Priority::Normal, past);
+        assert_eq!(queued.status, TaskStatus::Queued);
+        assert_eq!(queued.run_after, Some(past));
+        assert_eq!(queued.scheduled_at, Some(past));
+        assert_eq!(
+            queued.schedule_spec,
+            Some(crate::schedule::ScheduleSpec::OnceAt { run_after: past })
+        );
+    }
+
+    #[test]
+    fn new_cron_validates_and_stores_the_schedule() {
+        let task = Task::new_cron("daily", "run daily", Priority::Normal, "0 0 * * *")
+            .expect("valid cron expression should create a task");
+        assert_eq!(task.status, TaskStatus::Queued);
+        assert_eq!(task.cron_expression.as_deref(), Some("0 0 * * *"));
+        assert_eq!(
+            task.schedule_spec,
+            Some(crate::schedule::ScheduleSpec::Cron {
+                expression: "0 0 * * *".to_string()
+            })
+        );
+
+        let invalid = Task::new_cron("invalid", "bad schedule", Priority::Low, "not cron");
+        assert!(matches!(
+            invalid,
+            Err(crate::schedule::ScheduleError::InvalidCronExpression { .. })
+        ));
+    }
+
+    #[test]
+    fn with_scheduled_at_sets_schedule_fields_and_scheduled_status() {
+        let timestamp = chrono::Utc::now() - chrono::Duration::seconds(1);
+        let task = Task::new("scheduled", "builder schedule", Priority::High)
+            .with_scheduled_at(timestamp);
+
+        assert_eq!(task.status, TaskStatus::Scheduled { run_after: timestamp });
+        assert_eq!(task.run_after, Some(timestamp));
+        assert_eq!(task.scheduled_at, Some(timestamp));
+        assert_eq!(
+            task.schedule_spec,
+            Some(crate::schedule::ScheduleSpec::OnceAt {
+                run_after: timestamp
+            })
+        );
+    }
+
+    #[test]
+    fn with_cron_expression_stores_expression_without_validating_it() {
+        let expression = "this is not parsed as cron";
+        let task = Task::new("cron", "builder cron", Priority::Normal)
+            .with_cron_expression(expression);
+
+        assert_eq!(task.status, TaskStatus::Queued);
+        assert_eq!(task.cron_expression.as_deref(), Some(expression));
+        assert_eq!(
+            task.schedule_spec,
+            Some(crate::schedule::ScheduleSpec::Cron {
+                expression: expression.to_string()
+            })
+        );
+    }
 }

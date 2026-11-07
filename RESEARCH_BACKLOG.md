@@ -3426,7 +3426,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-ec9120: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-domain/src/task.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 11:29:49 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-domain/src/task.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `new_delayed` (L225), `new_cron` (L256), `with_scheduled_at` (L269), `with_cron_expression` (L277).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-domain/src/task.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
