@@ -224,6 +224,45 @@ async fn test_replay_task_from_specific_checkpoint_step_in_place() {
 }
 
 #[tokio::test]
+async fn test_replay_cli_json_reports_rewound_task() {
+    let ws = unique_test_workspace("replay_cli_json");
+    let seeded = seed_three_step_task(&ws).await;
+    let task_id = seeded.id.0.clone();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
+        .args([
+            "replay",
+            task_id.as_str(),
+            "--from-step",
+            "2",
+            "--workspace",
+            ws.to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("run replay command");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let outcome: ReplayOutcomePayload =
+        serde_json::from_slice(&output.stdout).expect("parse replay JSON output");
+    assert_eq!(outcome.action, "replay");
+    assert_eq!(outcome.source_task_id, seeded.id);
+    assert_eq!(outcome.task.id, seeded.id);
+    assert_eq!(outcome.task.status, TaskStatus::Queued);
+    assert_eq!(outcome.from_step, Some(2));
+    assert_eq!(outcome.task.subtasks[0].status, TaskStatus::Completed);
+    assert_eq!(outcome.task.subtasks[1].status, TaskStatus::Queued);
+    assert_eq!(outcome.task.subtasks[2].status, TaskStatus::Queued);
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
+
+#[tokio::test]
 async fn test_fork_task_from_checkpoint_creates_independent_task_inheriting_state() {
     let ws = unique_test_workspace("fork_from_checkpoint");
     let seeded = seed_three_step_task(&ws).await;
