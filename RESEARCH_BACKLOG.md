@@ -3646,3 +3646,183 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 - **Lý do cần nghiên cứu**: Tệp crates/agent-memory/src/durable/resilience.rs có độ dài 423 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-memory/src/durable/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
+### [P1] TOPIC-20261107-4aef70: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/accounts/vault/mod.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 18:09:48 UTC)
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/accounts/vault/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `default_dir` (L25), `accounts_read` (L46), `rr_read` (L70), `rr_write` (L80).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/accounts/vault/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-8dca91: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-core/src/fault.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-core/src/fault.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `record_failure` (L120), `get_fault` (L136), `check_and_inject` (L144).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-core/src/fault.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-865d63: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/accounts/types.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/accounts/types.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `from_str_name` (L27), `to_safe` (L82), `estimated_size_bytes` (L141).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/accounts/types.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-afc93a: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/api/fault.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/api/fault.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `to_api_error` (L35), `is_retryable_api_error_message` (L148), `is_retryable_engine_error` (L174).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/api/fault.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-39cfb4: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/cli/fault.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/cli/fault.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `to_cli_error` (L38), `is_retryable_cli_error_message` (L160), `is_retryable_engine_error` (L179).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/cli/fault.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-96ac30: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/traits.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/traits.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `is_auth_or_quota` (L20), `from_name` (L57), `with_stream_callback` (L121).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/traits.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-6574cf: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/durable/audit.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/durable/audit.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `save_structured_lesson_and_record` (L42), `load_relevant_context_and_record` (L77), `save_user_directive_and_record` (L102).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/durable/audit.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-705713: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/scoped_scratchpad.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/scoped_scratchpad.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `from_parent` (L53), `parent_scope_id` (L105), `parent_path` (L117).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/scoped_scratchpad.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-c42311: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/bus/queue.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/bus/queue.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `shard_for_event` (L49), `publish_batch` (L60), `subscribe_shard` (L81).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/bus/queue.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-55b692: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/report_queue.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/report_queue.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `enqueue` (L68), `acknowledge` (L97), `list_pending` (L112).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/report_queue.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-d73b80: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/supervisor.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/supervisor.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `register_agent` (L29), `get_agent_state` (L34), `update_state` (L44).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/supervisor.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-519769: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/task_service/activity.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/task_service/activity.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `active_task_ids` (L20), `trigger_all_cancellation_flags` (L28), `trigger_cancellation_flag` (L38).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/task_service/activity.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-aa5f50: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-server/src/gateway/accounts.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/gateway/accounts.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `reset_account_handler` (L49), `import_local_handler` (L59), `verify_account_handler` (L72).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/gateway/accounts.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-23de2e: Kiểm chứng tương thích serialization cho 3 kiểu chưa có test: crates/agent-server/src/handlers/tasks.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-server/src/handlers/tasks.rs` chưa được tham chiếu trong Rust test: `RunTaskReq` (L12), `SubmitTaskReq` (L21), `ReviewTaskReq` (L29); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-server/src/handlers/tasks.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-c25788: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-server/src/metrics/types.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/metrics/types.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `average_duration_seconds` (L29), `success_ratio` (L54), `to_prometheus_text` (L90).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/metrics/types.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-66b7d0: Kiểm chứng tương thích serialization cho 2 kiểu chưa có test: crates/agent-cli/src/commands/inspect.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-cli/src/commands/inspect.rs` chưa được tham chiếu trong Rust test: `TaskInspectPayload` (L10), `DagListPayload` (L367); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-cli/src/commands/inspect.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-fc218b: Kiểm chứng tương thích serialization cho 2 kiểu chưa có test: crates/agent-domain/src/rig.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-domain/src/rig.rs` chưa được tham chiếu trong Rust test: `SeatSnapshot` (L63), `RigSnapshot` (L73); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-domain/src/rig.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-3a97ce: Kiểm chứng tương thích serialization cho 2 kiểu chưa có test: crates/agent-memory/src/persona_memory/types.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-memory/src/persona_memory/types.rs` chưa được tham chiếu trong Rust test: `MemoryRecord` (L3), `RetrievedContext` (L18); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-memory/src/persona_memory/types.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-66868d: Kiểm chứng tương thích serialization cho 2 kiểu chưa có test: crates/agent-runtime/src/report_queue.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-runtime/src/report_queue.rs` chưa được tham chiếu trong Rust test: `TerminalReportKind` (L10), `TerminalTaskReport` (L18); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-runtime/src/report_queue.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-5545a7: Kiểm chứng tương thích serialization cho 1 kiểu chưa có test: crates/agent-core/src/resilience.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-core/src/resilience.rs` chưa được tham chiếu trong Rust test: `CoreExecutionResult` (L9); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-core/src/resilience.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-5a564c: Kiểm chứng tương thích serialization cho 1 kiểu chưa có test: crates/agent-domain/src/identity/types.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-domain/src/identity/types.rs` chưa được tham chiếu trong Rust test: `PersonaId` (L255); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-domain/src/identity/types.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-f47b26: Kiểm chứng tương thích serialization cho 1 kiểu chưa có test: crates/agent-engine/src/config/engines.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-engine/src/config/engines.rs` chưa được tham chiếu trong Rust test: `SingleEngineConfig` (L7); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-engine/src/config/engines.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-457a60: Kiểm chứng tương thích serialization cho 1 kiểu chưa có test: crates/agent-engine/src/config/security.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-engine/src/config/security.rs` chưa được tham chiếu trong Rust test: `SecurityConfig` (L13); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-engine/src/config/security.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-4446d6: Kiểm chứng tương thích serialization cho 1 kiểu chưa có test: crates/agent-server/src/gateway/types.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-server/src/gateway/types.rs` chưa được tham chiếu trong Rust test: `ChatCompletionRequest` (L11); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-server/src/gateway/types.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-d822fa: Kiểm chứng tương thích serialization cho 1 kiểu chưa có test: crates/agent-server/src/handlers/agents.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-server/src/handlers/agents.rs` chưa được tham chiếu trong Rust test: `CreateAgentReq` (L8); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-server/src/handlers/agents.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-488939: Kiểm chứng tương thích serialization cho 1 kiểu chưa có test: crates/agent-server/src/handlers/health.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-server/src/handlers/health.rs` chưa được tham chiếu trong Rust test: `HealthResponse` (L4); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-server/src/handlers/health.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P2] TOPIC-20261107-2063d0: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/cli.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/cli.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `try_parse_safe` (L34), `pop` (L204).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/cli.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261107-6c3ada: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/commands/demo.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/commands/demo.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `multi_agent` (L14), `comedy_show` (L181).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/commands/demo.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261107-53a5d1: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/commands/replay/output.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/commands/replay/output.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `print_checkpoint_list` (L7), `print_replay_outcome` (L38).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/commands/replay/output.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261107-4bf4f6: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/update/mod.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/update/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `checked_command` (L49), `run_resilient_command` (L75).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/update/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+

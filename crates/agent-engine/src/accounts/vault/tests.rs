@@ -4,6 +4,37 @@ use super::*;
 use crate::accounts::types::{AccountProfile, AccountStatus};
 
 #[test]
+fn test_default_dir_uses_home_directory_and_accounts_suffix() {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string());
+
+    assert_eq!(
+        AccountVault::default_dir(),
+        std::path::Path::new(&home).join(".agentcore").join("accounts")
+    );
+}
+
+#[test]
+fn test_new_and_default_use_default_directory() {
+    let expected_dir = AccountVault::default_dir();
+
+    let from_new = AccountVault::new();
+    assert_eq!(from_new.base_dir(), expected_dir);
+
+    let from_default = AccountVault::default();
+    assert_eq!(from_default.base_dir(), expected_dir);
+}
+
+#[test]
+fn test_base_dir_preserves_the_configured_path() {
+    let configured_dir = std::path::PathBuf::from("vault-data").join("..").join("accounts");
+    let vault = AccountVault::new_with_dir(configured_dir.clone());
+
+    assert_eq!(vault.base_dir(), configured_dir.as_path());
+}
+
+#[test]
 fn test_vault_public_storage_and_copy_helpers() {
     let temp_dir = std::env::temp_dir().join(format!(
         "vault_public_helpers_{}",
