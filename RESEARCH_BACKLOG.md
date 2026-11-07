@@ -3366,7 +3366,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-2b2f12: Bổ sung kiểm thử cho 6 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/cli/resilience.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 09:15:18 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/cli/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_retry_delay_ms` (L48), `inner_mut` (L91), `set_fault_policy` (L99), `reset_metrics` (L105), `cache_response` (L146), `get_cached` (L167).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/cli/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 

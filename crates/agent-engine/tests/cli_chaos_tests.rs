@@ -4,10 +4,11 @@ use std::sync::Arc;
 
 use agent_domain::{AuditEventType, AuditLedger};
 use agent_engine::{
-    simulate_cli_fault, BenchmarkMockCliEngine, CliBenchmarkHarness, CliBenchmarkStats, CliError,
-    CliFault, CliFaultPolicy, ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput,
-    GenericCliEngine, ResilientCliEngine, ResilientCliWrapper,
+    simulate_cli_fault, BackoffPolicy, BenchmarkMockCliEngine, CliBenchmarkHarness,
+    CliBenchmarkStats, CliError, CliFault, CliFaultPolicy, ComputeEngine, EngineError, EngineInput,
+    EngineKind, EngineOutput, GenericCliEngine, ResilientCliEngine, ResilientCliWrapper,
 };
+use std::time::{Duration, Instant};
 
 fn create_test_input(prompt: &str, timeout_seconds: u64) -> EngineInput {
     EngineInput {
@@ -24,10 +25,95 @@ fn create_test_input(prompt: &str, timeout_seconds: u64) -> EngineInput {
     }
 }
 
+fn create_test_output(stdout_content: &str) -> EngineOutput {
+    EngineOutput {
+        stdout_content: stdout_content.to_string(),
+        exit_code: 0,
+        execution_duration_ms: 10,
+        engine_used: EngineKind::Generic("test-output".to_string()),
+        session_id: None,
+    }
+}
+
 struct MockFailingCliEngine {
     failures_remaining: Arc<AtomicUsize>,
     fail_error: EngineError,
     success_output: String,
+}
+
+#[test]
+fn test_resilient_cli_with_engine_uses_default_policy_and_retries() {
+    let engine = ResilientCliEngine::with_engine(BenchmarkMockCliEngine);
+
+    assert_eq!(engine.max_retries(), 3);
+    assert!(engine.backoff_policy().is_none());
+    assert_eq!(engine.fault_policy().lock().unwrap().injected_count(), 0);
+}
+
+#[tokio::test]
+async fn test_resilient_cli_with_fault_policy_applies_injected_fault() {
+    let mock = MockFailingCliEngine {
+        failures_remaining: Arc::new(AtomicUsize::new(0)),
+        fail_error: EngineError::Timeout,
+        success_output: "fault-policy-recovered".to_string(),
+    };
+    let policy = CliFaultPolicy::always(CliFault::ProcessTimeout).with_max_injections(1);
+    let engine = ResilientCliEngine::with_fault_policy(mock, policy);
+
+    let output = engine
+        .execute(&create_test_input("fault-policy", 5))
+        .await
+        .expect("the default retry count should recover from one injected fault");
+    assert_eq!(output.stdout_content, "fault-policy-recovered");
+    assert_eq!(engine.max_retries(), 3);
+    assert_eq!(engine.recovered_count(), 1);
+}
+
+#[tokio::test]
+async fn test_resilient_cli_with_retry_delay_waits_between_attempts() {
+    let mock = MockFailingCliEngine {
+        failures_remaining: Arc::new(AtomicUsize::new(1)),
+        fail_error: EngineError::Timeout,
+        success_output: "delayed-retry".to_string(),
+    };
+    let engine = ResilientCliEngine::with_engine(mock).with_retry_delay_ms(25);
+    let start = Instant::now();
+
+    let output = engine
+        .execute(&create_test_input("retry-delay", 5))
+        .await
+        .expect("retry should succeed after the configured delay");
+
+    assert_eq!(output.stdout_content, "delayed-retry");
+    assert!(start.elapsed() >= Duration::from_millis(20));
+    assert_eq!(engine.recovered_count(), 1);
+}
+
+#[test]
+fn test_resilient_cli_with_backoff_policy_stores_policy() {
+    let policy = BackoffPolicy::fixed(Duration::from_millis(17));
+    let engine =
+        ResilientCliEngine::with_engine(BenchmarkMockCliEngine).with_backoff_policy(policy.clone());
+
+    assert_eq!(engine.backoff_policy(), Some(&policy));
+}
+
+#[test]
+fn test_resilient_cli_backoff_policy_is_none_by_default() {
+    let engine = ResilientCliEngine::with_engine(BenchmarkMockCliEngine);
+
+    assert_eq!(engine.backoff_policy(), None);
+}
+
+#[test]
+fn test_resilient_cli_with_capacity_reserves_cache_storage() {
+    let without_reservation = ResilientCliEngine::with_engine(BenchmarkMockCliEngine);
+    let with_reservation = ResilientCliEngine::with_engine(BenchmarkMockCliEngine).with_capacity(8);
+
+    assert!(with_reservation.memory_usage_bytes() > without_reservation.memory_usage_bytes());
+    // Capacity only reserves storage; caching remains disabled until bounded capacity is set.
+    with_reservation.cache_response("reserved-only", &create_test_output("unused"));
+    assert!(with_reservation.get_cached("reserved-only").is_none());
 }
 
 #[async_trait::async_trait]
