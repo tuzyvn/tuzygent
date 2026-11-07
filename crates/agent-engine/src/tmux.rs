@@ -183,6 +183,10 @@ impl TmuxSessionManager {
 mod tests {
     use super::*;
 
+    fn lifecycle_session_name(result: Result<String, String>) -> Result<String, String> {
+        result.map_err(|error| format!("Must create session: {error}"))
+    }
+
     #[test]
     fn test_format_session_name() {
         assert_eq!(
@@ -192,22 +196,20 @@ mod tests {
     }
 
     #[test]
-    fn test_tmux_session_lifecycle_if_available() {
+    fn test_tmux_session_lifecycle_if_available() -> Result<(), String> {
         if !TmuxSessionManager::is_available() {
             println!("tmux not installed; skipping test.");
-            return;
+            return Ok(());
         }
 
         let test_rig = "test_lifecycle";
         let test_seat = "agent_01";
-        let session_name = match TmuxSessionManager::create_seat_session(test_rig, test_seat, None)
-        {
-            Ok(session_name) => session_name,
+        let session_name = match TmuxSessionManager::create_seat_session(test_rig, test_seat, None) {
             Err(error) if error.contains("Operation not permitted") => {
                 println!("tmux socket access is restricted; skipping lifecycle test.");
-                return;
+                return Ok(());
             }
-            Err(error) => panic!("Must create session: {error}"),
+            result => lifecycle_session_name(result)?,
         };
 
         assert!(TmuxSessionManager::has_session(&session_name));
@@ -223,5 +225,15 @@ mod tests {
         // Test cleanup
         TmuxSessionManager::kill_seat_session(&session_name).expect("Must kill session");
         assert!(!TmuxSessionManager::has_session(&session_name));
+        Ok(())
+    }
+
+    #[test]
+    fn test_tmux_session_lifecycle_creation_error_does_not_panic() {
+        let result = lifecycle_session_name(Err("simulated session creation failure".to_string()));
+        assert_eq!(
+            result,
+            Err("Must create session: simulated session creation failure".to_string())
+        );
     }
 }
