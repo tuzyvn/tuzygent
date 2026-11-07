@@ -54,6 +54,32 @@ fn build_test_service() -> TaskService {
 }
 
 #[tokio::test]
+async fn test_with_concurrency_clamps_zero_to_one_permit() {
+    let service = build_test_service().with_concurrency(0);
+
+    assert_eq!(service.concurrency_limit(), 1);
+    assert_eq!(service.available_concurrency(), 1);
+}
+
+#[tokio::test]
+async fn test_submit_and_query_task_service_api() {
+    let service = build_test_service();
+    let task_id = service
+        .submit_task("API regression", "Keep task access stable", Priority::High)
+        .await
+        .expect("submit task");
+
+    let task = service.get_task(&task_id).await.expect("get task").unwrap();
+    assert_eq!(task.title, "API regression");
+    assert_eq!(service.count_tasks().await.expect("count tasks"), 1);
+    assert_eq!(
+        service.list_tasks(10, 0).await.expect("list tasks").len(),
+        1
+    );
+    assert_eq!(service.status_summary().await.unwrap()["queued"], 1);
+}
+
+#[tokio::test]
 async fn test_dispatch_executes_queued_task_and_cleans_up_tracking() {
     let service = build_test_service();
     let (engine, exec_count) = CountingMockEngine::new();
