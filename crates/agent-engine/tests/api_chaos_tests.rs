@@ -880,6 +880,28 @@ async fn test_resilient_engine_fails_when_exceeding_max_retries() {
 }
 
 #[tokio::test]
+async fn test_resilient_engine_rejects_non_retryable_failure_without_retrying() {
+    let inner = MockEngineWithFailures {
+        failures_remaining: AtomicUsize::new(1),
+        fail_error: EngineError::ProcessFailed("invalid request configuration".to_string()),
+    };
+
+    let resilient = ResilientApiEngine::new(inner, ApiFaultPolicy::none(), 3);
+    let result = resilient
+        .execute(&create_test_input("non-retryable", 5))
+        .await;
+
+    assert!(matches!(result, Err(EngineError::ProcessFailed(_))));
+    assert_eq!(
+        resilient.inner().failures_remaining.load(Ordering::SeqCst),
+        0
+    );
+    assert_eq!(resilient.recovered_count(), 0);
+    assert_eq!(resilient.rejected_count(), 1);
+    assert_eq!(resilient.resolved_count(), 0);
+}
+
+#[tokio::test]
 async fn test_resilient_engine_chaos_injection_recovery() {
     let inner = MockEngineWithFailures {
         failures_remaining: AtomicUsize::new(0),
