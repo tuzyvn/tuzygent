@@ -234,3 +234,87 @@ impl ComputeEngine for AntigravityEngine {
         EngineKind::Antigravity
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        AntigravityResultEvent, AntigravityStepUpdate, AntigravityStreamEvent, AntigravityUsage,
+    };
+    use serde::Serialize;
+    use serde_json::{json, Value};
+
+    fn assert_json_round_trip<T>(wire_json: Value)
+    where
+        T: serde::de::DeserializeOwned + Serialize,
+    {
+        let decoded: T = serde_json::from_value(wire_json.clone()).expect("decode wire JSON");
+        let encoded = serde_json::to_value(decoded).expect("encode wire JSON");
+        assert_eq!(encoded, wire_json);
+    }
+
+    #[test]
+    fn usage_serialization_matches_wire_fields_and_defaults_missing_counters() {
+        assert_json_round_trip::<AntigravityUsage>(json!({
+            "input_tokens": 12,
+            "output_tokens": 8,
+            "thinking_tokens": 3,
+            "total_tokens": 23
+        }));
+
+        let usage: AntigravityUsage = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(usage.input_tokens, 0);
+        assert_eq!(usage.output_tokens, 0);
+        assert_eq!(usage.thinking_tokens, 0);
+        assert_eq!(usage.total_tokens, 0);
+    }
+
+    #[test]
+    fn step_update_serialization_matches_wire_fields() {
+        assert_json_round_trip::<AntigravityStepUpdate>(json!({
+            "conversation_id": "conversation-1",
+            "step_index": 2,
+            "state": "running",
+            "step_type": "assistant",
+            "text_delta": "hello",
+            "usage": {
+                "input_tokens": 12,
+                "output_tokens": 8,
+                "thinking_tokens": 3,
+                "total_tokens": 23
+            }
+        }));
+    }
+
+    #[test]
+    fn result_event_serialization_matches_wire_fields() {
+        assert_json_round_trip::<AntigravityResultEvent>(json!({
+            "conversation_id": "conversation-1",
+            "status": "completed",
+            "response": "final answer",
+            "error": "",
+            "usage": {
+                "input_tokens": 12,
+                "output_tokens": 8,
+                "thinking_tokens": 3,
+                "total_tokens": 23
+            }
+        }));
+    }
+
+    #[test]
+    fn stream_event_serialization_matches_nested_wire_fields() {
+        assert_json_round_trip::<AntigravityStreamEvent>(json!({
+            "event": "step_update",
+            "conversation_id": "conversation-1",
+            "step_update": {
+                "conversation_id": "conversation-1",
+                "step_index": 2,
+                "state": "running",
+                "step_type": "assistant",
+                "text_delta": "hello",
+                "usage": null
+            },
+            "result": null
+        }));
+    }
+}
