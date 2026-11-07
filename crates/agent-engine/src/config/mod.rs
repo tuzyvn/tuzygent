@@ -55,6 +55,37 @@ mod tests {
     }
 
     #[test]
+    fn security_config_serialization_round_trip_is_stable() {
+        let config = SecurityConfig {
+            allowed_env_vars: vec!["SERVICE_TOKEN".into(), "LOG_LEVEL".into()],
+            mount_credentials: vec![CredentialMount {
+                source: "/host/credentials.json".into(),
+                target: "/run/credentials.json".into(),
+                readonly: true,
+            }],
+        };
+
+        let serialized = serde_json::to_value(&config).expect("Must serialize security config");
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "allowed_env_vars": ["SERVICE_TOKEN", "LOG_LEVEL"],
+                "mount_credentials": [{
+                    "source": "/host/credentials.json",
+                    "target": "/run/credentials.json",
+                    "readonly": true
+                }]
+            })
+        );
+
+        let parsed: SecurityConfig =
+            serde_json::from_value(serialized.clone()).expect("Must deserialize security config");
+        let round_tripped =
+            serde_json::to_value(parsed).expect("Must serialize parsed security config");
+        assert_eq!(round_tripped, serialized);
+    }
+
+    #[test]
     fn test_engines_config_serialization() {
         let config = EnginesConfig::default();
         let toml_str = config.to_toml_string().expect("Must serialize to toml");
