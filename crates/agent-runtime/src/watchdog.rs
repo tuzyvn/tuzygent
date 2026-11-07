@@ -121,3 +121,78 @@ impl IdleWatchdog {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{IdleWatchdog, MonotonicClock};
+    use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::time::{sleep, timeout};
+
+    #[test]
+    fn monotonic_clock_starts_at_zero_and_advances() {
+        let clock = MonotonicClock::new();
+        assert_eq!(clock.elapsed_millis(), 0);
+
+        std::thread::sleep(Duration::from_millis(5));
+        assert!(clock.elapsed_millis() >= 5);
+    }
+
+    #[tokio::test]
+    async fn new_watchdog_starts_unfired_and_monitor_reports_idle_timeout() {
+        let (watchdog, mut shutdown_rx) =
+            IdleWatchdog::new(Duration::ZERO, Duration::from_secs(1));
+        assert!(!watchdog.is_fired());
+        assert!(!*shutdown_rx.borrow());
+
+        Arc::new(watchdog)
+            .start_monitoring("idle-agent".to_owned())
+            .await;
+
+        assert!(shutdown_rx.changed().await.is_ok());
+        assert!(*shutdown_rx.borrow());
+    }
+
+    #[tokio::test]
+    async fn mark_activity_resets_the_idle_timeout() {
+        let (watchdog, mut shutdown_rx) =
+            IdleWatchdog::new(Duration::from_millis(700), Duration::from_secs(1));
+        let watchdog = Arc::new(watchdog);
+        let monitor = tokio::spawn(Arc::clone(&watchdog).start_monitoring("active-agent".into()));
+
+        sleep(Duration::from_millis(550)).await;
+        watchdog.mark_activity();
+        sleep(Duration::from_millis(150)).await;
+        assert!(!watchdog.is_fired());
+        assert!(!*shutdown_rx.borrow());
+
+        timeout(Duration::from_secs(2), shutdown_rx.changed())
+            .await
+            .expect("watchdog should eventually detect inactivity")
+            .expect("shutdown receiver should remain connected");
+        assert!(watchdog.is_fired());
+        monitor.await.expect("monitor task should finish");
+    }
+
+    #[tokio::test]
+    async fn tool_activity_uses_tool_window_until_tool_exits() {
+        let (watchdog, mut shutdown_rx) =
+            IdleWatchdog::new(Duration::from_millis(10), Duration::from_secs(2));
+        watchdog.enter_tool();
+        let watchdog = Arc::new(watchdog);
+        let monitor = tokio::spawn(Arc::clone(&watchdog).start_monitoring("tool-agent".into()));
+
+        // The idle window has elapsed, but the active tool still has its longer budget.
+        sleep(Duration::from_millis(600)).await;
+        assert!(!watchdog.is_fired());
+        assert!(!*shutdown_rx.borrow());
+
+        watchdog.exit_tool();
+        timeout(Duration::from_secs(1), shutdown_rx.changed())
+            .await
+            .expect("watchdog should use the idle window after the tool exits")
+            .expect("shutdown receiver should remain connected");
+        assert!(watchdog.is_fired());
+        monitor.await.expect("monitor task should finish");
+    }
+}
