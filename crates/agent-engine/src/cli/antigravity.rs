@@ -253,7 +253,8 @@ mod tests {
     }
 
     #[test]
-    fn usage_serialization_matches_wire_fields_and_defaults_missing_counters() {
+    fn usage_serialization_matches_wire_fields_and_defaults_missing_counters(
+    ) -> Result<(), serde_json::Error> {
         assert_json_round_trip::<AntigravityUsage>(json!({
             "input_tokens": 12,
             "output_tokens": 8,
@@ -261,11 +262,25 @@ mod tests {
             "total_tokens": 23
         }));
 
-        let usage: AntigravityUsage = serde_json::from_value(json!({})).unwrap();
+        let usage: AntigravityUsage = serde_json::from_value(json!({}))?;
         assert_eq!(usage.input_tokens, 0);
         assert_eq!(usage.output_tokens, 0);
         assert_eq!(usage.thinking_tokens, 0);
         assert_eq!(usage.total_tokens, 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn usage_with_invalid_counter_returns_deserialization_error() {
+        let result = serde_json::from_value::<AntigravityUsage>(json!({
+            "input_tokens": "not-a-number"
+        }));
+
+        assert!(
+            result.is_err(),
+            "invalid counter should be reported as an error"
+        );
     }
 
     #[test]

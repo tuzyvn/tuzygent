@@ -3630,7 +3630,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-4c60e0: Refactor 1 lệnh unwrap() tại crates/agent-engine/src/cli/antigravity.rs sang cơ chế xử lý lỗi an toàn
 - **Phân loại**: `Reliability / Panic Prevention`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 17:34:52 UTC)
 - **Lý do cần nghiên cứu**: Phát hiện 1 lệnh unwrap() trong mã sản xuất tại crates/agent-engine/src/cli/antigravity.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
 - **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-engine/src/cli/antigravity.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
 
