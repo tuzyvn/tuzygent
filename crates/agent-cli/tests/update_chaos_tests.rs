@@ -139,6 +139,37 @@ fn test_update_transient_io_during_staging() {
     assert!(updater.recovered_count() >= 1);
 }
 
+#[tokio::test]
+async fn update_batch_operations_preserve_order_and_continue_after_failure() {
+    let mut updater = ResilientUpdater::default();
+    let items = [
+        ("update_first", Ok(10)),
+        (
+            "update_invalid",
+            Err(CliExecutionError::ParseError {
+                code: 2,
+                message: "invalid update input".to_string(),
+            }),
+        ),
+        ("update_last", Ok(30)),
+    ];
+
+    let results = updater.execute_batch_operations(&items).await;
+
+    assert_eq!(results.len(), 3);
+    assert_eq!(results[0], Ok(10));
+    assert_eq!(
+        results[1],
+        Err(CliExecutionError::ParseError {
+            code: 2,
+            message: "invalid update input".to_string(),
+        })
+    );
+    assert_eq!(results[2], Ok(30));
+    assert_eq!(updater.total_executed(), 2);
+    assert_eq!(updater.failed_count(), 1);
+}
+
 #[test]
 fn test_update_lock_contention_during_build() {
     let policy = CliFaultPolicy::intermittent(CliFault::LockContention, 2).with_max_injections(2);

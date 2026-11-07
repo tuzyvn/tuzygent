@@ -3636,7 +3636,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261107-4cdc1d: Phân tách cấu trúc tệp nguyên khối (438 dòng): crates/agent-cli/src/update/resilience.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 17:46:36 UTC)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-cli/src/update/resilience.rs có độ dài 438 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-cli/src/update/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
