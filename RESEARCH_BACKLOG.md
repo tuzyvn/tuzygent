@@ -3468,7 +3468,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-aa63ce: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/task_store/schedule.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 12:45:02 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/task_store/schedule.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `save_schedule` (L8), `list_schedules` (L77), `promote_due_delayed_tasks` (L108), `trigger_due_cron_schedules` (L185).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/task_store/schedule.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 

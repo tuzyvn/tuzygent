@@ -50,6 +50,81 @@ async fn save_schedule_inserts_and_updates_existing_record() {
 }
 
 #[tokio::test]
+async fn save_schedule_returns_database_errors() {
+    let store = SqliteTaskStore::memory().expect("in-memory task store");
+    {
+        let conn = store.conn.lock().expect("lock task store connection");
+        conn.execute_batch(
+            "CREATE TRIGGER reject_schedule_insert
+             BEFORE INSERT ON task_schedules
+             BEGIN
+                 SELECT RAISE(ABORT, 'schedule insert rejected');
+             END;",
+        )
+        .expect("install rejecting trigger");
+    }
+
+    let record = schedule(
+        "rejected-schedule",
+        ScheduleSpec::every_seconds(60),
+        at(10, 0),
+    );
+    assert!(TaskStore::save_schedule(&store, &record).await.is_err());
+    assert_eq!(
+        TaskStore::get_schedule(&store, &record.schedule_id)
+            .await
+            .expect("query rejected schedule"),
+        None
+    );
+}
+
+#[tokio::test]
+async fn get_schedule_returns_none_for_an_unknown_id() {
+    let store = SqliteTaskStore::memory().expect("in-memory task store");
+
+    assert_eq!(
+        TaskStore::get_schedule(&store, "missing-schedule")
+            .await
+            .expect("get missing schedule"),
+        None
+    );
+}
+
+#[tokio::test]
+async fn delete_schedule_reports_deletions_and_preserves_other_records() {
+    let store = SqliteTaskStore::memory().expect("in-memory task store");
+    let first = schedule("delete-me", ScheduleSpec::every_seconds(60), at(10, 0));
+    let other = schedule("keep-me", ScheduleSpec::every_seconds(120), at(11, 0));
+    for record in [&first, &other] {
+        TaskStore::save_schedule(&store, record)
+            .await
+            .expect("save schedule");
+    }
+
+    assert!(TaskStore::delete_schedule(&store, &first.schedule_id)
+        .await
+        .expect("delete existing schedule"));
+    assert!(!TaskStore::delete_schedule(&store, &first.schedule_id)
+        .await
+        .expect("delete already deleted schedule"));
+    assert!(!TaskStore::delete_schedule(&store, "unknown-schedule")
+        .await
+        .expect("delete unknown schedule"));
+    assert_eq!(
+        TaskStore::get_schedule(&store, &first.schedule_id)
+            .await
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        TaskStore::get_schedule(&store, &other.schedule_id)
+            .await
+            .unwrap(),
+        Some(other)
+    );
+}
+
+#[tokio::test]
 async fn list_schedules_orders_and_paginates_with_empty_boundaries() {
     let store = SqliteTaskStore::memory().expect("in-memory task store");
     for (id, minute) in [("later", 20), ("earliest", 5), ("middle", 10)] {
@@ -126,6 +201,74 @@ async fn promote_due_delayed_tasks_includes_due_boundary_and_fallback_and_skips_
         store.get_task(&future.id).await.unwrap().unwrap().status,
         future.status
     );
+    assert!(TaskStore::promote_due_delayed_tasks(&store, now)
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
+async fn promote_due_delayed_tasks_updates_linked_schedule_clears_results_and_skips_bad_json() {
+    let store = SqliteTaskStore::memory().expect("in-memory task store");
+    let now = at(10, 0);
+    let due_at = now - chrono::Duration::minutes(1);
+    let mut task = Task::new("linked task", "due task", Priority::Normal);
+    task.status = TaskStatus::Scheduled { run_after: due_at };
+    task.run_after = Some(due_at);
+    task.scheduled_at = Some(due_at);
+    store.save_task(&task).await.expect("save due task");
+    store
+        .save_result(&agent_domain::TaskResult {
+            task_id: task.id.clone(),
+            status: TaskStatus::Failed {
+                error: "stale result".to_string(),
+            },
+            summary: "stale result".to_string(),
+            artifacts: Vec::new(),
+            verifications: Vec::new(),
+            duration_ms: 1,
+            engine_used: None,
+        })
+        .await
+        .expect("save stale task result");
+
+    let mut linked_schedule = schedule(&task.id.0, ScheduleSpec::every_seconds(60), due_at);
+    linked_schedule.run_count = 2;
+    TaskStore::save_schedule(&store, &linked_schedule)
+        .await
+        .expect("save linked schedule");
+
+    let bad_id = "bad-json-task";
+    {
+        let conn = store.conn.lock().expect("lock task store connection");
+        conn.execute(
+            "INSERT INTO tasks (id, title, goal, priority, status, created_at, updated_at, raw_json)
+             VALUES (?1, 'bad json', '', 'null', ?2, ?3, ?3, '{')",
+            rusqlite::params![
+                bad_id,
+                serde_json::to_string(&TaskStatus::Scheduled { run_after: due_at }).unwrap(),
+                now.to_rfc3339(),
+            ],
+        )
+        .expect("insert malformed task row");
+    }
+
+    let promoted = TaskStore::promote_due_delayed_tasks(&store, now)
+        .await
+        .expect("promote due task");
+    assert_eq!(promoted.len(), 1);
+    assert_eq!(promoted[0].id, task.id);
+    assert_eq!(promoted[0].status, TaskStatus::Queued);
+    assert_eq!(promoted[0].updated_at, now);
+    assert!(store.get_result(&task.id).await.unwrap().is_none());
+
+    let updated_schedule = TaskStore::get_schedule(&store, &linked_schedule.schedule_id)
+        .await
+        .expect("get linked schedule")
+        .expect("linked schedule remains");
+    assert_eq!(updated_schedule.run_count, 3);
+    assert_eq!(updated_schedule.last_run_at, Some(now));
+    assert_eq!(updated_schedule.last_spawned_task_id, Some(task.id.clone()));
     assert!(TaskStore::promote_due_delayed_tasks(&store, now)
         .await
         .unwrap()
