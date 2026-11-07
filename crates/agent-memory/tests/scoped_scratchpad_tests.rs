@@ -12,6 +12,47 @@ fn unique_temp_dir() -> PathBuf {
     dir
 }
 
+#[test]
+fn test_parent_accessors_report_root_and_child_relationship() {
+    let ws = unique_temp_dir();
+    let root = ScopedScratchpad::new(&ws, "root-agent", ScopeAccess::ReadWrite);
+
+    assert_eq!(root.parent_scope_id(), None);
+    assert_eq!(root.parent_path(), None);
+
+    let child = root.child_scope("worker-a", ScopeAccess::ReadWrite);
+    assert_eq!(child.parent_scope_id(), Some("root-agent"));
+    assert_eq!(child.parent_path(), Some(root.file_path()));
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
+
+#[tokio::test]
+async fn test_read_recent_entries_returns_latest_nonempty_lines_in_order() {
+    let ws = unique_temp_dir();
+    let scope = ScopedScratchpad::new(&ws, "recent-log", ScopeAccess::ReadWrite);
+
+    assert_eq!(scope.read_recent_entries(3).await.unwrap(), Vec::<String>::new());
+    scope.write("  first  \n\n second \nthird\nfourth  \n").await.unwrap();
+
+    assert_eq!(
+        scope.read_recent_entries(2).await.unwrap(),
+        vec!["third".to_string(), "fourth".to_string()]
+    );
+    assert_eq!(scope.read_recent_entries(0).await.unwrap(), Vec::<String>::new());
+    assert_eq!(
+        scope.read_recent_entries(10).await.unwrap(),
+        vec![
+            "first".to_string(),
+            "second".to_string(),
+            "third".to_string(),
+            "fourth".to_string()
+        ]
+    );
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
+
 #[tokio::test]
 async fn test_readonly_scoped_scratchpad_blocks_writes() {
     let ws = unique_temp_dir();
