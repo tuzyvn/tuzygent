@@ -60,7 +60,10 @@ impl From<anyhow::Error> for CliExecutionError {
             CliExecutionError::BrokenPipe
         } else if lower.contains("lock") || lower.contains("busy") || lower.contains("contention") {
             CliExecutionError::LockContention(msg)
-        } else if lower.contains("i/o failure") || lower.contains("io failure") || lower.contains("transient io") {
+        } else if lower.contains("i/o failure")
+            || lower.contains("io failure")
+            || lower.contains("transient io")
+        {
             CliExecutionError::TransientIo(msg)
         } else if lower.contains("non-zero code 2")
             || lower.contains("exit code 2")
@@ -110,9 +113,9 @@ impl CliFault {
             }
             CliFault::ConnectionReset => CliExecutionError::ConnectionReset,
             CliFault::BrokenPipe => CliExecutionError::BrokenPipe,
-            CliFault::LockContention => {
-                CliExecutionError::LockContention("Simulated lock acquisition contention".to_string())
-            }
+            CliFault::LockContention => CliExecutionError::LockContention(
+                "Simulated lock acquisition contention".to_string(),
+            ),
             CliFault::NonZeroExit(code) => CliExecutionError::NonZeroExit {
                 code: *code,
                 message: format!("Mission exited with non-zero code {}", code),

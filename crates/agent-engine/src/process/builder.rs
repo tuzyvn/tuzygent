@@ -97,7 +97,8 @@ pub fn resolve_working_dir(desired: &str) -> PathBuf {
     }
 
     // Tier 2: Dedicated unique temp dir
-    let temp_unique = std::env::temp_dir().join(format!("tuzygent_workdir_{}", uuid::Uuid::new_v4()));
+    let temp_unique =
+        std::env::temp_dir().join(format!("tuzygent_workdir_{}", uuid::Uuid::new_v4()));
     if std::fs::create_dir_all(&temp_unique).is_ok() && temp_unique.is_dir() {
         return temp_unique;
     }

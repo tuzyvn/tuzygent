@@ -150,7 +150,12 @@ impl GatewayBenchmarkHarness {
                     }
                     local_latencies.push(t0.elapsed().as_secs_f64() * 1_000_000.0);
                 }
-                (local_latencies, local_success, local_fallback, local_rejected)
+                (
+                    local_latencies,
+                    local_success,
+                    local_fallback,
+                    local_rejected,
+                )
             }));
         }
 
@@ -222,7 +227,12 @@ impl GatewayBenchmarkHarness {
                     }
                     local_latencies.push(t0.elapsed().as_secs_f64() * 1_000_000.0);
                 }
-                (local_latencies, local_success, local_fallback, local_rejected)
+                (
+                    local_latencies,
+                    local_success,
+                    local_fallback,
+                    local_rejected,
+                )
             }));
         }
 

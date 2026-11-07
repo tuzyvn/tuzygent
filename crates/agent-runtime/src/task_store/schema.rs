@@ -78,7 +78,9 @@ pub fn open_resilient_sqlite(
         }
     };
 
-    if let Err(schema_err) = init_sqlite_schema_with_options(&conn, true, busy_timeout_ms, wal_enabled) {
+    if let Err(schema_err) =
+        init_sqlite_schema_with_options(&conn, true, busy_timeout_ms, wal_enabled)
+    {
         drop(conn);
         let backup = storage_dir.join(format!(
             "tasks.db.malformed.{}",
@@ -87,11 +89,21 @@ pub fn open_resilient_sqlite(
         let _ = std::fs::rename(&db_path, &backup);
         let _ = std::fs::remove_file(&db_path);
         let fresh_conn = Connection::open(&db_path).map_err(|e| {
-            anyhow!("Failed to open fresh db after schema corruption at {:?}: {}", db_path, e)
+            anyhow!(
+                "Failed to open fresh db after schema corruption at {:?}: {}",
+                db_path,
+                e
+            )
         })?;
-        init_sqlite_schema_with_options(&fresh_conn, true, busy_timeout_ms, wal_enabled).map_err(|e| {
-            anyhow!("Failed to initialize schema on fresh db: {} (schema error was: {})", e, schema_err)
-        })?;
+        init_sqlite_schema_with_options(&fresh_conn, true, busy_timeout_ms, wal_enabled).map_err(
+            |e| {
+                anyhow!(
+                    "Failed to initialize schema on fresh db: {} (schema error was: {})",
+                    e,
+                    schema_err
+                )
+            },
+        )?;
         return Ok((db_path, fresh_conn));
     }
 
@@ -197,7 +209,10 @@ pub fn init_sqlite_schema_with_options(
     )
     .map_err(|e| anyhow!("Failed to initialize tasks schema: {}", e))?;
 
-    let _ = conn.execute("ALTER TABLE subtask_checkpoints ADD COLUMN metadata_json TEXT;", []);
+    let _ = conn.execute(
+        "ALTER TABLE subtask_checkpoints ADD COLUMN metadata_json TEXT;",
+        [],
+    );
 
     Ok(())
 }

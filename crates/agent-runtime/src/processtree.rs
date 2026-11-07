@@ -135,8 +135,8 @@ mod tests {
         let mut child = cmd.spawn().expect("failed to spawn child process");
         let pid = child.id().expect("child should have a pid");
 
-        let pgid = getpgid(Some(Pid::from_raw(pid as i32)))
-            .expect("failed to get pgid of child process");
+        let pgid =
+            getpgid(Some(Pid::from_raw(pid as i32))).expect("failed to get pgid of child process");
 
         // Verify PGID equals the child PID
         assert_eq!(
@@ -221,4 +221,3 @@ mod tests {
         assert!(start.elapsed() < Duration::from_secs(5));
     }
 }
-

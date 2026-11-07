@@ -33,33 +33,29 @@ pub async fn execute_node(
     match node.node_type.as_str() {
         "triggerNode" => Ok(execute_trigger_node(node)),
         "agentNode" => execute_agent_node(orchestrator, node, &node_label, ctx).await,
-        "toolNode" => {
-            Ok(execute_tool_node(
-                &orchestrator.workspace_dir,
-                &orchestrator.harness_memory,
-                node,
-                current_id,
-                &node_label,
-                ctx.timeline,
-            )
-            .await)
-        }
+        "toolNode" => Ok(execute_tool_node(
+            &orchestrator.workspace_dir,
+            &orchestrator.harness_memory,
+            node,
+            current_id,
+            &node_label,
+            ctx.timeline,
+        )
+        .await),
         "approvalNode" => Ok(execute_approval_node(node)),
         "routerNode" => Ok(execute_router_node(node)),
         "consensusGateNode" | "consensusGate" | "ConsensusGate" => {
             Ok(execute_consensus_gate_node(node, ctx.context_state))
         }
-        "subWorkflowNode" | "workflowNode" => {
-            Ok(execute_sub_workflow_node(
-                orchestrator,
-                workflow,
-                node,
-                current_id,
-                &node_label,
-                ctx,
-            )
-            .await)
-        }
+        "subWorkflowNode" | "workflowNode" => Ok(execute_sub_workflow_node(
+            orchestrator,
+            workflow,
+            node,
+            current_id,
+            &node_label,
+            ctx,
+        )
+        .await),
         _ => Ok(NodeExecutionOutcome {
             node_output: serde_json::json!({}),
             node_error: Some(format!("Unsupported node type: {}", node.node_type)),

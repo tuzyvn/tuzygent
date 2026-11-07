@@ -8,11 +8,7 @@ use axum::{
 use super::extractors::{extract_bearer_token, extract_ws_token, token_matches};
 use super::state::AuthState;
 
-pub async fn require_auth(
-    State(auth): State<AuthState>,
-    request: Request,
-    next: Next,
-) -> Response {
+pub async fn require_auth(State(auth): State<AuthState>, request: Request, next: Next) -> Response {
     // Fault injection check for chaos simulation
     if let Ok(mut policy) = auth.fault_policy.lock() {
         if let Some(fault) = policy.should_inject() {

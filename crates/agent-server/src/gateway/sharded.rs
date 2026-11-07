@@ -144,11 +144,15 @@ impl ShardedResilientGatewayService {
     }
 
     pub fn history_buffer(&self) -> Option<Arc<GatewayRingBuffer>> {
-        self.history_buffer.as_ref().and_then(|h| h.as_single().cloned())
+        self.history_buffer
+            .as_ref()
+            .and_then(|h| h.as_single().cloned())
     }
 
     pub fn sharded_history_buffer(&self) -> Option<Arc<ShardedGatewayRingBuffer>> {
-        self.history_buffer.as_ref().and_then(|h| h.as_sharded().cloned())
+        self.history_buffer
+            .as_ref()
+            .and_then(|h| h.as_sharded().cloned())
     }
 
     pub fn buffer(&self) -> Option<&GatewayBuffer> {
@@ -193,7 +197,9 @@ impl ShardedResilientGatewayService {
                 return Ok(cached);
             }
         }
-        let resolved = self.shard_for(model_str).resolve_model_resilient(model_str)?;
+        let resolved = self
+            .shard_for(model_str)
+            .resolve_model_resilient(model_str)?;
         if let Some(cache) = &self.cache {
             cache.insert(model_str.to_string(), resolved.clone());
         }
@@ -211,7 +217,11 @@ impl ShardedResilientGatewayService {
         results
     }
 
-    pub async fn execute_async_resilient<F, Fut, T>(&self, key: &str, op: F) -> Result<T, GatewayError>
+    pub async fn execute_async_resilient<F, Fut, T>(
+        &self,
+        key: &str,
+        op: F,
+    ) -> Result<T, GatewayError>
     where
         F: FnMut() -> Fut,
         Fut: std::future::Future<Output = Result<T, GatewayError>>,

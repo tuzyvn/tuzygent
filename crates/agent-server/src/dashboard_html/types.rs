@@ -91,9 +91,9 @@ impl DashboardFault {
             Self::TemplateRenderFailure => DashboardError::TemplateRenderFailure(
                 "Injected template rendering failure: placeholder evaluation failed".to_string(),
             ),
-            Self::MissingAsset => {
-                DashboardError::MissingAsset("Injected missing asset fault: static asset not found".to_string())
-            }
+            Self::MissingAsset => DashboardError::MissingAsset(
+                "Injected missing asset fault: static asset not found".to_string(),
+            ),
             Self::IoError => DashboardError::IoError(
                 "Injected I/O failure: underlying storage read aborted".to_string(),
             ),

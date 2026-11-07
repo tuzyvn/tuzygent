@@ -72,11 +72,14 @@ impl CacheShard {
             }
         }
         self.order.push_back(token.clone());
-        self.entries.insert(token, AuthCacheEntry {
-            is_valid,
-            cached_at: Instant::now(),
-            hit_count: AtomicUsize::new(0),
-        });
+        self.entries.insert(
+            token,
+            AuthCacheEntry {
+                is_valid,
+                cached_at: Instant::now(),
+                hit_count: AtomicUsize::new(0),
+            },
+        );
         evicted
     }
 
@@ -201,10 +204,13 @@ impl ShardedAuthCache {
     }
 
     pub fn len(&self) -> usize {
-        self.shards.iter().map(|shard| match shard.read() {
-            Ok(s) => s.len(),
-            Err(p) => p.into_inner().len(),
-        }).sum()
+        self.shards
+            .iter()
+            .map(|shard| match shard.read() {
+                Ok(s) => s.len(),
+                Err(p) => p.into_inner().len(),
+            })
+            .sum()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -225,10 +231,15 @@ impl ShardedAuthCache {
     }
 
     pub fn memory_usage_bytes(&self) -> usize {
-        std::mem::size_of::<Self>() + self.shards.iter().map(|shard| match shard.read() {
-            Ok(s) => s.memory_usage_bytes(),
-            Err(p) => p.into_inner().memory_usage_bytes(),
-        }).sum::<usize>()
+        std::mem::size_of::<Self>()
+            + self
+                .shards
+                .iter()
+                .map(|shard| match shard.read() {
+                    Ok(s) => s.memory_usage_bytes(),
+                    Err(p) => p.into_inner().memory_usage_bytes(),
+                })
+                .sum::<usize>()
     }
 }
 

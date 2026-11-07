@@ -50,10 +50,8 @@ impl ComputeEngine for WorkspaceWritingEngine {
 
 #[tokio::test]
 async fn tdd_best_of_3_tournament_selects_highest_verified_engine() {
-    let base_dir = std::env::temp_dir().join(format!(
-        "tuzygent_tournament_tdd_{}",
-        uuid::Uuid::new_v4()
-    ));
+    let base_dir =
+        std::env::temp_dir().join(format!("tuzygent_tournament_tdd_{}", uuid::Uuid::new_v4()));
     let ws_agy = base_dir.join("agy");
     let ws_claude = base_dir.join("claude");
     let ws_codex = base_dir.join("codex");
@@ -62,7 +60,10 @@ async fn tdd_best_of_3_tournament_selects_highest_verified_engine() {
     let engine_agy = Arc::new(WorkspaceWritingEngine {
         kind: EngineKind::Antigravity,
         files_to_write: vec![
-            ("report.json".into(), r#"{"status": "verified", "score": 100}"#.into()),
+            (
+                "report.json".into(),
+                r#"{"status": "verified", "score": 100}"#.into(),
+            ),
             ("SOLUTION.md".into(), "STATUS: PASS\nClean patch.".into()),
         ],
         stdout: "Antigravity completed all checks".into(),
@@ -124,7 +125,10 @@ async fn tdd_best_of_3_tournament_selects_highest_verified_engine() {
     let executor = TournamentExecutor::with_named_candidates(&base_dir, candidates)
         .with_verification_specs(specs);
     let outcome = executor
-        .execute_tournament(&EngineInput::new("generate verified report", base_dir.to_string_lossy()))
+        .execute_tournament(&EngineInput::new(
+            "generate verified report",
+            base_dir.to_string_lossy(),
+        ))
         .await
         .expect("tournament should select winner");
 
@@ -151,7 +155,9 @@ async fn tdd_tournament_tie_breaker_prefers_lower_latency_and_smaller_diff() {
     let base_dir = std::env::temp_dir().join(format!("tuzygent_tiebreak_{}", uuid::Uuid::new_v4()));
     let _ = tokio::fs::create_dir_all(&base_dir).await;
     let marker = base_dir.join("ok.txt");
-    tokio::fs::write(&marker, "verified content").await.expect("write marker");
+    tokio::fs::write(&marker, "verified content")
+        .await
+        .expect("write marker");
 
     // All 3 pass the exact same verification spec, but differ in speed and diff size
     let slow_heavy = Arc::new(WorkspaceWritingEngine {
@@ -200,7 +206,10 @@ async fn tdd_tournament_tie_breaker_prefers_lower_latency_and_smaller_diff() {
     let outcome = TournamentExecutor::with_named_candidates(&base_dir, candidates)
         .with_verification_specs(specs)
         .with_judge(judge)
-        .execute_tournament(&EngineInput::new("optimize hot path", base_dir.to_string_lossy()))
+        .execute_tournament(&EngineInput::new(
+            "optimize hot path",
+            base_dir.to_string_lossy(),
+        ))
         .await
         .expect("tournament should succeed");
 
@@ -313,15 +322,19 @@ async fn tdd_tournament_partial_failure_survives_and_full_failure_triggers_fallb
         ),
     ];
 
-    let executor_fallback = TournamentExecutor::with_named_candidates("/tmp", all_failed_candidates)
-        .with_fallback_engine(Arc::new(CountingFallbackEngine(invocation_counter.clone())));
+    let executor_fallback =
+        TournamentExecutor::with_named_candidates("/tmp", all_failed_candidates)
+            .with_fallback_engine(Arc::new(CountingFallbackEngine(invocation_counter.clone())));
     let outcome_fb = executor_fallback
         .execute_tournament(&EngineInput::new("task", "/tmp"))
         .await
         .expect("fallback should rescue when all candidates fail");
     assert!(outcome_fb.used_fallback);
     assert_eq!(outcome_fb.winner_id, "fallback");
-    assert_eq!(outcome_fb.winner_output.stdout_content, "fallback succeeded");
+    assert_eq!(
+        outcome_fb.winner_output.stdout_content,
+        "fallback succeeded"
+    );
     assert_eq!(invocation_counter.load(Ordering::SeqCst), 1);
 
     // Case 3: All candidates fail and no fallback configured -> Returns Err

@@ -1,8 +1,8 @@
+use super::fault::{AccountError, AccountFault};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use super::fault::{AccountError, AccountFault};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AccountEngineKind {
@@ -96,10 +96,14 @@ impl AccountProfile {
     pub fn validate(&self) -> Result<(), AccountError> {
         let trimmed_id = self.id.trim();
         if trimmed_id.is_empty() {
-            return Err(AccountError::InvalidAccount("Account ID cannot be empty".to_string()));
+            return Err(AccountError::InvalidAccount(
+                "Account ID cannot be empty".to_string(),
+            ));
         }
         if self.name.trim().is_empty() {
-            return Err(AccountError::InvalidAccount("Account name cannot be empty".to_string()));
+            return Err(AccountError::InvalidAccount(
+                "Account name cannot be empty".to_string(),
+            ));
         }
         if trimmed_id == "."
             || trimmed_id == ".."
@@ -119,15 +123,15 @@ impl AccountProfile {
         match fault {
             AccountFault::SocketTimeout => Err(AccountError::SocketTimeout),
             AccountFault::ConnectionReset => Err(AccountError::ConnectionReset),
-            AccountFault::RateLimitExceeded => {
-                Err(AccountError::RateLimitExceeded("429 RateLimitExceeded".to_string()))
-            }
-            AccountFault::TransientIo => {
-                Err(AccountError::TransientIo("Simulated transient I/O failure".to_string()))
-            }
-            AccountFault::CorruptedMetadata => {
-                Err(AccountError::CorruptedMetadata("Corrupted account metadata".to_string()))
-            }
+            AccountFault::RateLimitExceeded => Err(AccountError::RateLimitExceeded(
+                "429 RateLimitExceeded".to_string(),
+            )),
+            AccountFault::TransientIo => Err(AccountError::TransientIo(
+                "Simulated transient I/O failure".to_string(),
+            )),
+            AccountFault::CorruptedMetadata => Err(AccountError::CorruptedMetadata(
+                "Corrupted account metadata".to_string(),
+            )),
             AccountFault::ServiceUnavailable => Err(AccountError::ServiceUnavailable(
                 "Account service temporarily unavailable".to_string(),
             )),

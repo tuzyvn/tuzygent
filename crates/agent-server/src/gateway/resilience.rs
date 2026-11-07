@@ -257,7 +257,10 @@ impl ResilientGatewayService {
         if let Some(ref hist) = self.history {
             hist.push_batch(models);
         }
-        models.iter().map(|&m| self.resolve_model_cached_internal(m, false)).collect()
+        models
+            .iter()
+            .map(|&m| self.resolve_model_cached_internal(m, false))
+            .collect()
     }
 
     pub async fn execute_async_resilient<F, Fut, T>(&self, mut op: F) -> Result<T, GatewayError>

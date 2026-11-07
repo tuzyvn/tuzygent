@@ -1,6 +1,4 @@
-use agent_runtime::{
-    HarnessBenchmarkHarness, HarnessBenchmarkStats, ResilientHarnessMemoryStore,
-};
+use agent_runtime::{HarnessBenchmarkHarness, HarnessBenchmarkStats, ResilientHarnessMemoryStore};
 
 /// TDD test case for TOPIC-20261105-50baad & TOPIC-20261105-80bc76:
 /// High-load concurrency benchmark (10,000 requests) & lock contention isolation
@@ -13,8 +11,7 @@ async fn test_topic_50baad_80bc76_harness_benchmark_and_lock_contention_isolatio
     println!("================================================================================");
 
     // 1. Single-threaded high load baseline benchmark (10,000 requests)
-    let mut resilient =
-        ResilientHarnessMemoryStore::memory().with_max_capacity(2_000);
+    let mut resilient = ResilientHarnessMemoryStore::memory().with_max_capacity(2_000);
 
     let stats: HarnessBenchmarkStats =
         HarnessBenchmarkHarness::run_benchmark(&mut resilient, 10_000).await;
@@ -22,13 +19,19 @@ async fn test_topic_50baad_80bc76_harness_benchmark_and_lock_contention_isolatio
     println!("  Total requests      : {}", stats.total_requests);
     println!("  Successful ops      : {}", stats.successful_operations);
     println!("  Rejected ops        : {}", stats.rejected_count);
-    println!("  Throughput          : {:.2} ops/sec", stats.throughput_ops_per_sec);
+    println!(
+        "  Throughput          : {:.2} ops/sec",
+        stats.throughput_ops_per_sec
+    );
     println!("  P50 Latency         : {:.2} µs", stats.p50_latency_us);
     println!("  P90 Latency         : {:.2} µs", stats.p90_latency_us);
     println!("  P99 Latency         : {:.2} µs", stats.p99_latency_us);
     println!("  Max Latency         : {:.2} µs", stats.max_latency_us);
     println!("  Duration            : {:?}", stats.total_duration);
-    println!("  Memory Allocated    : {} bytes", stats.memory_allocated_bytes);
+    println!(
+        "  Memory Allocated    : {} bytes",
+        stats.memory_allocated_bytes
+    );
 
     assert_eq!(stats.total_requests, 10_000);
     assert_eq!(stats.successful_operations, 9_000);
@@ -61,7 +64,10 @@ async fn test_topic_50baad_80bc76_harness_benchmark_and_lock_contention_isolatio
         mem_after
     );
     println!("\n[2. Bounded Memory Check]");
-    println!("  Memory before: {} bytes | Memory after 5k extra ops: {} bytes", mem_before, mem_after);
+    println!(
+        "  Memory before: {} bytes | Memory after 5k extra ops: {} bytes",
+        mem_before, mem_after
+    );
 
     // 3. Batch recording optimization test
     let batch_inputs = vec![
@@ -80,12 +86,14 @@ async fn test_topic_50baad_80bc76_harness_benchmark_and_lock_contention_isolatio
     // 4. Lock Contention Comparison: Single Shared Lock vs 16-Way Sharded Concurrency
     println!("\n[3. Lock Contention Comparison (10,000 requests across 4 worker threads)]");
     let single_lock_stats = HarnessBenchmarkHarness::run_single_lock_benchmark(10_000, 4).await;
-    println!("  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+    println!(
+        "  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
         single_lock_stats.throughput_ops_per_sec, single_lock_stats.p99_latency_us
     );
 
     let sharded_stats = HarnessBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
-    println!("  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+    println!(
+        "  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
         sharded_stats.throughput_ops_per_sec, sharded_stats.p99_latency_us
     );
 

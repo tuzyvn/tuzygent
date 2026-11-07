@@ -100,7 +100,9 @@ async fn test_durable_transient_io_recovery() {
 
     let loaded = resilient.load_relevant_context("sandbox").await;
     assert!(loaded.is_ok());
-    assert!(loaded.unwrap().contains("Strict sandbox policy enforcement"));
+    assert!(loaded
+        .unwrap()
+        .contains("Strict sandbox policy enforcement"));
 
     let _ = tokio::fs::remove_dir_all(dir).await;
 }
@@ -312,7 +314,11 @@ async fn test_corrupted_json_does_not_brick_subsequent_saves() {
 
     // Resilient store recovers gracefully from corrupt file
     let res = resilient.save_structured_lesson(&lesson).await;
-    assert!(res.is_ok(), "Save should recover from corrupt file: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "Save should recover from corrupt file: {:?}",
+        res.err()
+    );
 
     let loaded = resilient.load_structured_lessons().await;
     assert!(loaded.is_ok());
@@ -341,14 +347,8 @@ fn test_topic_b493ca_b86f27_durable_benchmark_and_resilience() {
         "Throughput should exceed 500 ops/sec, got {}",
         stats.throughput_ops_per_sec
     );
-    assert!(
-        stats.p50_latency_us > 0.0,
-        "P50 latency must be tracked"
-    );
-    assert!(
-        stats.p90_latency_us > 0.0,
-        "P90 latency must be tracked"
-    );
+    assert!(stats.p50_latency_us > 0.0, "P50 latency must be tracked");
+    assert!(stats.p90_latency_us > 0.0, "P90 latency must be tracked");
     assert!(
         stats.p99_latency_us < 20_000.0,
         "P99 latency must be under 20ms, got {} us",
@@ -382,7 +382,10 @@ fn test_topic_b493ca_b86f27_durable_benchmark_and_resilience() {
     assert_eq!(batch_res.len(), 4);
     assert!(batch_res[0].is_ok());
     assert!(batch_res[1].is_ok());
-    assert!(matches!(batch_res[2], Err(DurableMemoryError::EmptyContent)));
+    assert!(matches!(
+        batch_res[2],
+        Err(DurableMemoryError::EmptyContent)
+    ));
     assert!(batch_res[3].is_ok());
 
     // 4. Concurrent benchmark test (10,000 requests across 4 threads)

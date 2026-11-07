@@ -246,7 +246,9 @@ impl GatewayBuffer {
     }
 
     pub fn sharded(num_shards: usize, capacity: usize) -> Self {
-        Self::Sharded(Arc::new(ShardedGatewayRingBuffer::new(num_shards, capacity)))
+        Self::Sharded(Arc::new(ShardedGatewayRingBuffer::new(
+            num_shards, capacity,
+        )))
     }
 
     pub fn push(&self, item: &str) {
@@ -333,5 +335,3 @@ impl GatewayBuffer {
         }
     }
 }
-
-

@@ -78,7 +78,10 @@ impl ShardedBusQueue {
     }
 
     /// Subscribes to events on a specific shard.
-    pub fn subscribe_shard(&self, shard_idx: usize) -> Option<broadcast::Receiver<InterAgentEvent>> {
+    pub fn subscribe_shard(
+        &self,
+        shard_idx: usize,
+    ) -> Option<broadcast::Receiver<InterAgentEvent>> {
         self.shards.get(shard_idx).map(|s| s.subscribe())
     }
 

@@ -73,10 +73,7 @@ pub struct TournamentExecutor {
 }
 
 impl TournamentExecutor {
-    pub fn new(
-        workspace_dir: impl AsRef<Path>,
-        engines: Vec<Arc<dyn ComputeEngine>>,
-    ) -> Self {
+    pub fn new(workspace_dir: impl AsRef<Path>, engines: Vec<Arc<dyn ComputeEngine>>) -> Self {
         let candidates = engines
             .into_iter()
             .enumerate()
@@ -156,21 +153,20 @@ impl TournamentExecutor {
             let default_specs = self.verification_specs.clone();
             let base_ws = self.workspace_dir.clone();
             let mut candidate_input = input.clone();
-            let candidate_ws = candidate
-                .workspace_override
-                .clone()
-                .unwrap_or_else(|| {
-                    if !candidate_input.working_dir.is_empty() {
-                        PathBuf::from(&candidate_input.working_dir)
-                    } else {
-                        base_ws
-                    }
-                });
+            let candidate_ws = candidate.workspace_override.clone().unwrap_or_else(|| {
+                if !candidate_input.working_dir.is_empty() {
+                    PathBuf::from(&candidate_input.working_dir)
+                } else {
+                    base_ws
+                }
+            });
             candidate_input.working_dir = candidate_ws.to_string_lossy().to_string();
 
             join_set.spawn(async move {
                 let kind = candidate.engine.engine_kind();
-                let exec_res = service.execute(candidate.engine.clone(), &candidate_input).await;
+                let exec_res = service
+                    .execute(candidate.engine.clone(), &candidate_input)
+                    .await;
                 let diff_bytes = candidate.diff_bytes_hint.unwrap_or_else(|| {
                     exec_res
                         .as_ref()
@@ -241,7 +237,10 @@ impl TournamentExecutor {
         if let Some(ref fallback) = self.fallback_engine {
             info!("⚠️ [TournamentExecutor] Primary candidates did not succeed; invoking fallback engine");
             let fb_kind = fallback.engine_kind();
-            let fb_res = self.execution_service.execute(fallback.clone(), input).await;
+            let fb_res = self
+                .execution_service
+                .execute(fallback.clone(), input)
+                .await;
             let fb_diff = fb_res.as_ref().map(|o| o.stdout_content.len()).unwrap_or(0);
             let fb_sc = self
                 .judge
@@ -269,7 +268,9 @@ impl TournamentExecutor {
         }
 
         // Secondary fallback: if any candidate returned Ok(EngineOutput) despite non-zero exit_code
-        if let Some((_, best_sc, Ok(best_out))) = evaluated.into_iter().find(|(_, _, res)| res.is_ok()) {
+        if let Some((_, best_sc, Ok(best_out))) =
+            evaluated.into_iter().find(|(_, _, res)| res.is_ok())
+        {
             return Ok(TournamentOutcome {
                 winner_id: best_sc.candidate_id,
                 winner_engine: best_sc.engine_kind,

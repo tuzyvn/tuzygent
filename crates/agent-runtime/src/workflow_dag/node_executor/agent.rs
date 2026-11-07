@@ -20,13 +20,18 @@ pub async fn execute_agent_node(
     node_label: &str,
     ctx: &mut NodeExecutionContext<'_>,
 ) -> Result<NodeExecutionOutcome> {
-    let engine_config = agent_engine::EnginesConfig::load_hierarchical(Some(
-        std::path::Path::new(&orchestrator.workspace_dir),
-    ));
-    let engine_name = node.data.engine.as_deref().unwrap_or(&engine_config.defaults.engine);
+    let engine_config = agent_engine::EnginesConfig::load_hierarchical(Some(std::path::Path::new(
+        &orchestrator.workspace_dir,
+    )));
+    let engine_name = node
+        .data
+        .engine
+        .as_deref()
+        .unwrap_or(&engine_config.defaults.engine);
     let model_name = node.data.model.as_deref().filter(|m| !m.trim().is_empty());
     let engine = orchestrator.resolve_engine(Some(engine_name), model_name)?;
-    let execution = crate::execution::ExecutionService::from_workspace(&orchestrator.workspace_dir)?;
+    let execution =
+        crate::execution::ExecutionService::from_workspace(&orchestrator.workspace_dir)?;
     let engine_used = Some(match model_name {
         Some(m) => format!("{} ({})", engine_name, m),
         None => engine_name.to_string(),
@@ -63,7 +68,10 @@ pub async fn execute_agent_node(
             ctx.timeline.push(WorkflowTimelineEvent {
                 timestamp: Utc::now().format("%H:%M:%S").to_string(),
                 level: "info".to_string(),
-                message: format!("🔄 [Cross-Engine Handoff] Bàn giao ngữ cảnh bộ nhớ từ Engine '{}' sang '{}'", prev_engine, engine_name),
+                message: format!(
+                    "🔄 [Cross-Engine Handoff] Bàn giao ngữ cảnh bộ nhớ từ Engine '{}' sang '{}'",
+                    prev_engine, engine_name
+                ),
             });
             format!(
                 "\n\n======================================================\n\
@@ -99,17 +107,26 @@ pub async fn execute_agent_node(
             Ok(out) => {
                 let stdout_trimmed = out.stdout_content.trim().to_string();
                 if out.exit_code == 0 && !stdout_trimmed.is_empty() {
-                    node_output = serde_json::json!({ "stdout": stdout_trimmed, "exit_code": out.exit_code });
+                    node_output =
+                        serde_json::json!({ "stdout": stdout_trimmed, "exit_code": out.exit_code });
                     execution_succeeded = true;
                     if attempt > 0 {
                         healed = Some(true);
                         healing_attempts = Some(attempt);
-                        let remediation = "Điều chỉnh prompt theo phản hồi lỗi và tuân thủ định dạng output".to_string();
-                        let _ = orchestrator.harness_memory.record_lesson(
-                            "agentNode", persona_identifier,
-                            &node_error.clone().unwrap_or_else(|| "Exit failure".to_string()),
-                            &remediation,
-                        ).await;
+                        let remediation =
+                            "Điều chỉnh prompt theo phản hồi lỗi và tuân thủ định dạng output"
+                                .to_string();
+                        let _ = orchestrator
+                            .harness_memory
+                            .record_lesson(
+                                "agentNode",
+                                persona_identifier,
+                                &node_error
+                                    .clone()
+                                    .unwrap_or_else(|| "Exit failure".to_string()),
+                                &remediation,
+                            )
+                            .await;
                         lesson_learned = Some(remediation);
                         ctx.timeline.push(WorkflowTimelineEvent {
                             timestamp: Utc::now().format("%H:%M:%S").to_string(),
@@ -153,7 +170,11 @@ pub async fn execute_agent_node(
                 message: format!("🔄 [Harness² Propose-Probe] Kích hoạt Self-Healing lần {}/{} cho Node '{}' do lỗi: {}", attempt, max_healing_attempts, node_label, err_msg),
             });
             current_prompt = HarnessSelfHealer::propose_agent_refinement(
-                &base_prompt, err_msg, attempt, max_healing_attempts, &relevant_lessons,
+                &base_prompt,
+                err_msg,
+                attempt,
+                max_healing_attempts,
+                &relevant_lessons,
             );
         } else {
             break;
@@ -165,7 +186,12 @@ pub async fn execute_agent_node(
     }
 
     Ok(NodeExecutionOutcome {
-        node_output, node_error, engine_used, status,
-        healed, healing_attempts, lesson_learned,
+        node_output,
+        node_error,
+        engine_used,
+        status,
+        healed,
+        healing_attempts,
+        lesson_learned,
     })
 }

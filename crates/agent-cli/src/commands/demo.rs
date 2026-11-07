@@ -7,14 +7,14 @@ use agent_engine::cli::AntigravityEngine;
 use agent_engine::config::EnginesConfig;
 use agent_engine::{ComputeEngine, EngineInput};
 use agent_memory::{DurableMemoryStore, ScratchpadManager};
-use agent_runtime::{
-    AgentSupervisor, AutonomousOodaLoop, InterAgentBus, SandboxConfig,
-};
+use agent_runtime::{AgentSupervisor, AutonomousOodaLoop, InterAgentBus, SandboxConfig};
 use std::path::Path;
 use std::sync::Arc;
 
 pub async fn multi_agent(engine: String, workspace: String) -> anyhow::Result<()> {
-    println!("🤖🤖 Khởi chạy hệ thống Hợp tác Đa tác tử Tự trị (Real Multi-Agent Collaboration)...");
+    println!(
+        "🤖🤖 Khởi chạy hệ thống Hợp tác Đa tác tử Tự trị (Real Multi-Agent Collaboration)..."
+    );
 
     let config = EnginesConfig::load_hierarchical(Some(Path::new(&workspace)));
     let engine_name = if engine.is_empty() {
@@ -127,10 +127,17 @@ pub async fn multi_agent(engine: String, workspace: String) -> anyhow::Result<()
         .with_timeout_seconds(config.defaults.timeout_seconds)
         .with_sandbox_config(sandbox_cfg);
 
-        let mut task = Task::new("Khắc phục sự cố Nginx 502", instructions, Priority::Critical);
+        let mut task = Task::new(
+            "Khắc phục sự cố Nginx 502",
+            instructions,
+            Priority::Critical,
+        );
         task.assigned_agent = Some(agent2.id.clone());
 
-        let result = ooda.run_goal(&mut task).await.map_err(|e| anyhow::anyhow!(e))?;
+        let result = ooda
+            .run_goal(&mut task)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
         println!(
             "\n🏁 [Agent 2 - Brian] Chu trình OODA hoàn tất. Trạng thái: {:?}",
             result
@@ -275,6 +282,8 @@ pub async fn comedy_show(engine: String) -> anyhow::Result<()> {
         }
     }
 
-    println!("👏 [Khán giả vỗ tay nồng nhiệt]: Màn tung hứng ngẫu hứng 100% bằng LLM thực tế kết thúc!");
+    println!(
+        "👏 [Khán giả vỗ tay nồng nhiệt]: Màn tung hứng ngẫu hứng 100% bằng LLM thực tế kết thúc!"
+    );
     Ok(())
 }

@@ -5,11 +5,7 @@ use agent_engine::EngineInput;
 use std::path::Path;
 use std::sync::Arc;
 
-pub fn publish_subtask_executing(
-    bus: Option<&InterAgentBus>,
-    task_id: &str,
-    subtask: &SubTask,
-) {
+pub fn publish_subtask_executing(bus: Option<&InterAgentBus>, task_id: &str, subtask: &SubTask) {
     if let Some(bus) = bus {
         let _ = bus.publish(InterAgentEvent::new(
             AgentId::from_str("ooda-overseer"),
@@ -93,10 +89,10 @@ pub fn update_working_context(working_context: &mut String, subtask_id: &str, ex
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::supplement::InFlightSupplementController;
     use agent_domain::{GuardrailPolicy, Priority, SubTask, Task};
     use agent_engine::cli::MockEngine;
     use agent_memory::{DurableMemoryStore, ScratchpadManager};
-    use crate::supplement::InFlightSupplementController;
 
     #[test]
     fn test_update_working_context_appends_correctly() {
@@ -162,13 +158,7 @@ mod tests {
         let task = Task::new("Main title", "Main goal", Priority::Normal);
         let subtask = SubTask::new("ST-1", "Subtask 1", "ls -la", "none");
 
-        let input = build_engine_input(
-            &executor,
-            &task,
-            &subtask,
-            "sys_ctx",
-            &temp_dir,
-        );
+        let input = build_engine_input(&executor, &task, &subtask, "sys_ctx", &temp_dir);
 
         assert_eq!(input.prompt_or_command, "ls -la");
         assert_eq!(input.system_context, "sys_ctx");

@@ -50,9 +50,10 @@ impl MetricsError {
         match self {
             Self::Timeout | Self::LockContention => MetricsErrorTier::Transient,
             Self::DegradedFallback(_) => MetricsErrorTier::Degraded,
-            Self::CorruptedOutput | Self::IoError(_) | Self::MaxRetriesExceeded(_) | Self::MemoryExhausted(_) => {
-                MetricsErrorTier::Permanent
-            }
+            Self::CorruptedOutput
+            | Self::IoError(_)
+            | Self::MaxRetriesExceeded(_)
+            | Self::MemoryExhausted(_) => MetricsErrorTier::Permanent,
         }
     }
 
@@ -75,7 +76,9 @@ pub fn simulate_metrics_fault(fault: MetricsFault) -> MetricsError {
         MetricsFault::LockContention => MetricsError::LockContention,
         MetricsFault::CorruptedOutput => MetricsError::CorruptedOutput,
         MetricsFault::IoError(msg) => MetricsError::IoError(msg),
-        MetricsFault::MemoryExhausted => MetricsError::MemoryExhausted("Max capacity reached".to_string()),
+        MetricsFault::MemoryExhausted => {
+            MetricsError::MemoryExhausted("Max capacity reached".to_string())
+        }
     }
 }
 

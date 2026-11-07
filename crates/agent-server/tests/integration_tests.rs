@@ -8,19 +8,20 @@ use tower::ServiceExt;
 
 use agent_core::prelude::*;
 use agent_server::auth::AuthState;
-use agent_server::metrics::{
-    MetricsFault, MetricsFaultPolicy, ResilientMetricsService,
-};
+use agent_server::metrics::{MetricsFault, MetricsFaultPolicy, ResilientMetricsService};
 use agent_server::{build_app, AppState};
 
 fn create_test_server_app(service: Option<ResilientMetricsService>) -> Router {
     let bus = InterAgentBus::new(16);
-    let temp_vault =
-        std::env::temp_dir().join(format!("test_vault_integration_{}", uuid::Uuid::new_v4().simple()));
+    let temp_vault = std::env::temp_dir().join(format!(
+        "test_vault_integration_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
     let task_store =
         Arc::new(agent_runtime::SqliteTaskStore::memory().expect("sqlite memory store"));
-    let task_service =
-        Arc::new(agent_runtime::TaskService::new(task_store, "/tmp", 2, None, None));
+    let task_service = Arc::new(agent_runtime::TaskService::new(
+        task_store, "/tmp", 2, None, None,
+    ));
     let metrics = Arc::new(service.unwrap_or_default());
 
     build_app(
@@ -63,15 +64,22 @@ async fn test_metrics_endpoint_failure_reproduction() {
     // Phase 2: Reproduce transient failure (Timeout / LockContention)
     // Verify self-healing via automated retry and exponential backoff
     // -------------------------------------------------------------------------
-    let transient_policy =
-        MetricsFaultPolicy::always(MetricsFault::Timeout).with_max_injections(1);
+    let transient_policy = MetricsFaultPolicy::always(MetricsFault::Timeout).with_max_injections(1);
     *service.fault_policy().lock().expect("lock fault policy") = transient_policy;
 
     let recovered_render = service
         .render_prometheus_text()
         .expect("service should self-heal and recover from transient timeout");
-    assert_eq!(service.recovered_count(), 1, "recovery count should increment");
-    assert_eq!(service.retries_attempted(), 1, "retry count should increment");
+    assert_eq!(
+        service.recovered_count(),
+        1,
+        "recovery count should increment"
+    );
+    assert_eq!(
+        service.retries_attempted(),
+        1,
+        "retry count should increment"
+    );
     assert!(recovered_render.contains("agent_tasks_total 1"));
 
     // -------------------------------------------------------------------------

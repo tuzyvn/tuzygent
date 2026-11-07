@@ -1,14 +1,17 @@
+use async_trait::async_trait;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use async_trait::async_trait;
 
 use agent_domain::{ActionSeverity, AuditEventType, AuditLedger, GuardrailPolicy};
-use agent_engine::{BackoffPolicy, ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+use agent_engine::{
+    BackoffPolicy, ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput,
+};
 use agent_memory::{DurableMemoryStore, ScratchpadManager};
 use agent_runtime::{
-    simulate_execution_fault, AutonomousOodaLoop, ExecutionFault, ExecutionFaultPolicy, ExecutionService,
-    GoalDecomposer, InFlightSupplementController, ResilientExecutionService, SubtaskExecutor,
+    simulate_execution_fault, AutonomousOodaLoop, ExecutionFault, ExecutionFaultPolicy,
+    ExecutionService, GoalDecomposer, InFlightSupplementController, ResilientExecutionService,
+    SubtaskExecutor,
 };
 
 /// Mock engine for chaos testing that records invocations and can simulate failures
@@ -95,7 +98,10 @@ fn test_execution_fault_simulation_direct() {
 
     for fault in faults {
         let err = fault.to_engine_error();
-        assert_eq!(format!("{:?}", err), format!("{:?}", simulate_execution_fault(&fault).unwrap_err()));
+        assert_eq!(
+            format!("{:?}", err),
+            format!("{:?}", simulate_execution_fault(&fault).unwrap_err())
+        );
     }
 }
 
@@ -109,7 +115,11 @@ async fn test_intermittent_socket_timeout_recovery() {
     let input = EngineInput::new("echo 'chaos-socket-test'", "/tmp");
     let result = resilient.execute_resilient(engine.clone(), &input).await;
 
-    assert!(result.is_ok(), "Expected success after recovery: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Expected success after recovery: {:?}",
+        result.err()
+    );
     assert!(resilient.recovered_count() > 0);
     assert_eq!(resilient.total_executed(), 1);
 }
@@ -217,7 +227,11 @@ async fn test_engine_internal_panic_is_isolated() {
     let input = EngineInput::new("echo 'internal-panic'", "/tmp");
     let result = resilient.execute_resilient(engine.clone(), &input).await;
 
-    assert!(result.is_ok(), "Expected recovery after engine internal panic: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Expected recovery after engine internal panic: {:?}",
+        result.err()
+    );
     assert!(resilient.panics_caught_count() > 0);
     assert_eq!(resilient.total_executed(), 1);
 }
@@ -250,7 +264,9 @@ async fn test_audit_ledger_recording_success_and_failure() {
     let mut resilient = ResilientExecutionService::new(service, policy, 3);
 
     let input = EngineInput::new("echo 'audit-test-entry'", "/tmp");
-    let result = resilient.execute_and_record(&mut ledger, engine.clone(), &input).await;
+    let result = resilient
+        .execute_and_record(&mut ledger, engine.clone(), &input)
+        .await;
 
     assert!(result.is_ok());
     let entries = ledger.entries();
@@ -261,7 +277,9 @@ async fn test_audit_ledger_recording_success_and_failure() {
 
     // Now test recording of policy rejection
     let bad_input = EngineInput::new("rm -rf /", "/tmp");
-    let bad_res = resilient.execute_and_record(&mut ledger, engine.clone(), &bad_input).await;
+    let bad_res = resilient
+        .execute_and_record(&mut ledger, engine.clone(), &bad_input)
+        .await;
     assert!(bad_res.is_err());
     let last_bad = ledger.entries().last().unwrap();
     assert_eq!(last_bad.event_type, AuditEventType::CommandBlocked);
@@ -270,7 +288,9 @@ async fn test_audit_ledger_recording_success_and_failure() {
 
 #[tokio::test]
 async fn test_output_limit_with_chaos_truncation() {
-    let engine = Arc::new(ChaosMockEngine::new("long_output_generator_with_a_very_long_string_payload"));
+    let engine = Arc::new(ChaosMockEngine::new(
+        "long_output_generator_with_a_very_long_string_payload",
+    ));
     let mut guardrail = GuardrailPolicy::default_enterprise();
     guardrail.max_output_bytes = 30;
 
@@ -282,7 +302,9 @@ async fn test_output_limit_with_chaos_truncation() {
 
     assert!(result.is_ok());
     let output = result.unwrap();
-    assert!(output.stdout_content.contains("[... output truncated by ExecutionService guardrail ...]"));
+    assert!(output
+        .stdout_content
+        .contains("[... output truncated by ExecutionService guardrail ...]"));
     assert_eq!(resilient.total_executed(), 1);
 }
 
@@ -296,7 +318,11 @@ async fn test_engine_process_failure_recovery() {
     let input = EngineInput::new("echo 'process-fail-recovery'", "/tmp");
     let result = resilient.execute_resilient(engine.clone(), &input).await;
 
-    assert!(result.is_ok(), "Expected recovery after engine process failures: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Expected recovery after engine process failures: {:?}",
+        result.err()
+    );
     assert_eq!(resilient.recovered_count(), 2);
     assert_eq!(resilient.total_executed(), 1);
 }
@@ -321,7 +347,11 @@ async fn test_high_volume_concurrent_chaos_resilience() {
 
     for h in handles {
         let res = h.await.expect("Join failed");
-        assert!(res.is_ok(), "Concurrent execution task failed: {:?}", res.err());
+        assert!(
+            res.is_ok(),
+            "Concurrent execution task failed: {:?}",
+            res.err()
+        );
     }
 }
 
@@ -332,13 +362,17 @@ async fn test_high_volume_concurrent_chaos_resilience() {
 async fn test_topic_5a31cd_b635d0_execution_chaos_resilience() {
     let service = ExecutionService::new("/tmp", None, None);
     let engine = Arc::new(ChaosMockEngine::new("topic_5a31cd_b635d0"));
-    let policy = ExecutionFaultPolicy::intermittent(ExecutionFault::SocketTimeout, 2).with_max_injections(4);
+    let policy =
+        ExecutionFaultPolicy::intermittent(ExecutionFault::SocketTimeout, 2).with_max_injections(4);
     let mut resilient = ResilientExecutionService::new(service, policy, 3);
 
     let input = EngineInput::new("echo 'chaos-mission-resilience'", "/tmp");
     let result = resilient.execute_resilient(engine.clone(), &input).await;
 
-    assert!(result.is_ok(), "Must survive intermittent fault injection without failing mission");
+    assert!(
+        result.is_ok(),
+        "Must survive intermittent fault injection without failing mission"
+    );
     assert_eq!(resilient.total_executed(), 1);
     assert!(resilient.recovered_count() > 0);
 }
@@ -375,7 +409,11 @@ async fn test_topic_395f34_execution_and_ooda_exponential_backoff_and_jitter() {
     let exec_res = service.execute(failing_engine.clone(), &input).await;
     let elapsed = start.elapsed();
 
-    assert!(exec_res.is_ok(), "ExecutionService should succeed after retries: {:?}", exec_res.err());
+    assert!(
+        exec_res.is_ok(),
+        "ExecutionService should succeed after retries: {:?}",
+        exec_res.err()
+    );
     assert_eq!(failing_engine.invocation_count(), 3);
     // Attempt 1: 20ms, Attempt 2: 40ms -> total sleep >= 60ms
     assert!(
@@ -406,7 +444,11 @@ async fn test_topic_395f34_execution_and_ooda_exponential_backoff_and_jitter() {
     let subtask_res = executor.execute_engine(&subtask_input).await;
     let elapsed_subtask = start_subtask.elapsed();
 
-    assert!(subtask_res.is_ok(), "SubtaskExecutor should recover with backoff: {:?}", subtask_res.err());
+    assert!(
+        subtask_res.is_ok(),
+        "SubtaskExecutor should recover with backoff: {:?}",
+        subtask_res.err()
+    );
     assert_eq!(subtask_failing_engine.invocation_count(), 3);
     assert!(
         elapsed_subtask >= Duration::from_millis(55),
@@ -432,7 +474,11 @@ async fn test_topic_395f34_execution_and_ooda_exponential_backoff_and_jitter() {
     let decomposer_res = decomposer.execute_engine(&decomposer_input).await;
     let elapsed_decomposer = start_decomposer.elapsed();
 
-    assert!(decomposer_res.is_ok(), "GoalDecomposer should recover with backoff: {:?}", decomposer_res.err());
+    assert!(
+        decomposer_res.is_ok(),
+        "GoalDecomposer should recover with backoff: {:?}",
+        decomposer_res.err()
+    );
     assert_eq!(decomposer_failing_engine.invocation_count(), 3);
     assert!(
         elapsed_decomposer >= Duration::from_millis(55),
@@ -459,4 +505,3 @@ async fn test_topic_395f34_execution_and_ooda_exponential_backoff_and_jitter() {
     let _ = std::fs::remove_dir_all(&temp_dir);
     println!("[Reproduction & TDD Test] TOPIC-20261106-395f34 Execution & OODA verification passed successfully!");
 }
-

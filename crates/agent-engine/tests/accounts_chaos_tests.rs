@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use std::sync::Arc;
 use agent_domain::{ActionSeverity, AuditLedger};
 use agent_engine::{
     AccountBenchmarkHarness, AccountEngineKind, AccountError, AccountFault, AccountFaultPolicy,
     AccountProfile, AccountStatus, AccountVault, ResilientAccountManager,
 };
+use std::collections::HashMap;
+use std::sync::Arc;
 
 fn temp_vault_dir(prefix: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!(
@@ -33,7 +33,8 @@ fn create_sample_profile(id: &str, name: &str, engine: AccountEngineKind) -> Acc
 
 #[test]
 fn test_account_validation_and_integrity() {
-    let valid_profile = create_sample_profile("acc_1", "Primary Account", AccountEngineKind::Antigravity);
+    let valid_profile =
+        create_sample_profile("acc_1", "Primary Account", AccountEngineKind::Antigravity);
     assert!(valid_profile.validate().is_ok());
 
     // Profile with empty name must fail validation
@@ -99,7 +100,12 @@ fn test_account_intermittent_socket_timeout_recovery() {
     let temp_dir = temp_vault_dir("socket_timeout");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_main", "Main Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_main",
+            "Main Account",
+            HashMap::new(),
+        )
         .expect("registration should succeed");
 
     // Intermittent socket timeout every 2 invocations, max retries 3
@@ -119,7 +125,12 @@ fn test_account_max_retries_exceeded_on_persistent_timeout() {
     let temp_dir = temp_vault_dir("persistent_timeout");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
-        .register_account(AccountEngineKind::Codex, "acc_codex", "Codex Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Codex,
+            "acc_codex",
+            "Codex Account",
+            HashMap::new(),
+        )
         .expect("registration should succeed");
 
     // Always inject SocketTimeout, max retries 2
@@ -138,7 +149,12 @@ fn test_account_connection_reset_recovery() {
     let temp_dir = temp_vault_dir("conn_reset");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
-        .register_account(AccountEngineKind::Claude, "acc_claude", "Claude Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Claude,
+            "acc_claude",
+            "Claude Account",
+            HashMap::new(),
+        )
         .expect("registration should succeed");
 
     let fault_policy = AccountFaultPolicy::intermittent(AccountFault::ConnectionReset, 2);
@@ -157,7 +173,12 @@ fn test_account_transient_io_failure_recovery() {
     let temp_dir = temp_vault_dir("transient_io");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_io", "IO Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_io",
+            "IO Account",
+            HashMap::new(),
+        )
         .expect("registration should succeed");
 
     let fault_policy = AccountFaultPolicy::intermittent(AccountFault::TransientIo, 2);
@@ -176,7 +197,12 @@ fn test_account_corrupted_metadata_rejection() {
     let temp_dir = temp_vault_dir("corrupted_meta");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_corrupt", "Corrupt Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_corrupt",
+            "Corrupt Account",
+            HashMap::new(),
+        )
         .expect("registration should succeed");
 
     let fault_policy = AccountFaultPolicy::always(AccountFault::CorruptedMetadata);
@@ -194,7 +220,12 @@ fn test_account_service_unavailable_recovery() {
     let temp_dir = temp_vault_dir("service_unavail");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_service", "Service Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_service",
+            "Service Account",
+            HashMap::new(),
+        )
         .expect("registration should succeed");
 
     let fault_policy = AccountFaultPolicy::intermittent(AccountFault::ServiceUnavailable, 2);
@@ -215,26 +246,40 @@ fn test_account_rate_limit_rotation_and_cooldown_failover() {
 
     // Đăng ký 2 tài khoản cho cùng một engine
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_alpha", "Alpha Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_alpha",
+            "Alpha Account",
+            HashMap::new(),
+        )
         .expect("register alpha");
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_beta", "Beta Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_beta",
+            "Beta Account",
+            HashMap::new(),
+        )
         .expect("register beta");
 
     // Tiêm lỗi RateLimit ngắt quãng ở lần thử đầu tiên (max_injections = 1)
-    let fault_policy = AccountFaultPolicy::intermittent(AccountFault::RateLimitExceeded, 1)
-        .with_max_injections(1);
+    let fault_policy =
+        AccountFaultPolicy::intermittent(AccountFault::RateLimitExceeded, 1).with_max_injections(1);
     let mut manager = ResilientAccountManager::new(vault.clone(), fault_policy, 3);
 
     // Lần chọn đầu tiên: acc_alpha gặp rate limit -> tự động đưa vào cooldown -> failover bốc acc_beta thành công
-    let selected = manager.select_account(&AccountEngineKind::Antigravity).expect("failover should succeed");
+    let selected = manager
+        .select_account(&AccountEngineKind::Antigravity)
+        .expect("failover should succeed");
     assert_eq!(selected.id, "acc_beta");
     assert_eq!(manager.cooldown_count(), 1);
     assert_eq!(manager.recovered_count(), 1);
     assert_eq!(manager.resolved_count(), 1);
 
     // Xác nhận acc_alpha đang ở trạng thái Cooldown trong vault
-    let alpha = vault.get_account(&AccountEngineKind::Antigravity, "acc_alpha").expect("alpha exists");
+    let alpha = vault
+        .get_account(&AccountEngineKind::Antigravity, "acc_alpha")
+        .expect("alpha exists");
     assert!(matches!(alpha.status, AccountStatus::Cooldown { .. }));
     assert_eq!(alpha.failure_count, 1);
 
@@ -246,7 +291,12 @@ fn test_account_audit_ledger_chaos_integration() {
     let temp_dir = temp_vault_dir("audit_ledger");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_audited", "Audited Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_audited",
+            "Audited Account",
+            HashMap::new(),
+        )
         .expect("registration should succeed");
 
     let fault_policy = AccountFaultPolicy::intermittent(AccountFault::SocketTimeout, 2);
@@ -261,7 +311,10 @@ fn test_account_audit_ledger_chaos_integration() {
 
     // 2. Kiểm tra tài khoản không tồn tại / pool trống bị chặn an toàn
     let res_empty = manager.select_and_record(&mut ledger, &AccountEngineKind::Codex);
-    assert!(matches!(res_empty, Err(AccountError::NoAvailableAccount(_))));
+    assert!(matches!(
+        res_empty,
+        Err(AccountError::NoAvailableAccount(_))
+    ));
 
     // 3. Kiểm tra tính toàn vẹn chuỗi băm của AuditLedger
     assert!(ledger.verify_integrity().is_ok());
@@ -275,7 +328,12 @@ fn test_account_audit_ledger_persistent_failure_records_exception() {
     let temp_dir = temp_vault_dir("audit_persistent");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
-        .register_account(AccountEngineKind::Codex, "acc_codex", "Codex Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Codex,
+            "acc_codex",
+            "Codex Account",
+            HashMap::new(),
+        )
         .expect("registration should succeed");
 
     let fault_policy = AccountFaultPolicy::always(AccountFault::SocketTimeout);
@@ -333,15 +391,35 @@ fn test_account_pool_exhaustion_and_self_healing() {
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
 
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_1", "Account 1", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_1",
+            "Account 1",
+            HashMap::new(),
+        )
         .expect("register 1");
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_2", "Account 2", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_2",
+            "Account 2",
+            HashMap::new(),
+        )
         .expect("register 2");
 
     // Đưa cả 2 tài khoản vào cooldown giả lập
-    vault.mark_cooldown(&AccountEngineKind::Antigravity, "acc_1", 300, "Simulated 429 RateLimit");
-    vault.mark_cooldown(&AccountEngineKind::Antigravity, "acc_2", 300, "Simulated 429 RateLimit");
+    vault.mark_cooldown(
+        &AccountEngineKind::Antigravity,
+        "acc_1",
+        300,
+        "Simulated 429 RateLimit",
+    );
+    vault.mark_cooldown(
+        &AccountEngineKind::Antigravity,
+        "acc_2",
+        300,
+        "Simulated 429 RateLimit",
+    );
 
     let mut manager = ResilientAccountManager::with_vault(vault.clone());
     let res = manager.select_account(&AccountEngineKind::Antigravity);
@@ -350,7 +428,9 @@ fn test_account_pool_exhaustion_and_self_healing() {
     // Kích hoạt cơ chế tự phục hồi (Self-Healing) qua reset cooldown
     assert!(vault.reset_cooldown(&AccountEngineKind::Antigravity, "acc_1"));
 
-    let recovered = manager.select_account(&AccountEngineKind::Antigravity).expect("should heal");
+    let recovered = manager
+        .select_account(&AccountEngineKind::Antigravity)
+        .expect("should heal");
     assert_eq!(recovered.id, "acc_1");
     assert_eq!(recovered.status, AccountStatus::Ready);
 
@@ -364,7 +444,12 @@ fn test_vault_concurrent_chaos_and_lock_poisoning_recovery() {
 
     // 1. Khởi tạo tài khoản
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc_init", "Init Account", HashMap::new())
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_init",
+            "Init Account",
+            HashMap::new(),
+        )
         .expect("register init");
 
     // 2. Chạy 10 luồng đồng thời bốc tài khoản và đánh dấu cooldown
@@ -376,7 +461,12 @@ fn test_vault_concurrent_chaos_and_lock_poisoning_recovery() {
             let _ = v.register_account(AccountEngineKind::Antigravity, &id, &id, HashMap::new());
             if let Some(acc) = v.select_next_account(&AccountEngineKind::Antigravity) {
                 if i % 2 == 0 {
-                    v.mark_cooldown(&AccountEngineKind::Antigravity, &acc.id, 60, "Concurrent chaos cooldown");
+                    v.mark_cooldown(
+                        &AccountEngineKind::Antigravity,
+                        &acc.id,
+                        60,
+                        "Concurrent chaos cooldown",
+                    );
                 } else {
                     v.record_success(&AccountEngineKind::Antigravity, &acc.id);
                 }
@@ -424,14 +514,8 @@ fn test_topic_b974be_31f26a_accounts_benchmark_and_resilience() {
         "Throughput should exceed 500 ops/sec, got {}",
         stats.throughput_ops_per_sec
     );
-    assert!(
-        stats.p50_latency_us > 0.0,
-        "P50 latency must be tracked"
-    );
-    assert!(
-        stats.p90_latency_us > 0.0,
-        "P90 latency must be tracked"
-    );
+    assert!(stats.p50_latency_us > 0.0, "P50 latency must be tracked");
+    assert!(stats.p90_latency_us > 0.0, "P90 latency must be tracked");
     assert!(
         stats.p99_latency_us < 20_000.0,
         "P99 latency must be under 20ms, got {} us",
@@ -465,7 +549,10 @@ fn test_topic_b974be_31f26a_accounts_benchmark_and_resilience() {
     assert_eq!(batch_res.len(), 4);
     assert!(batch_res[0].is_ok());
     assert!(batch_res[1].is_ok());
-    assert!(matches!(batch_res[2], Err(AccountError::NoAvailableAccount(_))));
+    assert!(matches!(
+        batch_res[2],
+        Err(AccountError::NoAvailableAccount(_))
+    ));
     assert!(batch_res[3].is_ok());
 
     // 4. Concurrent benchmark test (10,000 requests across 4 threads)
@@ -499,4 +586,3 @@ fn test_topic_b974be_31f26a_accounts_benchmark_and_resilience() {
     let _ = std::fs::remove_dir_all(temp_dir);
     println!("[Reproduction & Benchmark Test] TOPIC-20261105-b974be / 31f26a passed successfully!");
 }
-

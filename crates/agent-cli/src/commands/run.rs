@@ -1,12 +1,8 @@
-use std::io::Write;
-use agent_domain::{
-    AgentId, GuardrailPolicy, Priority, Task, TaskStatus,
-};
+use agent_domain::{AgentId, GuardrailPolicy, Priority, Task, TaskStatus};
 use agent_engine::config::EnginesConfig;
 use agent_memory::{DurableMemoryStore, PersonaLoader, ScratchpadManager};
-use agent_runtime::{
-    AutonomousOodaLoop, InterAgentBus, SandboxConfig, SandboxDriverKind,
-};
+use agent_runtime::{AutonomousOodaLoop, InterAgentBus, SandboxConfig, SandboxDriverKind};
+use std::io::Write;
 
 #[derive(Debug, Clone)]
 pub struct RunArgs {
@@ -90,13 +86,16 @@ pub async fn handle(args: RunArgs) -> anyhow::Result<()> {
     });
 
     let timeout_secs = timeout.unwrap_or(config.defaults.timeout_seconds);
-    let ooda =
-        AutonomousOodaLoop::new(compute_engine, guardrail, scratchpad, durable, &workspace)
-            .with_timeout_seconds(timeout_secs)
-            .with_sandbox_config(sandbox_cfg)
-            .with_bus(cli_bus)
-            .with_auto_approve(auto_approve);
-    let ooda = if let Some(profile) = profile { ooda.with_persona(profile) } else { ooda };
+    let ooda = AutonomousOodaLoop::new(compute_engine, guardrail, scratchpad, durable, &workspace)
+        .with_timeout_seconds(timeout_secs)
+        .with_sandbox_config(sandbox_cfg)
+        .with_bus(cli_bus)
+        .with_auto_approve(auto_approve);
+    let ooda = if let Some(profile) = profile {
+        ooda.with_persona(profile)
+    } else {
+        ooda
+    };
 
     let mut task = Task::new(&goal, &goal, Priority::High);
     task.assigned_agent = Some(AgentId::from_str(&agent_id));
@@ -107,14 +106,20 @@ pub async fn handle(args: RunArgs) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!(e))?;
 
     stream_printer.abort();
-    println!("\n🏁 Mission Finished with Status: {:?}", task_result.status);
+    println!(
+        "\n🏁 Mission Finished with Status: {:?}",
+        task_result.status
+    );
     println!(
         "⏱️  Duration: {}ms | Engine: {}",
         task_result.duration_ms,
         task_result.engine_used.as_deref().unwrap_or("unknown")
     );
     if !task_result.verifications.is_empty() {
-        println!("\n🔍 Verification Report ({} checks):", task_result.verifications.len());
+        println!(
+            "\n🔍 Verification Report ({} checks):",
+            task_result.verifications.len()
+        );
         for (idx, v) in task_result.verifications.iter().enumerate() {
             let mark = if v.passed { "✅ PASS" } else { "❌ FAIL" };
             println!("  [#{} {}] {}", idx + 1, mark, v.details);
@@ -126,4 +131,3 @@ pub async fn handle(args: RunArgs) -> anyhow::Result<()> {
 
     Ok(())
 }
-

@@ -1,8 +1,6 @@
 use crate::bus::InterAgentBus;
 use crate::sandbox::{IsolationMode, SandboxConfig, SandboxEnvironment};
-use agent_domain::{
-    AgentId, AgentPersonaProfile, InterAgentEvent, Task, VerificationResult,
-};
+use agent_domain::{AgentId, AgentPersonaProfile, InterAgentEvent, Task, VerificationResult};
 use std::path::{Path, PathBuf};
 use tracing::{info_span, Instrument};
 
@@ -121,7 +119,9 @@ pub(crate) async fn record_episode_memory(
         "all_passed": all_passed,
     })
     .to_string();
-    match tokio::task::spawn_blocking(move || memory.record_episode(&task_id, &episode, all_passed)).await {
+    match tokio::task::spawn_blocking(move || memory.record_episode(&task_id, &episode, all_passed))
+        .await
+    {
         Ok(Err(e)) => tracing::warn!("Failed to record episode memory: {}", e),
         Err(e) => tracing::warn!("Failed to join episode memory recording task: {}", e),
         Ok(Ok(_)) => {}

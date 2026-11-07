@@ -16,7 +16,8 @@ impl TempWorkspace {
     fn new(prefix: &str) -> Self {
         let id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
         let nanos = Utc::now().timestamp_nanos_opt().unwrap_or(0);
-        let dir = std::env::temp_dir().join(format!("bm25_hybrid_test_{}_{}_{}", prefix, nanos, id));
+        let dir =
+            std::env::temp_dir().join(format!("bm25_hybrid_test_{}_{}_{}", prefix, nanos, id));
         std::fs::create_dir_all(&dir).expect("failed to create temporary test directory");
         Self(dir)
     }
@@ -227,7 +228,11 @@ fn test_hybrid_semantic_scoring_coverage_confidence_and_time_decay() {
 
     // 4. Unrelated query returns 0.0
     assert_eq!(
-        score_lesson_relevance("kubernetes ingress tls certificate", &full_coverage_lesson, now),
+        score_lesson_relevance(
+            "kubernetes ingress tls certificate",
+            &full_coverage_lesson,
+            now
+        ),
         0.0
     );
 }
@@ -256,7 +261,9 @@ async fn test_durable_memory_hybrid_retrieval_with_noisy_records() {
             task_title: "Investigate intermittent timeout in CI pipeline".to_string(),
             trigger_error: Some("Step timed out waiting for artifact upload".to_string()),
             remediation_applied: Some("Increase runner timeout setting".to_string()),
-            general_insight: "Large debug binaries need longer upload window in slow runners during peak hours".to_string(),
+            general_insight:
+                "Large debug binaries need longer upload window in slow runners during peak hours"
+                    .to_string(),
             success: true,
         },
         // Stale Failed Match: Matches 'quorum' and 'raft', but old (150 days ago) and failed
@@ -275,8 +282,12 @@ async fn test_durable_memory_hybrid_retrieval_with_noisy_records() {
             timestamp: (now - Duration::hours(2)).to_rfc3339(),
             task_title: "Fix raft quorum split_brain election timeout".to_string(),
             trigger_error: Some("raft split_brain detected after network timeout".to_string()),
-            remediation_applied: Some("Enable pre_vote and check_quorum in raft config".to_string()),
-            general_insight: "Pre-vote prevents disruptive elections and resolves raft quorum split_brain".to_string(),
+            remediation_applied: Some(
+                "Enable pre_vote and check_quorum in raft config".to_string(),
+            ),
+            general_insight:
+                "Pre-vote prevents disruptive elections and resolves raft quorum split_brain"
+                    .to_string(),
             success: true,
         },
     ];
@@ -358,7 +369,9 @@ fn test_persona_memory_service_fts5_bm25_and_hybrid_ranking() {
             &ep,
         )
         .expect("failed to propose weak lesson");
-    store.activate(&id_weak).expect("failed to activate weak lesson");
+    store
+        .activate(&id_weak)
+        .expect("failed to activate weak lesson");
 
     // Record 2: Matches multiple query keywords in both content (weight 1.0) and conditions (weight 2.0 in bm25(memory_search, 0, 1, 2))
     let id_strong = store
@@ -412,7 +425,8 @@ fn test_persona_memory_service_fts5_bm25_and_hybrid_ranking() {
             task_title: "Tune pg_bouncer connection saturation".to_string(),
             trigger_error: Some("pg_bouncer max_client_conn reached".to_string()),
             remediation_applied: Some("Set pool_mode=transaction".to_string()),
-            general_insight: "Transaction pooling prevents postgres connection saturation".to_string(),
+            general_insight: "Transaction pooling prevents postgres connection saturation"
+                .to_string(),
             success: true,
         };
         durable

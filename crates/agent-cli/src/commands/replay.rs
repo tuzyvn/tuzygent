@@ -1,9 +1,9 @@
-use std::path::{Path, PathBuf};
 use agent_domain::{CheckpointMetadata, SubTask, Task, TaskCheckpoint, TaskId, TaskStatus};
 use agent_runtime::{SqliteTaskStore, TaskStore};
 use anyhow::{anyhow, Context, Result};
 use clap::Args;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 use crate::cli::OutputFormat;
 
@@ -145,9 +145,12 @@ pub struct ReplayOutcomePayload {
     pub from_step: Option<usize>,
 }
 
-pub async fn inspect_checkpoints(workspace: &Path, task_id_str: &str) -> Result<CheckpointListPayload> {
-    let store = SqliteTaskStore::new(workspace)
-        .context("Failed to open SQLite task store in workspace")?;
+pub async fn inspect_checkpoints(
+    workspace: &Path,
+    task_id_str: &str,
+) -> Result<CheckpointListPayload> {
+    let store =
+        SqliteTaskStore::new(workspace).context("Failed to open SQLite task store in workspace")?;
     let task_id = TaskId(task_id_str.to_string());
     let task = store
         .get_task(&task_id)
@@ -291,7 +294,10 @@ pub async fn handle(args: ReplayArgs) -> Result<()> {
                 println!("{}", serde_json::to_string_pretty(&payload)?);
             }
             OutputFormat::Table => {
-                println!("CHECKPOINT STEPS FOR TASK: {} ({})", payload.task_id.0, payload.title);
+                println!(
+                    "CHECKPOINT STEPS FOR TASK: {} ({})",
+                    payload.task_id.0, payload.title
+                );
                 println!(
                     "Completed: {}/{} | Last Completed: {:?}",
                     payload.metadata.completed_subtasks,

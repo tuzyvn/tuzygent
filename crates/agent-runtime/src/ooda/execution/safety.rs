@@ -99,9 +99,7 @@ pub async fn check_and_apply_guardrail_policy(
             subtask.status = TaskStatus::WaitingApproval {
                 reason: err_msg.clone(),
             };
-            task.status = TaskStatus::WaitingApproval {
-                reason: err_msg,
-            };
+            task.status = TaskStatus::WaitingApproval { reason: err_msg };
 
             if let GuardrailBlockReason::RedLine(ref red_line_err) = reason {
                 let _ = durable
@@ -148,7 +146,9 @@ mod tests {
         let result = evaluate_command_safety(&guardrail, "rm -rf /");
         assert!(matches!(result, Err(GuardrailBlockReason::RedLine(_))));
         if let Err(reason) = result {
-            assert!(reason.approval_reason().contains("Task blocked waiting approval"));
+            assert!(reason
+                .approval_reason()
+                .contains("Task blocked waiting approval"));
         }
     }
 
@@ -158,9 +158,14 @@ mod tests {
         guardrail.allow_shell_execution = false;
 
         let result = evaluate_command_safety(&guardrail, "bash run_script.sh");
-        assert!(matches!(result, Err(GuardrailBlockReason::ShellProhibited(_))));
+        assert!(matches!(
+            result,
+            Err(GuardrailBlockReason::ShellProhibited(_))
+        ));
         if let Err(reason) = result {
-            assert!(reason.approval_reason().contains("Task blocked: Shell execution is prohibited"));
+            assert!(reason
+                .approval_reason()
+                .contains("Task blocked: Shell execution is prohibited"));
         }
 
         guardrail.allow_shell_execution = true;
@@ -168,20 +173,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_check_and_apply_guardrail_policy_blocks_task() -> Result<(), Box<dyn std::error::Error>> {
-        let unique_dir = std::env::temp_dir().join(format!("test_safety_guardrail_{}", uuid::Uuid::new_v4()));
+    async fn test_check_and_apply_guardrail_policy_blocks_task(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let unique_dir =
+            std::env::temp_dir().join(format!("test_safety_guardrail_{}", uuid::Uuid::new_v4()));
         let _ = std::fs::create_dir_all(&unique_dir);
         let db_path = unique_dir.join("durable_test.db");
         let durable = DurableMemoryStore::new(&db_path);
 
         let guardrail = GuardrailPolicy::default_enterprise();
         let mut task = Task::new("Deploy App", "Deploy dangerous code", Priority::High);
-        task.subtasks.push(SubTask::new("1", "Cleanup", "rm -rf /tmp/dangerous", "exit 0"));
+        task.subtasks.push(SubTask::new(
+            "1",
+            "Cleanup",
+            "rm -rf /tmp/dangerous",
+            "exit 0",
+        ));
 
         let result = check_and_apply_guardrail_policy(&guardrail, &durable, &mut task, 0).await;
         assert!(result.is_err());
         assert!(matches!(task.status, TaskStatus::WaitingApproval { .. }));
-        assert!(matches!(task.subtasks[0].status, TaskStatus::WaitingApproval { .. }));
+        assert!(matches!(
+            task.subtasks[0].status,
+            TaskStatus::WaitingApproval { .. }
+        ));
 
         let memory = durable.load_long_term_context().await?;
         assert!(memory.contains("Guardrail blocked command"));

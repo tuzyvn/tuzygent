@@ -40,9 +40,9 @@ pub fn validate_workflow(workflow: &WorkflowDefinition) -> Result<()> {
         visited += 1;
         if let Some(neighbors) = adjacency.get(id) {
             for neighbor in neighbors {
-                let degree = degrees
-                    .get_mut(neighbor)
-                    .ok_or_else(|| anyhow!("Neighbor node {} not found in degrees map", neighbor))?;
+                let degree = degrees.get_mut(neighbor).ok_or_else(|| {
+                    anyhow!("Neighbor node {} not found in degrees map", neighbor)
+                })?;
                 *degree = degree.saturating_sub(1);
                 if *degree == 0 {
                     queue.push_back(*neighbor);

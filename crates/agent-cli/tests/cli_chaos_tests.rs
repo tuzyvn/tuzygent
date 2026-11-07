@@ -30,7 +30,11 @@ async fn test_topic_a26029_8b5788_cli_chaos_resilience() {
         })
         .await;
 
-    assert!(result.is_ok(), "Must recover from intermittent non-zero code 2: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Must recover from intermittent non-zero code 2: {:?}",
+        result.err()
+    );
     assert_eq!(result.unwrap(), "mission-completed-successfully");
     assert!(runner.recovered_count() >= 1);
     assert_eq!(runner.total_executed(), 1);
@@ -39,8 +43,14 @@ async fn test_topic_a26029_8b5788_cli_chaos_resilience() {
     let audit_file = dir.join(".audit_ledger.json");
     assert!(audit_file.exists(), "Audit ledger file should be created");
     let content = std::fs::read_to_string(&audit_file).unwrap_or_default();
-    assert!(!content.is_empty(), "Audit ledger should contain recovery traces");
-    assert!(!runner.ledger().is_empty(), "In-memory ledger should record entries");
+    assert!(
+        !content.is_empty(),
+        "Audit ledger should contain recovery traces"
+    );
+    assert!(
+        !runner.ledger().is_empty(),
+        "In-memory ledger should record entries"
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -99,9 +109,15 @@ fn test_cli_retryable_classification() {
     assert!(is_retryable_cli_error(&CliExecutionError::ProcessTimeout));
     assert!(is_retryable_cli_error(&CliExecutionError::ConnectionReset));
     assert!(is_retryable_cli_error(&CliExecutionError::BrokenPipe));
-    assert!(is_retryable_cli_error(&CliExecutionError::TransientIo("I/O failure".into())));
-    assert!(is_retryable_cli_error(&CliExecutionError::LockContention("lock wait".into())));
-    assert!(is_retryable_cli_error(&CliExecutionError::Panic("panic payload".into())));
+    assert!(is_retryable_cli_error(&CliExecutionError::TransientIo(
+        "I/O failure".into()
+    )));
+    assert!(is_retryable_cli_error(&CliExecutionError::LockContention(
+        "lock wait".into()
+    )));
+    assert!(is_retryable_cli_error(&CliExecutionError::Panic(
+        "panic payload".into()
+    )));
     // Non-zero code 2 is retryable under resilient mode
     assert!(is_retryable_cli_error(&CliExecutionError::NonZeroExit {
         code: 2,
@@ -113,7 +129,9 @@ fn test_cli_retryable_classification() {
         code: 2,
         message: "syntax error".into()
     }));
-    assert!(!is_retryable_cli_error(&CliExecutionError::MaxRetriesExceeded(3)));
+    assert!(!is_retryable_cli_error(
+        &CliExecutionError::MaxRetriesExceeded(3)
+    ));
 }
 
 #[test]
@@ -201,16 +219,25 @@ async fn test_cli_panic_isolation() {
 #[test]
 fn test_cli_safe_exit_code_control() {
     assert_eq!(SafeExitCode::Success.as_i32(), exit_codes::SUCCESS);
-    assert_eq!(SafeExitCode::GeneralFailure.as_i32(), exit_codes::GENERAL_ERROR);
+    assert_eq!(
+        SafeExitCode::GeneralFailure.as_i32(),
+        exit_codes::GENERAL_ERROR
+    );
     assert_eq!(SafeExitCode::UsageError.as_i32(), exit_codes::USAGE_ERROR);
-    assert_eq!(SafeExitCode::IntermittentFailure.as_i32(), exit_codes::TRANSIENT_INTERMITTENT);
+    assert_eq!(
+        SafeExitCode::IntermittentFailure.as_i32(),
+        exit_codes::TRANSIENT_INTERMITTENT
+    );
     assert_eq!(SafeExitCode::Timeout.as_i32(), exit_codes::TIMEOUT);
     assert_eq!(SafeExitCode::Custom(99).as_i32(), 99);
 
     assert_eq!(SafeExitCode::from_raw(0), SafeExitCode::Success);
     assert_eq!(SafeExitCode::from_raw(1), SafeExitCode::GeneralFailure);
     assert_eq!(SafeExitCode::from_raw(2), SafeExitCode::UsageError);
-    assert_eq!(SafeExitCode::from_raw(75), SafeExitCode::IntermittentFailure);
+    assert_eq!(
+        SafeExitCode::from_raw(75),
+        SafeExitCode::IntermittentFailure
+    );
     assert_eq!(SafeExitCode::from_raw(124), SafeExitCode::Timeout);
     assert_eq!(SafeExitCode::from_raw(99), SafeExitCode::Custom(99));
 
@@ -222,8 +249,14 @@ fn test_cli_safe_exit_code_control() {
 
     // Sanitization & normalization of exit codes
     assert_eq!(Cli::sanitize_exit_code(0), 0);
-    assert_eq!(Cli::sanitize_exit_code(2), exit_codes::TRANSIENT_INTERMITTENT);
-    assert_eq!(Cli::sanitize_exit_code(124), exit_codes::TRANSIENT_INTERMITTENT);
+    assert_eq!(
+        Cli::sanitize_exit_code(2),
+        exit_codes::TRANSIENT_INTERMITTENT
+    );
+    assert_eq!(
+        Cli::sanitize_exit_code(124),
+        exit_codes::TRANSIENT_INTERMITTENT
+    );
     assert_eq!(Cli::sanitize_exit_code(42), 42);
 }
 
@@ -231,11 +264,17 @@ fn test_cli_safe_exit_code_control() {
 fn test_cli_catch_intermittent_error() {
     let timeout_res: Result<(), _> = Err("operation timed out after 30s");
     let caught_timeout = Cli::catch_intermittent_error(timeout_res);
-    assert_eq!(caught_timeout.unwrap_err(), CliExecutionError::SocketTimeout);
+    assert_eq!(
+        caught_timeout.unwrap_err(),
+        CliExecutionError::SocketTimeout
+    );
 
     let reset_res: Result<(), _> = Err("connection reset by peer");
     let caught_reset = Cli::catch_intermittent_error(reset_res);
-    assert_eq!(caught_reset.unwrap_err(), CliExecutionError::ConnectionReset);
+    assert_eq!(
+        caught_reset.unwrap_err(),
+        CliExecutionError::ConnectionReset
+    );
 
     let pipe_res: Result<(), _> = Err("broken pipe on ipc channel");
     let caught_pipe = Cli::catch_intermittent_error(pipe_res);
@@ -259,7 +298,9 @@ fn test_cli_catch_intermittent_error() {
 #[tokio::test]
 async fn test_topic_78c7b4_968db4_cli_benchmark_and_high_load_resilience() {
     println!("\n================================================================================");
-    println!("[Reproduction & Benchmark Test] Executing TOPIC-20261105-78c7b4 / 968db4 CLI Benchmark...");
+    println!(
+        "[Reproduction & Benchmark Test] Executing TOPIC-20261105-78c7b4 / 968db4 CLI Benchmark..."
+    );
     println!("================================================================================");
 
     // 1. Single-threaded high load baseline benchmark (10,000 requests)
@@ -270,13 +311,19 @@ async fn test_topic_78c7b4_968db4_cli_benchmark_and_high_load_resilience() {
     println!("  Total requests      : {}", stats.total_requests);
     println!("  Successful ops      : {}", stats.successful_operations);
     println!("  Rejected ops        : {}", stats.rejected_count);
-    println!("  Throughput          : {:.2} ops/sec", stats.throughput_ops_per_sec);
+    println!(
+        "  Throughput          : {:.2} ops/sec",
+        stats.throughput_ops_per_sec
+    );
     println!("  P50 Latency         : {:.2} µs", stats.p50_latency_us);
     println!("  P90 Latency         : {:.2} µs", stats.p90_latency_us);
     println!("  P99 Latency         : {:.2} µs", stats.p99_latency_us);
     println!("  Max Latency         : {:.2} µs", stats.max_latency_us);
     println!("  Duration            : {:?}", stats.total_duration);
-    println!("  Memory Allocated    : {} bytes", stats.memory_allocated_bytes);
+    println!(
+        "  Memory Allocated    : {} bytes",
+        stats.memory_allocated_bytes
+    );
 
     assert_eq!(stats.total_requests, 10_000);
     assert_eq!(stats.successful_operations, 9_000);
@@ -309,16 +356,22 @@ async fn test_topic_78c7b4_968db4_cli_benchmark_and_high_load_resilience() {
         mem_after
     );
     println!("\n[2. Bounded Memory Check]");
-    println!("  Memory before: {} bytes | Memory after 5k extra ops: {} bytes", mem_before, mem_after);
+    println!(
+        "  Memory before: {} bytes | Memory after 5k extra ops: {} bytes",
+        mem_before, mem_after
+    );
 
     // 3. Batch execution optimization test
     let batch_items = vec![
         ("batch_valid_1", Ok("batch_1_ok")),
         ("batch_valid_2", Ok("batch_2_ok")),
-        ("batch_invalid_3", Err(CliExecutionError::ParseError {
-            code: 2,
-            message: "syntax error".to_string(),
-        })),
+        (
+            "batch_invalid_3",
+            Err(CliExecutionError::ParseError {
+                code: 2,
+                message: "syntax error".to_string(),
+            }),
+        ),
         ("batch_valid_4", Ok("batch_4_ok")),
     ];
     let batch_res = runner.execute_batch_operations(&batch_items).await;
@@ -331,12 +384,14 @@ async fn test_topic_78c7b4_968db4_cli_benchmark_and_high_load_resilience() {
     // 4. Lock Contention Comparison: Single Shared Lock vs 16-Way Sharded Concurrency
     println!("\n[3. Lock Contention Comparison (10,000 requests across 4 worker tasks)]");
     let single_lock_stats = CliBenchmarkHarness::run_single_lock_benchmark(10_000, 4).await;
-    println!("  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+    println!(
+        "  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
         single_lock_stats.throughput_ops_per_sec, single_lock_stats.p99_latency_us
     );
 
     let sharded_stats = CliBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
-    println!("  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+    println!(
+        "  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
         sharded_stats.throughput_ops_per_sec, sharded_stats.p99_latency_us
     );
 
@@ -352,4 +407,3 @@ async fn test_topic_78c7b4_968db4_cli_benchmark_and_high_load_resilience() {
     println!("[Reproduction & Benchmark Test] TOPIC-20261105-78c7b4 / 968db4 SUCCESS!");
     println!("================================================================================");
 }
-

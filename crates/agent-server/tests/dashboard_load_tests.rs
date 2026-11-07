@@ -29,8 +29,9 @@ fn create_load_test_app() -> Router {
         std::env::temp_dir().join(format!("test_vault_{}", uuid::Uuid::new_v4().simple()));
     let task_store =
         Arc::new(agent_runtime::SqliteTaskStore::memory().expect("sqlite memory store"));
-    let task_service =
-        Arc::new(agent_runtime::TaskService::new(task_store, "/tmp", 2, None, None));
+    let task_service = Arc::new(agent_runtime::TaskService::new(
+        task_store, "/tmp", 2, None, None,
+    ));
     build_app(
         AppState {
             supervisor: Arc::new(AgentSupervisor::new(bus.clone())),
@@ -52,13 +53,39 @@ fn print_stats_table(title: &str, stats: &DashboardBenchmarkStats) {
     println!(" Successful Renders : {:>10}", stats.successful_renders);
     println!(" Fallback Renders   : {:>10}", stats.fallback_renders);
     println!(" Rejected Count     : {:>10}", stats.rejected_count);
-    println!(" Total Duration     : {:>10.3} ms", stats.total_duration.as_secs_f64() * 1000.0);
-    println!(" Throughput         : {:>10.2} ops/sec", stats.throughput_ops_per_sec);
-    println!(" P50 Latency        : {:>10.2} µs ({:.4} ms)", stats.p50_latency_us, stats.p50_latency_us / 1000.0);
-    println!(" P90 Latency        : {:>10.2} µs ({:.4} ms)", stats.p90_latency_us, stats.p90_latency_us / 1000.0);
-    println!(" P99 Latency        : {:>10.2} µs ({:.4} ms)", stats.p99_latency_us, stats.p99_latency_us / 1000.0);
-    println!(" Max Latency        : {:>10.2} µs ({:.4} ms)", stats.max_latency_us, stats.max_latency_us / 1000.0);
-    println!(" Memory Footprint   : {:>10} bytes ({:.2} KB)", stats.memory_allocated_bytes, stats.memory_allocated_bytes as f64 / 1024.0);
+    println!(
+        " Total Duration     : {:>10.3} ms",
+        stats.total_duration.as_secs_f64() * 1000.0
+    );
+    println!(
+        " Throughput         : {:>10.2} ops/sec",
+        stats.throughput_ops_per_sec
+    );
+    println!(
+        " P50 Latency        : {:>10.2} µs ({:.4} ms)",
+        stats.p50_latency_us,
+        stats.p50_latency_us / 1000.0
+    );
+    println!(
+        " P90 Latency        : {:>10.2} µs ({:.4} ms)",
+        stats.p90_latency_us,
+        stats.p90_latency_us / 1000.0
+    );
+    println!(
+        " P99 Latency        : {:>10.2} µs ({:.4} ms)",
+        stats.p99_latency_us,
+        stats.p99_latency_us / 1000.0
+    );
+    println!(
+        " Max Latency        : {:>10.2} µs ({:.4} ms)",
+        stats.max_latency_us,
+        stats.max_latency_us / 1000.0
+    );
+    println!(
+        " Memory Footprint   : {:>10} bytes ({:.2} KB)",
+        stats.memory_allocated_bytes,
+        stats.memory_allocated_bytes as f64 / 1024.0
+    );
     println!("================================================================================\n");
 }
 
@@ -70,7 +97,8 @@ async fn test_dashboard_load_10k_concurrent_requests_sharded() {
     const CONCURRENCY: usize = 16;
 
     println!("\n>>> Running 10,000 concurrent dashboard render requests (16-way sharded)...");
-    let stats = DashboardBenchmarkHarness::run_concurrent_benchmark(TOTAL_REQUESTS, CONCURRENCY).await;
+    let stats =
+        DashboardBenchmarkHarness::run_concurrent_benchmark(TOTAL_REQUESTS, CONCURRENCY).await;
 
     print_stats_table("10,000 Concurrent Requests (16-Way Sharded Mutex)", &stats);
 
@@ -113,7 +141,8 @@ async fn test_dashboard_load_10k_simultaneous_tasks() {
         let s_clone = Arc::clone(&service);
         join_set.spawn(async move {
             let is_err = req_idx.is_multiple_of(10);
-            let (ctx, err_flag) = DashboardBenchmarkHarness::make_benchmark_context(req_idx, is_err);
+            let (ctx, err_flag) =
+                DashboardBenchmarkHarness::make_benchmark_context(req_idx, is_err);
             let key = format!("dashboard_task_{req_idx}");
             let req_start = Instant::now();
             let (html, status) = s_clone.render_dashboard_with_fallback(&key, &ctx).await;
@@ -146,7 +175,11 @@ async fn test_dashboard_load_10k_simultaneous_tasks() {
     let p99 = calculate_percentile(&latencies_us, 0.99);
     let max = latencies_us.last().copied().unwrap_or(0.0);
     let secs = total_duration.as_secs_f64();
-    let throughput = if secs > 0.0 { TOTAL_REQUESTS as f64 / secs } else { 0.0 };
+    let throughput = if secs > 0.0 {
+        TOTAL_REQUESTS as f64 / secs
+    } else {
+        0.0
+    };
     let mem_usage = service.memory_usage_bytes().await;
 
     let stats = DashboardBenchmarkStats {
@@ -227,7 +260,11 @@ async fn test_dashboard_load_10k_http_endpoint_simulation() {
                     .expect("valid http request");
 
                 let t0 = Instant::now();
-                let resp = app_clone.clone().oneshot(req).await.expect("service response");
+                let resp = app_clone
+                    .clone()
+                    .oneshot(req)
+                    .await
+                    .expect("service response");
                 let elapsed_us = t0.elapsed().as_secs_f64() * 1_000_000.0;
                 local_latencies.push(elapsed_us);
 
@@ -257,7 +294,11 @@ async fn test_dashboard_load_10k_http_endpoint_simulation() {
     let p99 = calculate_percentile(&all_latencies, 0.99);
     let max = all_latencies.last().copied().unwrap_or(0.0);
     let secs = total_duration.as_secs_f64();
-    let throughput = if secs > 0.0 { TOTAL_REQUESTS as f64 / secs } else { 0.0 };
+    let throughput = if secs > 0.0 {
+        TOTAL_REQUESTS as f64 / secs
+    } else {
+        0.0
+    };
 
     let stats = DashboardBenchmarkStats {
         total_requests: TOTAL_REQUESTS,
@@ -302,9 +343,18 @@ async fn test_dashboard_load_10k_bounded_memory_ring_buffer() {
     let stats_3 = DashboardBenchmarkHarness::run_benchmark(&service, TOTAL_REQUESTS).await;
     let mem_burst_3 = service.memory_usage_bytes();
 
-    print_stats_table("10,000 Requests Burst 1 (Bounded Memory 1,000 entries)", &stats_1);
-    print_stats_table("10,000 Requests Burst 2 (Bounded Memory 1,000 entries)", &stats_2);
-    print_stats_table("10,000 Requests Burst 3 (Bounded Memory 1,000 entries)", &stats_3);
+    print_stats_table(
+        "10,000 Requests Burst 1 (Bounded Memory 1,000 entries)",
+        &stats_1,
+    );
+    print_stats_table(
+        "10,000 Requests Burst 2 (Bounded Memory 1,000 entries)",
+        &stats_2,
+    );
+    print_stats_table(
+        "10,000 Requests Burst 3 (Bounded Memory 1,000 entries)",
+        &stats_3,
+    );
 
     println!(
         "[Memory Footprint] Burst 1: {} bytes, Burst 2: {} bytes, Burst 3: {} bytes",
@@ -346,7 +396,11 @@ async fn test_dashboard_batch_and_cache_performance() {
     }
 
     let throughput = BATCH_SIZE as f64 / duration.as_secs_f64();
-    println!("Batch Rendering: 1,000 items in {:.3} ms ({:.2} ops/sec)", duration.as_secs_f64() * 1000.0, throughput);
+    println!(
+        "Batch Rendering: 1,000 items in {:.3} ms ({:.2} ops/sec)",
+        duration.as_secs_f64() * 1000.0,
+        throughput
+    );
     assert!(throughput > 1_000.0);
 
     // Warm cache vs Cold cache
@@ -366,7 +420,8 @@ async fn test_dashboard_batch_and_cache_performance() {
     assert!(res_warm.is_ok());
 
     assert_eq!(res_cold.expect("rendered"), res_warm.expect("rendered"));
-    println!("Cold Render Duration: {:.2} µs vs Warm Cache Render Duration: {:.2} µs",
+    println!(
+        "Cold Render Duration: {:.2} µs vs Warm Cache Render Duration: {:.2} µs",
         cold_dur.as_secs_f64() * 1_000_000.0,
         warm_dur.as_secs_f64() * 1_000_000.0
     );

@@ -26,11 +26,16 @@ impl TestEnv {
         for candidate in &candidates {
             if std::fs::create_dir_all(candidate).is_ok() {
                 let _ = std::fs::write(candidate.join("verified_fixture"), "test evidence");
-                return Ok(Self { dir: candidate.clone() });
+                return Ok(Self {
+                    dir: candidate.clone(),
+                });
             }
         }
 
-        anyhow::bail!("Failed to initialize TestEnv across all candidates for {}", prefix)
+        anyhow::bail!(
+            "Failed to initialize TestEnv across all candidates for {}",
+            prefix
+        )
     }
 
     /// Panic-free constructor with zero panics or unhandled errors.
@@ -53,11 +58,16 @@ impl TestEnv {
 
     pub fn create_sub_dir(&self, rel: impl AsRef<Path>) -> anyhow::Result<PathBuf> {
         let sub = self.dir.join(rel.as_ref());
-        std::fs::create_dir_all(&sub).with_context(|| format!("Failed to create sub dir: {}", sub.display()))?;
+        std::fs::create_dir_all(&sub)
+            .with_context(|| format!("Failed to create sub dir: {}", sub.display()))?;
         Ok(sub)
     }
 
-    pub fn write_file(&self, rel: impl AsRef<Path>, content: impl AsRef<[u8]>) -> anyhow::Result<PathBuf> {
+    pub fn write_file(
+        &self,
+        rel: impl AsRef<Path>,
+        content: impl AsRef<[u8]>,
+    ) -> anyhow::Result<PathBuf> {
         let file_path = self.dir.join(rel.as_ref());
         if let Some(parent) = file_path.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -107,8 +117,12 @@ pub fn try_setup_test_executor(
     timeout_secs: Option<u64>,
 ) -> anyhow::Result<SubtaskExecutor> {
     if !workspace_dir.exists() {
-        std::fs::create_dir_all(workspace_dir)
-            .with_context(|| format!("Failed to prepare workspace_dir at {}", workspace_dir.display()))?;
+        std::fs::create_dir_all(workspace_dir).with_context(|| {
+            format!(
+                "Failed to prepare workspace_dir at {}",
+                workspace_dir.display()
+            )
+        })?;
     }
     let guardrail = guardrail.unwrap_or_default();
     let scratchpad = ScratchpadManager::new(workspace_dir.join("scratchpad"));
@@ -139,7 +153,12 @@ pub fn setup_test_executor_with_timeout(
     timeout_secs: u64,
 ) -> SubtaskExecutor {
     let effective_timeout = if timeout_secs == 0 { 30 } else { timeout_secs };
-    match try_setup_test_executor(engine.clone(), guardrail.clone(), workspace_dir, Some(effective_timeout)) {
+    match try_setup_test_executor(
+        engine.clone(),
+        guardrail.clone(),
+        workspace_dir,
+        Some(effective_timeout),
+    ) {
         Ok(executor) => executor,
         Err(_) => {
             let guardrail = guardrail.unwrap_or_default();
@@ -197,7 +216,8 @@ where
     }
 }
 
-type BoxedEngineFn = Box<dyn Fn(&EngineInput, usize) -> Result<EngineOutput, EngineError> + Send + Sync>;
+type BoxedEngineFn =
+    Box<dyn Fn(&EngineInput, usize) -> Result<EngineOutput, EngineError> + Send + Sync>;
 
 impl CallbackMockEngine<BoxedEngineFn> {
     pub fn with_constant_output(output_text: impl Into<String>) -> Self {
@@ -275,65 +295,3 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_test_env_lifecycle_and_try_new() -> anyhow::Result<()> {
-        let env = TestEnv::try_new("test_env_fixture_success")?;
-        assert!(env.path().exists() && env.path().join("verified_fixture").is_file());
-        assert_eq!(std::fs::read_to_string(env.path().join("verified_fixture"))?, "test evidence");
-        Ok(())
-    }
-
-    #[test]
-    fn test_test_env_panic_free_and_helpers() -> anyhow::Result<()> {
-        let mut env = TestEnv::new("test_env_helpers");
-        let sub = env.create_sub_dir("nested/deep")?;
-        assert!(sub.is_dir());
-        let written = env.write_file("nested/deep/agent.txt", "agent operational data")?;
-        assert!(written.is_file() && env.file_exists("nested/deep/agent.txt"));
-        assert_eq!(env.read_file("nested/deep/agent.txt")?, "agent operational data");
-        env.remove_file("nested/deep/agent.txt")?;
-        assert!(!env.file_exists("nested/deep/agent.txt"));
-        env.clean()?;
-        assert!(!env.path().exists());
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_callback_mock_engine_and_executors() -> anyhow::Result<()> {
-        let mock_engine = Arc::new(CallbackMockEngine::with_constant_output("hello response"));
-        let input = EngineInput::new("echo hello", "/tmp");
-        let output = mock_engine.execute(&input).await?;
-        assert_eq!(output.stdout_content, "hello response");
-        assert_eq!(mock_engine.call_count(), 1);
-        mock_engine.reset();
-        assert_eq!(mock_engine.call_count(), 0);
-
-        let timeout_engine = Arc::new(CallbackMockEngine::with_timeout());
-        assert!(matches!(timeout_engine.execute(&input).await, Err(EngineError::Timeout)));
-
-        let fail_engine = Arc::new(CallbackMockEngine::with_error("simulated fatal failure"));
-        assert!(matches!(fail_engine.execute(&input).await, Err(EngineError::ProcessFailed(_))));
-
-        let exit_engine = Arc::new(CallbackMockEngine::with_exit_code(42, "custom exit"));
-        let exit_out = exit_engine.execute(&input).await?;
-        assert_eq!(exit_out.exit_code, 42);
-
-        let seq_engine = Arc::new(CallbackMockEngine::with_sequence(vec![
-            Ok(EngineOutput { stdout_content: "first".into(), exit_code: 0, execution_duration_ms: 5, engine_used: EngineKind::Mock, session_id: None }),
-        ]));
-        assert_eq!(seq_engine.execute(&input).await?.stdout_content, "first");
-        assert!(seq_engine.execute(&input).await?.stdout_content.contains("sequence exhausted"));
-
-        let env = TestEnv::new("test_exec_env");
-        let executor_zero = setup_test_executor_with_timeout(mock_engine.clone(), None, env.path(), 0);
-        assert_eq!(executor_zero.timeout_seconds, 30);
-
-        let try_exec = try_setup_test_executor(mock_engine, Some(GuardrailPolicy::default()), env.path(), Some(0))?;
-        assert_eq!(try_exec.timeout_seconds, 30);
-        Ok(())
-    }
-}

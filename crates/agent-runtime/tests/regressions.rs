@@ -92,8 +92,12 @@ async fn remediation_retries_original_for_exit_and_transport_failures() {
             )
             .with_sandbox_config(sandbox);
             let mut task = Task::new("retry", "retry", Priority::High);
-            task.subtasks
-                .push(SubTask::new("original", "original", "original", "file: verified_fixture"));
+            task.subtasks.push(SubTask::new(
+                "original",
+                "original",
+                "original",
+                "file: verified_fixture",
+            ));
             let result = ooda.run_goal(&mut task).await.unwrap();
             let original = task.subtasks.iter().find(|s| s.id == "original").unwrap();
             if always_fail {

@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use super::types::AccountEngineKind;
 use super::vault::AccountVault;
+use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 
 /// ComputeEngine tự động xoay vòng tài khoản CLI (Antigravity, Codex...)
 /// theo danh sách tài khoản trong AccountVault
@@ -57,18 +57,27 @@ impl ComputeEngine for AccountRotatedEngine {
             let env = self.vault.build_env_for_account(&account);
 
             let engine: Arc<dyn ComputeEngine> = match &self.engine_kind {
-                AccountEngineKind::Antigravity => {
-                    Arc::new(crate::cli::AntigravityEngine::new(self.binary_path.clone(), self.model.clone()).with_env(env))
-                }
-                AccountEngineKind::Codex => {
-                    Arc::new(crate::cli::CodexEngine::new(self.binary_path.clone(), self.model.clone()).with_env(env))
-                }
-                AccountEngineKind::Claude => {
-                    Arc::new(crate::cli::ClaudeCodeEngine::new(self.binary_path.clone(), self.model.clone()).with_env(env))
-                }
+                AccountEngineKind::Antigravity => Arc::new(
+                    crate::cli::AntigravityEngine::new(
+                        self.binary_path.clone(),
+                        self.model.clone(),
+                    )
+                    .with_env(env),
+                ),
+                AccountEngineKind::Codex => Arc::new(
+                    crate::cli::CodexEngine::new(self.binary_path.clone(), self.model.clone())
+                        .with_env(env),
+                ),
+                AccountEngineKind::Claude => Arc::new(
+                    crate::cli::ClaudeCodeEngine::new(self.binary_path.clone(), self.model.clone())
+                        .with_env(env),
+                ),
                 AccountEngineKind::Generic(name) => {
                     if name.contains('/') || name.contains('\\') || name.contains("..") {
-                        return Err(EngineError::ProcessFailed(format!("Invalid generic engine name '{}'", name)));
+                        return Err(EngineError::ProcessFailed(format!(
+                            "Invalid generic engine name '{}'",
+                            name
+                        )));
                     }
                     Arc::new(crate::cli::GenericCliEngine::new(
                         name.clone(),
@@ -87,7 +96,12 @@ impl ComputeEngine for AccountRotatedEngine {
                 }
                 Err(err) => {
                     let cooldown_secs = if err.is_auth_or_quota() { 300 } else { 60 };
-                    self.vault.mark_cooldown(&self.engine_kind, &account.id, cooldown_secs, &err.to_string());
+                    self.vault.mark_cooldown(
+                        &self.engine_kind,
+                        &account.id,
+                        cooldown_secs,
+                        &err.to_string(),
+                    );
                     last_err = Some(err);
                     if self.vault.list_accounts(Some(&self.engine_kind)).len() <= 1 {
                         break;
@@ -96,7 +110,9 @@ impl ComputeEngine for AccountRotatedEngine {
             }
         }
 
-        Err(last_err.unwrap_or_else(|| EngineError::ProcessFailed("Account pool exhausted or execution failed".to_string())))
+        Err(last_err.unwrap_or_else(|| {
+            EngineError::ProcessFailed("Account pool exhausted or execution failed".to_string())
+        }))
     }
 
     fn engine_kind(&self) -> EngineKind {

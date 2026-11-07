@@ -22,7 +22,12 @@ fn setup_gateway() -> McpToolGateway {
         .with_strict_properties(true);
 
     gateway.register_tool_with_handler(
-        McpToolDefinition::new("fs-mcp", "read_file", "Read a workspace file safely", read_schema),
+        McpToolDefinition::new(
+            "fs-mcp",
+            "read_file",
+            "Read a workspace file safely",
+            read_schema,
+        ),
         Arc::new(FnMcpToolHandler(|params| {
             let path = params
                 .arguments
@@ -107,7 +112,10 @@ fn test_mcp_blocked_tool_calls_violating_policy_and_blacklist() {
     );
     let resp1 = gateway.handle_jsonrpc(req_blacklisted);
     assert!(resp1.is_err());
-    assert_eq!(resp1.error.as_ref().map(|e| e.code), Some(MCP_ERR_POLICY_BLOCKED));
+    assert_eq!(
+        resp1.error.as_ref().map(|e| e.code),
+        Some(MCP_ERR_POLICY_BLOCKED)
+    );
 
     // 2. Server-level blacklisted tool
     let req_server_blocked = McpJsonRpcRequest::tool_call(
@@ -118,7 +126,10 @@ fn test_mcp_blocked_tool_calls_violating_policy_and_blacklist() {
     );
     let resp2 = gateway.handle_jsonrpc(req_server_blocked);
     assert!(resp2.is_err());
-    assert_eq!(resp2.error.as_ref().map(|e| e.code), Some(MCP_ERR_POLICY_BLOCKED));
+    assert_eq!(
+        resp2.error.as_ref().map(|e| e.code),
+        Some(MCP_ERR_POLICY_BLOCKED)
+    );
 
     // 3. GuardrailPolicy red-line violation inside SQL argument (DROP TABLE)
     let req_sql_drop = McpJsonRpcRequest::tool_call(
@@ -129,7 +140,10 @@ fn test_mcp_blocked_tool_calls_violating_policy_and_blacklist() {
     );
     let resp3 = gateway.handle_jsonrpc(req_sql_drop);
     assert!(resp3.is_err());
-    assert_eq!(resp3.error.as_ref().map(|e| e.code), Some(MCP_ERR_POLICY_BLOCKED));
+    assert_eq!(
+        resp3.error.as_ref().map(|e| e.code),
+        Some(MCP_ERR_POLICY_BLOCKED)
+    );
 
     // 4. GuardrailPolicy red-line violation inside shell argument (rm -rf)
     let req_rm_rf = McpJsonRpcRequest::tool_call(
@@ -140,7 +154,10 @@ fn test_mcp_blocked_tool_calls_violating_policy_and_blacklist() {
     );
     let resp4 = gateway.handle_jsonrpc(req_rm_rf);
     assert!(resp4.is_err());
-    assert_eq!(resp4.error.as_ref().map(|e| e.code), Some(MCP_ERR_POLICY_BLOCKED));
+    assert_eq!(
+        resp4.error.as_ref().map(|e| e.code),
+        Some(MCP_ERR_POLICY_BLOCKED)
+    );
 
     // 5. Shell execution disabled policy
     gateway.guardrail_mut().allow_shell_execution = false;
@@ -152,7 +169,10 @@ fn test_mcp_blocked_tool_calls_violating_policy_and_blacklist() {
     );
     let resp5 = gateway.handle_jsonrpc(req_shell_prohibited);
     assert!(resp5.is_err());
-    assert_eq!(resp5.error.as_ref().map(|e| e.code), Some(MCP_ERR_POLICY_BLOCKED));
+    assert_eq!(
+        resp5.error.as_ref().map(|e| e.code),
+        Some(MCP_ERR_POLICY_BLOCKED)
+    );
 
     assert_eq!(gateway.audit_ledger().len(), 5);
     for entry in gateway.audit_ledger().entries() {
@@ -306,4 +326,3 @@ fn test_mcp_edge_cases_obfuscated_redlines_and_null_arguments() {
 
     assert!(gateway.verify_audit_integrity().is_ok());
 }
-

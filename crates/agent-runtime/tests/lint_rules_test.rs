@@ -7,24 +7,44 @@ use agent_domain::GuardrailPolicy;
 use agent_engine::cli::MockEngine;
 use agent_memory::{DurableMemoryStore, ScratchpadManager};
 use agent_runtime::{
+    // Bus & RPC
+    AgentSupervisor,
     // Core OODA components
-    AutonomousOodaLoop, GoalDecomposer, QueueExecutionOutcome, SubtaskExecutor,
-    MAX_SUBTASK_RETRIES, MAX_TOTAL_REMEDIATIONS,
-
+    AutonomousOodaLoop,
     // Execution & Sandboxing
-    ExecutionService, IsolationMode, SandboxConfig, SandboxDriverKind, SandboxEnvironment,
-
-    // Workflow DAG
-    WorkflowDefinition, WorkflowEdge, WorkflowNode, WorkflowOrchestrator, WorkflowRunReport,
-
+    ExecutionService,
+    GoalDecomposer,
+    InFlightSupplementController,
+    InterAgentBus,
+    IsolationMode,
     // Operator
-    KernelOperator, RigExecutionSummary, RigSeatAssignment, SeatStatusReport,
+    KernelOperator,
+    QueueExecutionOutcome,
+    RigExecutionSummary,
+    RigSeatAssignment,
+    SandboxConfig,
+    SandboxDriverKind,
+    SandboxEnvironment,
+
+    SeatStatusReport,
 
     // Tasks & Verification
-    SqliteTaskStore, TaskService, TaskStore, TaskVerifier,
+    SqliteTaskStore,
+    SubtaskExecutor,
+    TaskService,
+    TaskStore,
+    TaskVerifier,
 
-    // Bus & RPC
-    AgentSupervisor, InFlightSupplementController, InterAgentBus, WsRpcClient,
+    // Workflow DAG
+    WorkflowDefinition,
+    WorkflowEdge,
+    WorkflowNode,
+    WorkflowOrchestrator,
+    WorkflowRunReport,
+
+    WsRpcClient,
+    MAX_SUBTASK_RETRIES,
+    MAX_TOTAL_REMEDIATIONS,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -184,7 +204,8 @@ async fn test_ooda_and_operator_initialization_coexistence() {
     let op = KernelOperator::new(spec, temp_dir.to_str().unwrap());
     assert_eq!(op.workspace_dir, temp_dir.to_str().unwrap());
 
-    let orchestrator = WorkflowOrchestrator::new(temp_dir.to_str().unwrap(), temp_dir.to_str().unwrap());
+    let orchestrator =
+        WorkflowOrchestrator::new(temp_dir.to_str().unwrap(), temp_dir.to_str().unwrap());
     let _ = orchestrator;
 
     let executor = SubtaskExecutor::new(
@@ -312,7 +333,6 @@ fn test_topic_c658ea_runner_tests_modularization() {
         );
     }
 }
-
 
 /// TDD test case for TOPIC-20261105-2e7a49:
 /// Verifies that `crates/agent-runtime/src/ooda/mod.rs` has been decomposed from a monolithic 446-line file
@@ -443,11 +463,7 @@ fn test_topic_513a07_task_service_modularization() {
         "src/task_service.rs monolithic file must be removed and replaced by src/task_service/ module"
     );
 
-    let required_submodules = [
-        "mod.rs",
-        "dispatch.rs",
-        "review.rs",
-    ];
+    let required_submodules = ["mod.rs", "dispatch.rs", "review.rs"];
 
     for submodule in required_submodules {
         let submodule_path = task_service_dir.join(submodule);
@@ -488,12 +504,7 @@ fn test_topic_697d3d_task_store_modularization() {
         "src/task_store.rs monolithic file must be removed and replaced by src/task_store/ module"
     );
 
-    let required_submodules = [
-        "mod.rs",
-        "crud.rs",
-        "lifecycle.rs",
-        "schema.rs",
-    ];
+    let required_submodules = ["mod.rs", "crud.rs", "lifecycle.rs", "schema.rs"];
 
     for submodule in required_submodules {
         let submodule_path = task_store_dir.join(submodule);
@@ -535,12 +546,7 @@ fn test_topic_65d398_process_modularization() {
         "crates/agent-engine/src/process.rs monolithic file must be removed and replaced by process/ module"
     );
 
-    let required_submodules = [
-        "mod.rs",
-        "builder.rs",
-        "runner.rs",
-        "stream.rs",
-    ];
+    let required_submodules = ["mod.rs", "builder.rs", "runner.rs", "stream.rs"];
 
     for submodule in required_submodules {
         let submodule_path = process_dir.join(submodule);
@@ -637,7 +643,10 @@ async fn test_topic_b998f4_root_cause_eliminated_for_execution_service() {
         .with_workspace_dir("/tmp/test_workspace")
         .with_cancellation_token(cancel_flag.clone());
 
-    assert_eq!(service.workspace_dir(), std::path::Path::new("/tmp/test_workspace"));
+    assert_eq!(
+        service.workspace_dir(),
+        std::path::Path::new("/tmp/test_workspace")
+    );
     assert!(service.cancellation_token().is_some());
 
     // 2. Test graceful fallback for timeout_seconds == 0
@@ -655,14 +664,18 @@ async fn test_topic_b998f4_root_cause_eliminated_for_execution_service() {
     assert_eq!(out.stdout_content, "success with zero timeout");
 
     // 3. Test strict UTF-8 safe output bounding and truncation
-    let long_multibyte_text = "Tiếng Việt có dấu kiểm tra UTF-8 boundary cắt tỉa an toàn không lỗi panic ".repeat(50);
+    let long_multibyte_text =
+        "Tiếng Việt có dấu kiểm tra UTF-8 boundary cắt tỉa an toàn không lỗi panic ".repeat(50);
     let oversized_engine = Arc::new(TestEngine {
         output_text: long_multibyte_text,
     });
     let mut bounded_input = EngineInput::new("echo verbose", "/tmp/test_workspace");
     bounded_input.max_output_bytes = Some(60);
     let bounded_res = service.execute(oversized_engine, &bounded_input).await;
-    assert!(bounded_res.is_ok(), "Oversized output must be safely handled");
+    assert!(
+        bounded_res.is_ok(),
+        "Oversized output must be safely handled"
+    );
     let bounded_out = bounded_res.expect("Should succeed");
     assert!(
         bounded_out.stdout_content.contains("[... output truncated"),
@@ -845,7 +858,8 @@ async fn test_topic_694a83_root_cause_eliminated_for_task_service() {
 
     // Behavioral and functional verification
     use agent_domain::{Priority, TaskStatus};
-    let temp_workspace = std::env::temp_dir().join(format!("task_service_test_{}", uuid::Uuid::new_v4()));
+    let temp_workspace =
+        std::env::temp_dir().join(format!("task_service_test_{}", uuid::Uuid::new_v4()));
     let store = Arc::new(SqliteTaskStore::new(&temp_workspace).expect("Store init"));
 
     // Builder methods & accessors
@@ -860,31 +874,58 @@ async fn test_topic_694a83_root_cause_eliminated_for_task_service() {
     assert_eq!(service.available_concurrency(), 2);
     assert_eq!(service.active_task_count().await, 0);
     assert!(service.sandbox_config().is_some());
-    assert_eq!(service.guardrail().max_subtasks_per_goal, guardrail.max_subtasks_per_goal);
+    assert_eq!(
+        service.guardrail().max_subtasks_per_goal,
+        guardrail.max_subtasks_per_goal
+    );
 
     // Batch cancellation test (cancel_all)
-    let t1 = service.submit_task("Task 1", "Goal 1", Priority::Normal).await.expect("Submit t1");
-    let t2 = service.submit_task("Task 2", "Goal 2", Priority::High).await.expect("Submit t2");
+    let t1 = service
+        .submit_task("Task 1", "Goal 1", Priority::Normal)
+        .await
+        .expect("Submit t1");
+    let t2 = service
+        .submit_task("Task 2", "Goal 2", Priority::High)
+        .await
+        .expect("Submit t2");
     let canceled_count = service.cancel_all().await.expect("Cancel all");
-    assert!(canceled_count >= 2, "cancel_all must cancel all pending/active tasks");
+    assert!(
+        canceled_count >= 2,
+        "cancel_all must cancel all pending/active tasks"
+    );
 
-    let t1_state = service.get_task(&t1).await.expect("Get t1").expect("t1 exists");
+    let t1_state = service
+        .get_task(&t1)
+        .await
+        .expect("Get t1")
+        .expect("t1 exists");
     assert!(matches!(t1_state.status, TaskStatus::Canceled { .. }));
-    let t2_state = service.get_task(&t2).await.expect("Get t2").expect("t2 exists");
+    let t2_state = service
+        .get_task(&t2)
+        .await
+        .expect("Get t2")
+        .expect("t2 exists");
     assert!(matches!(t2_state.status, TaskStatus::Canceled { .. }));
 
     // Self-healing workspace initialization verification during dispatch
-    let non_existent_ws = std::env::temp_dir().join(format!("non_existent_ws_{}", uuid::Uuid::new_v4()));
+    let non_existent_ws =
+        std::env::temp_dir().join(format!("non_existent_ws_{}", uuid::Uuid::new_v4()));
     assert!(!non_existent_ws.exists());
     let store2 = Arc::new(SqliteTaskStore::new(&non_existent_ws).expect("Store init"));
     let service2 = TaskService::new(store2.clone(), &non_existent_ws, 1, None, None);
-    let t3 = service2.submit_task("Self healing ws", "Goal 3", Priority::Normal).await.expect("Submit t3");
+    let t3 = service2
+        .submit_task("Self healing ws", "Goal 3", Priority::Normal)
+        .await
+        .expect("Submit t3");
     let mock_engine = Arc::new(MockEngine::new("mock output"));
     service2.dispatch(t3.clone(), mock_engine);
 
     // Wait briefly for background dispatch
     tokio::time::sleep(Duration::from_millis(150)).await;
-    assert!(non_existent_ws.exists(), "Workspace dir must be self-healed and created automatically");
+    assert!(
+        non_existent_ws.exists(),
+        "Workspace dir must be self-healed and created automatically"
+    );
 
     // Cleanup
     let _ = std::fs::remove_dir_all(&temp_workspace);
@@ -977,24 +1018,38 @@ async fn test_topic_62a0a4_root_cause_eliminated_for_task_store() {
     use agent_domain::{Priority, Task, TaskStatus};
 
     // 5. Self-healing corrupted database file test
-    let temp_ws_corrupt = std::env::temp_dir().join(format!("task_store_corrupt_{}", uuid::Uuid::new_v4()));
+    let temp_ws_corrupt =
+        std::env::temp_dir().join(format!("task_store_corrupt_{}", uuid::Uuid::new_v4()));
     let storage_dir = temp_ws_corrupt.join("storage");
     std::fs::create_dir_all(&storage_dir).expect("Create storage");
     let corrupt_db_path = storage_dir.join("tasks.db");
-    std::fs::write(&corrupt_db_path, b"CORRUPTED_GARBAGE_HEADER_DATA_12345").expect("Write corrupt db");
+    std::fs::write(&corrupt_db_path, b"CORRUPTED_GARBAGE_HEADER_DATA_12345")
+        .expect("Write corrupt db");
 
-    let store_corrupt = SqliteTaskStore::new(&temp_ws_corrupt).expect("Self-healing store init on corrupted db");
-    assert!(store_corrupt.is_healthy(), "Corrupted database must be self-healed and healthy");
-    assert!(store_corrupt.check_integrity().expect("Check integrity"), "Integrity check must pass");
+    let store_corrupt =
+        SqliteTaskStore::new(&temp_ws_corrupt).expect("Self-healing store init on corrupted db");
+    assert!(
+        store_corrupt.is_healthy(),
+        "Corrupted database must be self-healed and healthy"
+    );
+    assert!(
+        store_corrupt.check_integrity().expect("Check integrity"),
+        "Integrity check must pass"
+    );
 
     // 6. Self-healing when storage path is a file
-    let temp_ws_storage_file = std::env::temp_dir().join(format!("task_store_storage_file_{}", uuid::Uuid::new_v4()));
+    let temp_ws_storage_file =
+        std::env::temp_dir().join(format!("task_store_storage_file_{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&temp_ws_storage_file).expect("Create ws");
     let blocked_storage = temp_ws_storage_file.join("storage");
     std::fs::write(&blocked_storage, b"accidental regular file").expect("Write blocked file");
 
-    let store_blocked = SqliteTaskStore::new(&temp_ws_storage_file).expect("Self-healing store init on blocked storage path");
-    assert!(store_blocked.is_healthy(), "Database must be healthy after resolving blocked storage path");
+    let store_blocked = SqliteTaskStore::new(&temp_ws_storage_file)
+        .expect("Self-healing store init on blocked storage path");
+    assert!(
+        store_blocked.is_healthy(),
+        "Database must be healthy after resolving blocked storage path"
+    );
 
     // 7. Atomic & Maintenance operations (count_tasks, delete_task, vacuum, clear_all)
     let temp_ws_ops = std::env::temp_dir().join(format!("task_store_ops_{}", uuid::Uuid::new_v4()));
@@ -1014,8 +1069,16 @@ async fn test_topic_62a0a4_root_cause_eliminated_for_task_store() {
     let deleted = store.delete_task(&task1_id).expect("Delete task 1");
     assert!(deleted, "Task 1 must be deleted");
     assert_eq!(store.count_tasks().expect("Count after delete"), 1);
-    assert!(store.get_task(&task1_id).await.expect("Get task 1").is_none());
-    assert!(store.get_task(&task2_id).await.expect("Get task 2").is_some());
+    assert!(store
+        .get_task(&task1_id)
+        .await
+        .expect("Get task 1")
+        .is_none());
+    assert!(store
+        .get_task(&task2_id)
+        .await
+        .expect("Get task 2")
+        .is_some());
 
     store.vacuum().expect("Vacuum succeeds");
     store.clear_all().expect("Clear all succeeds");
@@ -1043,7 +1106,10 @@ async fn test_topic_62a0a4_root_cause_eliminated_for_task_store() {
         )
         .await
         .expect("save_review must handle non-existent task gracefully without failing");
-    assert!(!review_outcome, "Review on non-existent task must return false safely");
+    assert!(
+        !review_outcome,
+        "Review on non-existent task must return false safely"
+    );
 
     // Cleanup
     let _ = std::fs::remove_dir_all(&temp_ws_corrupt);
@@ -1068,7 +1134,10 @@ async fn test_topic_0ae933_root_cause_eliminated_for_process_module() {
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let agent_engine_src = manifest_dir.parent().unwrap().join("agent-engine/src");
     let process_dir = agent_engine_src.join("process");
-    assert!(process_dir.is_dir(), "crates/agent-engine/src/process must exist");
+    assert!(
+        process_dir.is_dir(),
+        "crates/agent-engine/src/process must exist"
+    );
 
     let submodules = ["mod.rs", "builder.rs", "runner.rs", "stream.rs"];
     for sub in submodules {
@@ -1143,8 +1212,14 @@ async fn test_topic_0ae933_root_cause_eliminated_for_process_module() {
     assert_eq!(sandbox.program, "/bin/sh");
     assert_eq!(sandbox.prefix_args, vec!["-c".to_string()]);
     assert_eq!(sandbox.working_dir, "/workspace");
-    assert_eq!(sandbox.env_whitelist, vec!["PATH".to_string(), "CUSTOM_VAR".to_string()]);
-    assert_eq!(sandbox.container_name, Some("test-container-123".to_string()));
+    assert_eq!(
+        sandbox.env_whitelist,
+        vec!["PATH".to_string(), "CUSTOM_VAR".to_string()]
+    );
+    assert_eq!(
+        sandbox.container_name,
+        Some("test-container-123".to_string())
+    );
 
     // 6. Zero timeout duration fallback in run_process_with_limit
     let mut echo_cmd = tokio::process::Command::new("sh");
@@ -1414,12 +1489,13 @@ async fn test_topic_07a09e_root_cause_eliminated_for_task_service() {
 
     // Behavioral and functional verification
     use agent_domain::{Priority, TaskStatus};
-    let temp_workspace = std::env::temp_dir().join(format!("task_service_07a09e_{}", uuid::Uuid::new_v4()));
+    let temp_workspace =
+        std::env::temp_dir().join(format!("task_service_07a09e_{}", uuid::Uuid::new_v4()));
     let store = Arc::new(SqliteTaskStore::new(&temp_workspace).expect("Store init"));
 
     // Builder and concurrency methods
-    let service = TaskService::new(store.clone(), &temp_workspace, 2, None, None)
-        .with_concurrency(4);
+    let service =
+        TaskService::new(store.clone(), &temp_workspace, 2, None, None).with_concurrency(4);
 
     assert_eq!(service.concurrency_limit(), 4);
     assert_eq!(service.available_concurrency(), 4);
@@ -1427,8 +1503,14 @@ async fn test_topic_07a09e_root_cause_eliminated_for_task_service() {
     assert_eq!(service.count_tasks().await.expect("count tasks"), 0);
 
     // Submit tasks and verify is_active & count_tasks
-    let t1 = service.submit_task("Task Alpha", "Goal Alpha", Priority::Normal).await.expect("Submit t1");
-    let t2 = service.submit_task("Task Beta", "Goal Beta", Priority::High).await.expect("Submit t2");
+    let t1 = service
+        .submit_task("Task Alpha", "Goal Alpha", Priority::Normal)
+        .await
+        .expect("Submit t1");
+    let t2 = service
+        .submit_task("Task Beta", "Goal Beta", Priority::High)
+        .await
+        .expect("Submit t2");
     assert_eq!(service.count_tasks().await.expect("count tasks"), 2);
     assert!(!service.is_active(&t1).await);
 
@@ -1437,7 +1519,10 @@ async fn test_topic_07a09e_root_cause_eliminated_for_task_service() {
     service.dispatch(t1.clone(), mock_engine.clone());
 
     // Wait briefly for completion
-    let drained = service.drain(Duration::from_secs(3)).await.expect("Drain active tasks");
+    let drained = service
+        .drain(Duration::from_secs(3))
+        .await
+        .expect("Drain active tasks");
     assert!(drained, "Active tasks must be drained within timeout");
     assert_eq!(service.active_task_count().await, 0);
     assert!(!service.is_active(&t1).await);
@@ -1447,25 +1532,51 @@ async fn test_topic_07a09e_root_cause_eliminated_for_task_service() {
     assert!(canceled);
 
     // Test retry_task on canceled task
-    let retried = service.retry_task(&t2, mock_engine.clone()).await.expect("Retry t2");
-    assert!(retried, "retry_task should successfully requeue and dispatch a canceled task");
-    let drained_retry = service.drain(Duration::from_secs(3)).await.expect("Drain retry");
+    let retried = service
+        .retry_task(&t2, mock_engine.clone())
+        .await
+        .expect("Retry t2");
+    assert!(
+        retried,
+        "retry_task should successfully requeue and dispatch a canceled task"
+    );
+    let drained_retry = service
+        .drain(Duration::from_secs(3))
+        .await
+        .expect("Drain retry");
     assert!(drained_retry);
-    let t2_state = service.get_task(&t2).await.expect("Get t2").expect("t2 exists");
+    let t2_state = service
+        .get_task(&t2)
+        .await
+        .expect("Get t2")
+        .expect("t2 exists");
     assert_ne!(t2_state.status, TaskStatus::Canceled { reason: "".into() });
 
     // Test multi-tier self-healing workspace fallback for uncreatable path
     let uncreatable_path = std::path::PathBuf::from("/dev/null/forbidden/workspace");
     let store_healing = Arc::new(SqliteTaskStore::new(&temp_workspace).expect("Store init"));
     let healing_service = TaskService::new(store_healing, &uncreatable_path, 1, None, None);
-    let t3 = healing_service.submit_task("Healing Task", "Must self-heal workspace", Priority::Normal).await.expect("Submit t3");
+    let t3 = healing_service
+        .submit_task("Healing Task", "Must self-heal workspace", Priority::Normal)
+        .await
+        .expect("Submit t3");
     healing_service.dispatch(t3.clone(), mock_engine.clone());
-    let drained_healing = healing_service.drain(Duration::from_secs(3)).await.expect("Drain healing");
+    let drained_healing = healing_service
+        .drain(Duration::from_secs(3))
+        .await
+        .expect("Drain healing");
     assert!(drained_healing);
 
-    let t3_state = healing_service.get_task(&t3).await.expect("Get t3").expect("t3 exists");
+    let t3_state = healing_service
+        .get_task(&t3)
+        .await
+        .expect("Get t3")
+        .expect("t3 exists");
     assert!(
-        matches!(t3_state.status, TaskStatus::Completed | TaskStatus::WaitingApproval { .. }),
+        matches!(
+            t3_state.status,
+            TaskStatus::Completed | TaskStatus::WaitingApproval { .. }
+        ),
         "Self-healed workspace task must transition to valid status: {:?}",
         t3_state.status
     );
@@ -1473,16 +1584,21 @@ async fn test_topic_07a09e_root_cause_eliminated_for_task_service() {
     // Paginated cancel_all verification across multiple tasks
     let mut cancel_ids = Vec::new();
     for i in 0..10 {
-        let tid = service.submit_task(&format!("Batch Task {}", i), "Batch Goal", Priority::Low).await.expect("Submit batch");
+        let tid = service
+            .submit_task(&format!("Batch Task {}", i), "Batch Goal", Priority::Low)
+            .await
+            .expect("Submit batch");
         cancel_ids.push(tid);
     }
     let batch_canceled = service.cancel_all().await.expect("cancel_all batch");
-    assert_eq!(batch_canceled, 10, "cancel_all must cancel all 10 batch tasks");
+    assert_eq!(
+        batch_canceled, 10,
+        "cancel_all must cancel all 10 batch tasks"
+    );
 
     // Cleanup
     let _ = std::fs::remove_dir_all(&temp_workspace);
 }
-
 
 /// TDD test case for TOPIC-20261105-cb8d42:
 /// Permanently eliminates recurring mission failure in TOPIC-20261105-62a0a4.
@@ -1579,14 +1695,21 @@ async fn test_topic_cb8d42_root_cause_eliminated_for_task_store() {
     let uncreatable_ws = std::path::PathBuf::from("/dev/null/forbidden/workspace/storage");
     let fallback_store = SqliteTaskStore::new(&uncreatable_ws)
         .expect("SqliteTaskStore must self-heal and fallback cleanly on uncreatable paths");
-    assert!(fallback_store.is_healthy(), "Fallback store must be healthy");
+    assert!(
+        fallback_store.is_healthy(),
+        "Fallback store must be healthy"
+    );
 
     // 6. Resilient finish_task transitions from Queued, SelfChecking, WaitingApproval
     let temp_ws = std::env::temp_dir().join(format!("task_store_cb8d42_{}", uuid::Uuid::new_v4()));
     let store = SqliteTaskStore::new(&temp_ws).expect("Store init");
 
     // Queued -> Completed
-    let q_task = Task::new("Early finish", "Finish directly from Queued", Priority::Normal);
+    let q_task = Task::new(
+        "Early finish",
+        "Finish directly from Queued",
+        Priority::Normal,
+    );
     store.save_task(&q_task).await.expect("Save q_task");
     let mut q_completed = q_task.clone();
     q_completed.status = TaskStatus::Completed;
@@ -1599,18 +1722,32 @@ async fn test_topic_cb8d42_root_cause_eliminated_for_task_store() {
         duration_ms: 10,
         engine_used: None,
     };
-    store.finish_task(&q_completed, &q_res, false).await.expect("finish_task from Queued must succeed");
-    let saved_q = store.get_task(&q_task.id).await.expect("Get q").expect("Task exists");
+    store
+        .finish_task(&q_completed, &q_res, false)
+        .await
+        .expect("finish_task from Queued must succeed");
+    let saved_q = store
+        .get_task(&q_task.id)
+        .await
+        .expect("Get q")
+        .expect("Task exists");
     assert_eq!(saved_q.status, TaskStatus::Completed);
 
     // Double-finish rejected
     assert!(
-        store.finish_task(&q_completed, &q_res, false).await.is_err(),
+        store
+            .finish_task(&q_completed, &q_res, false)
+            .await
+            .is_err(),
         "Double finishing an already completed task must return Err"
     );
 
     // SelfChecking -> Completed
-    let mut sc_task = Task::new("Self Checking Task", "Verification in progress", Priority::High);
+    let mut sc_task = Task::new(
+        "Self Checking Task",
+        "Verification in progress",
+        Priority::High,
+    );
     sc_task.status = TaskStatus::SelfChecking;
     store.save_task(&sc_task).await.expect("Save sc_task");
     let mut sc_completed = sc_task.clone();
@@ -1624,7 +1761,10 @@ async fn test_topic_cb8d42_root_cause_eliminated_for_task_store() {
         duration_ms: 50,
         engine_used: None,
     };
-    store.finish_task(&sc_completed, &sc_res, false).await.expect("finish_task from SelfChecking must succeed");
+    store
+        .finish_task(&sc_completed, &sc_res, false)
+        .await
+        .expect("finish_task from SelfChecking must succeed");
 
     // 7. Atomic priority-based claim_next_queued
     let normal_task = Task::new("Normal Task", "Low prio", Priority::Normal);
@@ -1635,44 +1775,84 @@ async fn test_topic_cb8d42_root_cause_eliminated_for_task_store() {
     store.save_task(&crit_task).await.expect("Save crit");
 
     // Critical must be claimed first
-    let claimed1 = store.claim_next_queued().expect("Claim next 1").expect("Claimed task");
-    assert_eq!(claimed1.id, crit_task.id, "Critical priority task must be claimed first");
+    let claimed1 = store
+        .claim_next_queued()
+        .expect("Claim next 1")
+        .expect("Claimed task");
+    assert_eq!(
+        claimed1.id, crit_task.id,
+        "Critical priority task must be claimed first"
+    );
     assert_eq!(claimed1.status, TaskStatus::Executing);
 
     // High must be claimed second
-    let claimed2 = store.claim_next_queued().expect("Claim next 2").expect("Claimed task");
-    assert_eq!(claimed2.id, high_task.id, "High priority task must be claimed second");
+    let claimed2 = store
+        .claim_next_queued()
+        .expect("Claim next 2")
+        .expect("Claimed task");
+    assert_eq!(
+        claimed2.id, high_task.id,
+        "High priority task must be claimed second"
+    );
 
     // Normal must be claimed third
-    let claimed3 = store.claim_next_queued().expect("Claim next 3").expect("Claimed task");
-    assert_eq!(claimed3.id, normal_task.id, "Normal priority task must be claimed third");
+    let claimed3 = store
+        .claim_next_queued()
+        .expect("Claim next 3")
+        .expect("Claimed task");
+    assert_eq!(
+        claimed3.id, normal_task.id,
+        "Normal priority task must be claimed third"
+    );
 
     // No more queued tasks
     assert!(store.claim_next_queued().expect("Claim next 4").is_none());
 
     // 8. Status querying and counting (list_tasks_by_status, count_tasks_by_status)
-    let executing_count = store.count_tasks_by_status("Executing").expect("Count executing");
+    let executing_count = store
+        .count_tasks_by_status("Executing")
+        .expect("Count executing");
     assert_eq!(executing_count, 3);
-    let completed_count = store.count_tasks_by_status("Completed").expect("Count completed");
+    let completed_count = store
+        .count_tasks_by_status("Completed")
+        .expect("Count completed");
     assert_eq!(completed_count, 2);
 
-    let executing_list = store.list_tasks_by_status("Executing", 10, 0).expect("List executing");
+    let executing_list = store
+        .list_tasks_by_status("Executing", 10, 0)
+        .expect("List executing");
     assert_eq!(executing_list.len(), 3);
 
     // 9. Idempotent key inspection and deletion
     let idem_task = Task::new("Idem", "Idem goal", Priority::Normal);
-    let submission = store.submit_idempotent(&idem_task, "idem_key_1", "idem_payload").await.expect("submit idempotent");
-    assert_eq!(submission, IdempotentSubmission::Created(idem_task.id.clone()));
+    let submission = store
+        .submit_idempotent(&idem_task, "idem_key_1", "idem_payload")
+        .await
+        .expect("submit idempotent");
+    assert_eq!(
+        submission,
+        IdempotentSubmission::Created(idem_task.id.clone())
+    );
 
-    let found_key = store.get_idempotent_task("idem_key_1").expect("get idempotent");
+    let found_key = store
+        .get_idempotent_task("idem_key_1")
+        .expect("get idempotent");
     assert_eq!(found_key, Some(idem_task.id.clone()));
 
-    let deleted_key = store.delete_idempotent_key("idem_key_1").expect("delete idempotent key");
+    let deleted_key = store
+        .delete_idempotent_key("idem_key_1")
+        .expect("delete idempotent key");
     assert!(deleted_key);
-    assert_eq!(store.get_idempotent_task("idem_key_1").expect("get after delete"), None);
+    assert_eq!(
+        store
+            .get_idempotent_task("idem_key_1")
+            .expect("get after delete"),
+        None
+    );
 
     // 10. Safe check_integrity on corrupted db and repair_or_recreate
-    let corrupt_ws = std::env::temp_dir().join(format!("task_store_corrupt_test_{}", uuid::Uuid::new_v4()));
+    let corrupt_ws =
+        std::env::temp_dir().join(format!("task_store_corrupt_test_{}", uuid::Uuid::new_v4()));
     let corrupt_storage = corrupt_ws.join("storage");
     std::fs::create_dir_all(&corrupt_storage).expect("create storage");
     let c_file = corrupt_storage.join("tasks.db");
@@ -1680,32 +1860,55 @@ async fn test_topic_cb8d42_root_cause_eliminated_for_task_store() {
     let corrupt_conn = rusqlite::Connection::open(&c_file).expect("open raw");
     let corrupt_store = SqliteTaskStore::from_raw_parts(c_file.clone(), corrupt_conn);
     let integrity_res = corrupt_store.check_integrity();
-    assert!(integrity_res.is_ok(), "check_integrity must return Ok on corrupted file");
-    assert!(!integrity_res.unwrap(), "Integrity check must return false for corrupted file");
+    assert!(
+        integrity_res.is_ok(),
+        "check_integrity must return Ok on corrupted file"
+    );
+    assert!(
+        !integrity_res.unwrap(),
+        "Integrity check must return false for corrupted file"
+    );
 
     // Repair restores health and integrity
-    corrupt_store.repair_or_recreate().expect("Repair must succeed");
-    assert!(corrupt_store.is_healthy(), "Store must be healthy after repair");
-    assert!(corrupt_store.check_integrity().expect("Integrity check"), "Integrity must pass after repair");
+    corrupt_store
+        .repair_or_recreate()
+        .expect("Repair must succeed");
+    assert!(
+        corrupt_store.is_healthy(),
+        "Store must be healthy after repair"
+    );
+    assert!(
+        corrupt_store.check_integrity().expect("Integrity check"),
+        "Integrity must pass after repair"
+    );
 
     // 11. Task store pruning of finished tasks and WAL checkpointing
     let old_completed = Task::new("Old Completed", "Old goal", Priority::Low);
     store.save_task(&old_completed).await.expect("Save old");
     let mut old_done = old_completed.clone();
     old_done.status = TaskStatus::Completed;
-    store.finish_task(&old_done, &TaskResult {
-        task_id: old_completed.id.clone(),
-        status: TaskStatus::Completed,
-        summary: "Done".into(),
-        artifacts: Vec::new(),
-        verifications: Vec::new(),
-        duration_ms: 1,
-        engine_used: None,
-    }, false).await.expect("Finish old");
+    store
+        .finish_task(
+            &old_done,
+            &TaskResult {
+                task_id: old_completed.id.clone(),
+                status: TaskStatus::Completed,
+                summary: "Done".into(),
+                artifacts: Vec::new(),
+                verifications: Vec::new(),
+                duration_ms: 1,
+                engine_used: None,
+            },
+            false,
+        )
+        .await
+        .expect("Finish old");
 
     // Prune tasks created before tomorrow
     let tomorrow = (chrono::Utc::now() + chrono::Duration::days(1)).to_rfc3339();
-    let pruned = store.prune_finished_tasks(&tomorrow).expect("Prune finished");
+    let pruned = store
+        .prune_finished_tasks(&tomorrow)
+        .expect("Prune finished");
     assert!(pruned >= 1, "Must prune at least 1 finished task");
 
     // WAL Checkpoint
@@ -1738,7 +1941,10 @@ async fn test_topic_43748a_root_cause_eliminated_for_process_module() {
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let agent_engine_src = manifest_dir.parent().unwrap().join("agent-engine/src");
     let process_dir = agent_engine_src.join("process");
-    assert!(process_dir.is_dir(), "crates/agent-engine/src/process must exist");
+    assert!(
+        process_dir.is_dir(),
+        "crates/agent-engine/src/process must exist"
+    );
 
     let submodules = ["mod.rs", "builder.rs", "runner.rs", "stream.rs"];
     for sub in submodules {
@@ -1831,7 +2037,14 @@ async fn test_topic_43748a_root_cause_eliminated_for_process_module() {
     let mut bad_input = EngineInput::new("echo self_healed_workdir", forbidden_path);
     bad_input.timeout_seconds = 10;
     let env_map = HashMap::new();
-    let cmd_res = run_command(&bad_input, "echo", &["self_healed_workdir".into()], &env_map, None).await;
+    let cmd_res = run_command(
+        &bad_input,
+        "echo",
+        &["self_healed_workdir".into()],
+        &env_map,
+        None,
+    )
+    .await;
     assert!(
         cmd_res.is_ok(),
         "run_command on uncreatable working directory must self-heal and succeed"
@@ -1901,7 +2114,10 @@ async fn test_topic_43748a_root_cause_eliminated_for_process_module() {
         stream_res.is_ok(),
         "read_stream must safely catch callback panic and succeed"
     );
-    assert!(panic_hit.load(Ordering::SeqCst), "Panicking callback was invoked");
+    assert!(
+        panic_hit.load(Ordering::SeqCst),
+        "Panicking callback was invoked"
+    );
     let collected_bytes = stream_res.unwrap();
     assert_eq!(collected_bytes, stream_data.to_vec());
 
@@ -2033,9 +2249,16 @@ async fn test_topic_b6fd4c_root_cause_eliminated_for_task_service_and_cancellati
     }
 
     use agent_domain::{Priority, Task, TaskStatus};
-    let temp_workspace = std::env::temp_dir().join(format!("task_service_b6fd4c_{}", uuid::Uuid::new_v4()));
+    let temp_workspace =
+        std::env::temp_dir().join(format!("task_service_b6fd4c_{}", uuid::Uuid::new_v4()));
     let store = Arc::new(SqliteTaskStore::new(&temp_workspace).expect("Store init"));
-    let service = Arc::new(TaskService::new(store.clone(), &temp_workspace, 4, None, None));
+    let service = Arc::new(TaskService::new(
+        store.clone(),
+        &temp_workspace,
+        4,
+        None,
+        None,
+    ));
 
     // 5. Thread-safe `Send` future bounds verification
     fn assert_is_send<F: Send>(_: &F) {}
@@ -2045,18 +2268,29 @@ async fn test_topic_b6fd4c_root_cause_eliminated_for_task_service_and_cancellati
     assert_is_send(&cancel_fut);
     let cancel_all_fut = service.cancel_all();
     assert_is_send(&cancel_all_fut);
-    let mock_engine: Arc<dyn agent_engine::ComputeEngine> = Arc::new(MockEngine::new("test output"));
+    let mock_engine: Arc<dyn agent_engine::ComputeEngine> =
+        Arc::new(MockEngine::new("test output"));
     let retry_all_fut = service.retry_failed_tasks(mock_engine.clone());
     assert_is_send(&retry_all_fut);
     let delete_fut = service.delete_task(&dummy_id);
     assert_is_send(&delete_fut);
 
     // 6. Safe and idempotent task cancellation
-    let t1 = service.submit_task("Cancel Target 1", "Goal to cancel", Priority::High).await.expect("Submit t1");
+    let t1 = service
+        .submit_task("Cancel Target 1", "Goal to cancel", Priority::High)
+        .await
+        .expect("Submit t1");
     let cancel_result = service.cancel_task(&t1).await.expect("Cancel t1");
-    assert!(cancel_result, "cancel_task should return true for queued task");
+    assert!(
+        cancel_result,
+        "cancel_task should return true for queued task"
+    );
 
-    let t1_state = service.get_task(&t1).await.expect("Get t1").expect("t1 exists");
+    let t1_state = service
+        .get_task(&t1)
+        .await
+        .expect("Get t1")
+        .expect("t1 exists");
     assert!(
         matches!(t1_state.status, TaskStatus::Canceled { .. }),
         "Canceled task status must be Canceled"
@@ -2065,35 +2299,63 @@ async fn test_topic_b6fd4c_root_cause_eliminated_for_task_service_and_cancellati
     // 7. Paginated batch cancellation (cancel_all)
     let mut batch_ids = Vec::new();
     for i in 0..5 {
-        let tid = service.submit_task(&format!("Batch Task {}", i), "Batch Goal", Priority::Normal).await.expect("Submit batch");
+        let tid = service
+            .submit_task(&format!("Batch Task {}", i), "Batch Goal", Priority::Normal)
+            .await
+            .expect("Submit batch");
         batch_ids.push(tid);
     }
     let total_canceled = service.cancel_all().await.expect("cancel_all");
-    assert!(total_canceled >= 5, "cancel_all should cancel at least the 5 queued batch tasks");
+    assert!(
+        total_canceled >= 5,
+        "cancel_all should cancel at least the 5 queued batch tasks"
+    );
 
     // 8. Resilient failed task batch retry (retry_failed_tasks)
     let failed_task = Task::new("Failed Task", "Needs Retry", Priority::Critical);
     let mut failed_state = failed_task.clone();
-    failed_state.status = TaskStatus::Failed { error: "Simulated worker exit 1".into() };
-    store.save_task(&failed_state).await.expect("Save failed task");
+    failed_state.status = TaskStatus::Failed {
+        error: "Simulated worker exit 1".into(),
+    };
+    store
+        .save_task(&failed_state)
+        .await
+        .expect("Save failed task");
 
-    let retried_count = service.retry_failed_tasks(mock_engine.clone()).await.expect("retry_failed_tasks");
-    assert_eq!(retried_count, 1, "retry_failed_tasks should retry exactly 1 failed task");
+    let retried_count = service
+        .retry_failed_tasks(mock_engine.clone())
+        .await
+        .expect("retry_failed_tasks");
+    assert_eq!(
+        retried_count, 1,
+        "retry_failed_tasks should retry exactly 1 failed task"
+    );
 
-    let drained = service.drain(Duration::from_secs(3)).await.expect("Drain after retry");
+    let drained = service
+        .drain(Duration::from_secs(3))
+        .await
+        .expect("Drain after retry");
     assert!(drained);
 
     // 9. Coordinated deletion (delete_task)
-    let t_del = service.submit_task("Task to Delete", "Will be deleted", Priority::Low).await.expect("Submit t_del");
+    let t_del = service
+        .submit_task("Task to Delete", "Will be deleted", Priority::Low)
+        .await
+        .expect("Submit t_del");
     let del_result = service.delete_task(&t_del).await.expect("delete_task");
-    assert!(del_result, "delete_task should return true for existing task");
+    assert!(
+        del_result,
+        "delete_task should return true for existing task"
+    );
     let after_del = service.get_task(&t_del).await.expect("Get deleted");
-    assert!(after_del.is_none(), "Task must no longer exist after deletion");
+    assert!(
+        after_del.is_none(),
+        "Task must no longer exist after deletion"
+    );
 
     // Cleanup
     let _ = std::fs::remove_dir_all(&temp_workspace);
 }
-
 
 /// TDD test case for TOPIC-20261105-cbc444:
 /// Permanently eliminates recurring mission failure in TOPIC-20261105-cb8d42.
@@ -2189,10 +2451,14 @@ async fn test_topic_cbc444_root_cause_eliminated_for_task_store_resilience() {
     assert_eq!(mem_store.db_path().to_str(), Some(":memory:"));
     assert!(mem_store.is_healthy(), "In-memory store must be healthy");
     // Ensure no physical `:memory:` directory was created
-    assert!(!std::path::Path::new(":memory:").exists(), "':memory:' path must not create a physical directory");
+    assert!(
+        !std::path::Path::new(":memory:").exists(),
+        "':memory:' path must not create a physical directory"
+    );
 
     // 6. Poisoned connection recovery with uncommitted transaction
-    let poison_ws = std::env::temp_dir().join(format!("task_store_poison_{}", uuid::Uuid::new_v4()));
+    let poison_ws =
+        std::env::temp_dir().join(format!("task_store_poison_{}", uuid::Uuid::new_v4()));
     let p_store = SqliteTaskStore::new(&poison_ws).expect("Create poison store");
     {
         let conn_arc = agent_runtime::task_store::schema::acquire_conn;
@@ -2202,22 +2468,30 @@ async fn test_topic_cbc444_root_cause_eliminated_for_task_store_resilience() {
         let mutex_clone = mutex.clone();
         let handle = std::thread::spawn(move || {
             let conn = mutex_clone.lock().expect("lock in thread");
-            conn.execute_batch("BEGIN IMMEDIATE;").expect("begin immediate");
+            conn.execute_batch("BEGIN IMMEDIATE;")
+                .expect("begin immediate");
             panic!("Simulated worker panic inside uncommitted transaction");
         });
         let _ = handle.join(); // thread panicked, mutex is poisoned and in open transaction
 
         // Safe acquire_conn should recover without error and rollback dangling transaction
         let recovered = conn_arc(&mutex);
-        assert!(recovered.is_autocommit(), "Recovered connection must be rolled back to autocommit");
+        assert!(
+            recovered.is_autocommit(),
+            "Recovered connection must be rolled back to autocommit"
+        );
         let query_ok = recovered.query_row("SELECT 1", [], |_| Ok(()));
-        assert!(query_ok.is_ok(), "Query must succeed on recovered connection");
+        assert!(
+            query_ok.is_ok(),
+            "Query must succeed on recovered connection"
+        );
     }
     let _ = std::fs::remove_dir_all(&poison_ws);
 
     // 7. Terminal state synchronization in finish_task
     let sync_ws = std::env::temp_dir().join(format!("task_store_sync_{}", uuid::Uuid::new_v4()));
-    let dyn_store: Arc<dyn TaskStore> = Arc::new(SqliteTaskStore::new(&sync_ws).expect("Store init"));
+    let dyn_store: Arc<dyn TaskStore> =
+        Arc::new(SqliteTaskStore::new(&sync_ws).expect("Store init"));
 
     // Case 7a: Task status is Executing, but TaskResult is Completed -> both must become Completed
     let t_exec = Task::new("Executing Task", "Sync goal", Priority::Normal);
@@ -2231,50 +2505,103 @@ async fn test_topic_cbc444_root_cause_eliminated_for_task_store_resilience() {
         duration_ms: 100,
         engine_used: None,
     };
-    dyn_store.finish_task(&t_exec, &res_completed, false).await.expect("finish_task must succeed");
-    let (saved_task, saved_res) = dyn_store.get_task_and_result(&t_exec.id).await.expect("get") .expect("found");
-    assert_eq!(saved_task.status, TaskStatus::Completed, "Task status must be synchronized to Completed");
+    dyn_store
+        .finish_task(&t_exec, &res_completed, false)
+        .await
+        .expect("finish_task must succeed");
+    let (saved_task, saved_res) = dyn_store
+        .get_task_and_result(&t_exec.id)
+        .await
+        .expect("get")
+        .expect("found");
+    assert_eq!(
+        saved_task.status,
+        TaskStatus::Completed,
+        "Task status must be synchronized to Completed"
+    );
     assert_eq!(saved_res.expect("has result").status, TaskStatus::Completed);
 
     // Case 7b: Task status is Executing, but TaskResult is Failed -> both must become Failed
     let t_fail = Task::new("Failing Task", "Fail goal", Priority::High);
-    dyn_store.save_task(&t_fail).await.expect("Save failing task");
+    dyn_store
+        .save_task(&t_fail)
+        .await
+        .expect("Save failing task");
     let res_failed = TaskResult {
         task_id: t_fail.id.clone(),
-        status: TaskStatus::Failed { error: "Engine execution error".into() },
+        status: TaskStatus::Failed {
+            error: "Engine execution error".into(),
+        },
         summary: "Execution failed".into(),
         artifacts: Vec::new(),
         verifications: Vec::new(),
         duration_ms: 50,
         engine_used: None,
     };
-    dyn_store.finish_task(&t_fail, &res_failed, false).await.expect("finish_task must succeed for failed");
-    let (saved_fail_task, saved_fail_res) = dyn_store.get_task_and_result(&t_fail.id).await.expect("get").expect("found");
-    assert!(matches!(saved_fail_task.status, TaskStatus::Failed { .. }), "Task status must be synchronized to Failed");
-    assert!(matches!(saved_fail_res.expect("has result").status, TaskStatus::Failed { .. }));
+    dyn_store
+        .finish_task(&t_fail, &res_failed, false)
+        .await
+        .expect("finish_task must succeed for failed");
+    let (saved_fail_task, saved_fail_res) = dyn_store
+        .get_task_and_result(&t_fail.id)
+        .await
+        .expect("get")
+        .expect("found");
+    assert!(
+        matches!(saved_fail_task.status, TaskStatus::Failed { .. }),
+        "Task status must be synchronized to Failed"
+    );
+    assert!(matches!(
+        saved_fail_res.expect("has result").status,
+        TaskStatus::Failed { .. }
+    ));
 
     // Case 7c: Attempting to finish an already finished task must be rejected
     assert!(
-        dyn_store.finish_task(&t_fail, &res_failed, false).await.is_err(),
+        dyn_store
+            .finish_task(&t_fail, &res_failed, false)
+            .await
+            .is_err(),
         "Double finishing an already failed task must be rejected"
     );
 
     // 8. Trait parity via Arc<dyn TaskStore>
     let idem_task = Task::new("Idem Trait", "Test idem", Priority::Low);
-    let sub_res = dyn_store.submit_idempotent(&idem_task, "idem_trait_key", "payload").await.expect("submit idem");
+    let sub_res = dyn_store
+        .submit_idempotent(&idem_task, "idem_trait_key", "payload")
+        .await
+        .expect("submit idem");
     assert_eq!(sub_res, IdempotentSubmission::Created(idem_task.id.clone()));
 
-    let found_id = dyn_store.get_idempotent_task("idem_trait_key").await.expect("get idem trait");
+    let found_id = dyn_store
+        .get_idempotent_task("idem_trait_key")
+        .await
+        .expect("get idem trait");
     assert_eq!(found_id, Some(idem_task.id.clone()));
 
-    let deleted = dyn_store.delete_idempotent_key("idem_trait_key").await.expect("del idem trait");
+    let deleted = dyn_store
+        .delete_idempotent_key("idem_trait_key")
+        .await
+        .expect("del idem trait");
     assert!(deleted);
-    assert_eq!(dyn_store.get_idempotent_task("idem_trait_key").await.expect("get after del"), None);
+    assert_eq!(
+        dyn_store
+            .get_idempotent_task("idem_trait_key")
+            .await
+            .expect("get after del"),
+        None
+    );
 
     // Trait admin methods
     dyn_store.vacuum().await.expect("vacuum via trait");
-    dyn_store.wal_checkpoint().await.expect("wal checkpoint via trait");
-    assert!(dyn_store.check_integrity().await.expect("integrity via trait"));
+    dyn_store
+        .wal_checkpoint()
+        .await
+        .expect("wal checkpoint via trait");
+    assert!(dyn_store
+        .check_integrity()
+        .await
+        .expect("integrity via trait"));
     assert!(dyn_store.is_healthy().await);
 
     // 9. Comprehensive WAL and SHM cleanup during repair_or_recreate
@@ -2289,9 +2616,14 @@ async fn test_topic_cbc444_root_cause_eliminated_for_task_store_resilience() {
     std::fs::write(&db_path, b"CORRUPTED_DATABASE_HEADER_DATA").expect("write corrupt header");
 
     // Repair must succeed, recreate database, and purge/reset WAL/SHM
-    wal_store.repair_or_recreate().expect("repair_or_recreate must succeed");
+    wal_store
+        .repair_or_recreate()
+        .expect("repair_or_recreate must succeed");
     assert!(wal_store.is_healthy(), "Repaired store must be healthy");
-    assert!(wal_store.check_integrity().expect("Integrity check"), "Integrity check must pass");
+    assert!(
+        wal_store.check_integrity().expect("Integrity check"),
+        "Integrity check must pass"
+    );
 
     // Cleanup
     let _ = std::fs::remove_dir_all(&sync_ws);
@@ -2311,8 +2643,8 @@ async fn test_topic_169a18_ooda_tracing_spans() {
     use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
     use agent_memory::{DurableMemoryStore, ScratchpadManager};
     use agent_runtime::{
-        AutonomousOodaLoop,
-        OODA_PHASE_ACT, OODA_PHASE_DECIDE, OODA_PHASE_OBSERVE, OODA_PHASE_ORIENT, OODA_PHASE_REMEDIATE,
+        AutonomousOodaLoop, OODA_PHASE_ACT, OODA_PHASE_DECIDE, OODA_PHASE_OBSERVE,
+        OODA_PHASE_ORIENT, OODA_PHASE_REMEDIATE,
     };
     use async_trait::async_trait;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -2364,12 +2696,16 @@ async fn test_topic_169a18_ooda_tracing_spans() {
     }
 
     static INIT_GLOBAL_TRACING: std::sync::Once = std::sync::Once::new();
-    static GLOBAL_CAPTURED_SPANS: Mutex<Option<Arc<Mutex<Vec<CapturedPhaseSpan>>>>> = Mutex::new(None);
+    static GLOBAL_CAPTURED_SPANS: Mutex<Option<Arc<Mutex<Vec<CapturedPhaseSpan>>>>> =
+        Mutex::new(None);
 
     struct GlobalSpanCollector;
 
     impl<S: Subscriber> Layer<S> for GlobalSpanCollector {
-        fn register_callsite(&self, metadata: &'static tracing::Metadata<'static>) -> tracing::subscriber::Interest {
+        fn register_callsite(
+            &self,
+            metadata: &'static tracing::Metadata<'static>,
+        ) -> tracing::subscriber::Interest {
             if metadata.name() == "ooda_phase" {
                 tracing::subscriber::Interest::always()
             } else {
@@ -2381,7 +2717,12 @@ async fn test_topic_169a18_ooda_tracing_spans() {
             metadata.name() == "ooda_phase"
         }
 
-        fn on_new_span(&self, attrs: &tracing::span::Attributes<'_>, _id: &tracing::span::Id, _ctx: Context<'_, S>) {
+        fn on_new_span(
+            &self,
+            attrs: &tracing::span::Attributes<'_>,
+            _id: &tracing::span::Id,
+            _ctx: Context<'_, S>,
+        ) {
             if attrs.metadata().name() == "ooda_phase" {
                 let mut visitor = FieldVisitor {
                     task_id: String::new(),
@@ -2436,13 +2777,18 @@ async fn test_topic_169a18_ooda_tracing_spans() {
         }
     }
 
-    let test_dir = std::env::temp_dir().join(format!("ooda_tracing_test_{}", uuid::Uuid::new_v4().simple()));
+    let test_dir = std::env::temp_dir().join(format!(
+        "ooda_tracing_test_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
     std::fs::create_dir_all(&test_dir).expect("create test dir");
 
     let engine = Arc::new(MockTracingEngine {
         count: AtomicUsize::new(0),
         handler: |input: &EngineInput, call_idx: usize| {
-            if input.prompt_or_command.contains("Decompose") || input.prompt_or_command.contains("sequential subtasks") {
+            if input.prompt_or_command.contains("Decompose")
+                || input.prompt_or_command.contains("sequential subtasks")
+            {
                 let subtasks_json = r#"[
                     {"id": "ST-1", "title": "Setup", "command_or_prompt": "echo setup", "expected_verification": "exit_code: 0"},
                     {"id": "ST-2", "title": "Build", "command_or_prompt": "echo build", "expected_verification": "exit_code: 0"}
@@ -2480,7 +2826,11 @@ async fn test_topic_169a18_ooda_tracing_spans() {
     .with_auto_approve(true)
     .with_timeout_seconds(30);
 
-    let mut task = Task::new("Build Service", "Compile and verify backend", Priority::Normal);
+    let mut task = Task::new(
+        "Build Service",
+        "Compile and verify backend",
+        Priority::Normal,
+    );
     let original_task_id = task.id.0.clone();
 
     let result = ooda.run_goal(&mut task).await;
@@ -2497,10 +2847,26 @@ async fn test_topic_169a18_ooda_tracing_spans() {
         .collect();
 
     // Verify all core lifecycle phases are captured
-    assert!(phases.contains(&OODA_PHASE_OBSERVE.to_string()), "Observe phase span missing: recorded={:?}", recorded);
-    assert!(phases.contains(&OODA_PHASE_ORIENT.to_string()), "Orient phase span missing: recorded={:?}", recorded);
-    assert!(phases.contains(&OODA_PHASE_DECIDE.to_string()), "Decide phase span missing: recorded={:?}", recorded);
-    assert!(phases.contains(&OODA_PHASE_ACT.to_string()), "Act phase span missing: recorded={:?}", recorded);
+    assert!(
+        phases.contains(&OODA_PHASE_OBSERVE.to_string()),
+        "Observe phase span missing: recorded={:?}",
+        recorded
+    );
+    assert!(
+        phases.contains(&OODA_PHASE_ORIENT.to_string()),
+        "Orient phase span missing: recorded={:?}",
+        recorded
+    );
+    assert!(
+        phases.contains(&OODA_PHASE_DECIDE.to_string()),
+        "Decide phase span missing: recorded={:?}",
+        recorded
+    );
+    assert!(
+        phases.contains(&OODA_PHASE_ACT.to_string()),
+        "Act phase span missing: recorded={:?}",
+        recorded
+    );
 
     // Verify correct lifecycle order
     let obs_idx = phases.iter().position(|p| p == OODA_PHASE_OBSERVE).unwrap();
@@ -2508,16 +2874,26 @@ async fn test_topic_169a18_ooda_tracing_spans() {
     let dec_idx = phases.iter().position(|p| p == OODA_PHASE_DECIDE).unwrap();
     let act_idx = phases.iter().position(|p| p == OODA_PHASE_ACT).unwrap();
 
-    assert!(obs_idx <= ori_idx, "Observe must precede or coincide with Orient");
+    assert!(
+        obs_idx <= ori_idx,
+        "Observe must precede or coincide with Orient"
+    );
     assert!(ori_idx <= dec_idx, "Orient must precede Decide");
     assert!(dec_idx <= act_idx, "Decide must precede Act");
 
     // Check Act spans contain subtask IDs
     let act_spans: Vec<&CapturedPhaseSpan> = recorded
         .iter()
-        .filter(|s| (s.task_id == original_task_id || s.task_id.is_empty()) && s.execution_phase == OODA_PHASE_ACT && !s.subtask_id.is_empty())
+        .filter(|s| {
+            (s.task_id == original_task_id || s.task_id.is_empty())
+                && s.execution_phase == OODA_PHASE_ACT
+                && !s.subtask_id.is_empty()
+        })
         .collect();
-    assert!(act_spans.len() >= 2, "Expected at least 2 Act subtask spans");
+    assert!(
+        act_spans.len() >= 2,
+        "Expected at least 2 Act subtask spans"
+    );
     assert_eq!(act_spans[0].subtask_id, "ST-1");
     assert_eq!(act_spans[1].subtask_id, "ST-2");
 
@@ -2528,7 +2904,10 @@ async fn test_topic_169a18_ooda_tracing_spans() {
     let rem_engine = Arc::new(MockTracingEngine {
         count: AtomicUsize::new(0),
         handler: move |input: &EngineInput, _call_idx: usize| {
-            if input.prompt_or_command.contains("Analyze why this step failed") {
+            if input
+                .prompt_or_command
+                .contains("Analyze why this step failed")
+            {
                 let rem_json = r#"{
                     "id": "ST-FAIL-FIX-1",
                     "title": "Remediation: Fix missing config",
@@ -2590,14 +2969,25 @@ async fn test_topic_169a18_ooda_tracing_spans() {
     .with_auto_approve(true)
     .with_timeout_seconds(30);
 
-    let mut rem_task = Task::new("Self-Healing Task", "Test remediation spans", Priority::Normal);
-    rem_task.subtasks = vec![
-        SubTask::new("ST-FAIL", "Execute prone step", "failing-cmd", "exit_code: 0"),
-    ];
+    let mut rem_task = Task::new(
+        "Self-Healing Task",
+        "Test remediation spans",
+        Priority::Normal,
+    );
+    rem_task.subtasks = vec![SubTask::new(
+        "ST-FAIL",
+        "Execute prone step",
+        "failing-cmd",
+        "exit_code: 0",
+    )];
     let rem_task_id = rem_task.id.0.clone();
 
     let rem_result = rem_ooda.run_goal(&mut rem_task).await;
-    assert!(rem_result.is_ok(), "Expected self-healing goal to succeed: {:?}", rem_result.err());
+    assert!(
+        rem_result.is_ok(),
+        "Expected self-healing goal to succeed: {:?}",
+        rem_result.err()
+    );
     assert_eq!(rem_task.status, TaskStatus::Completed);
 
     let final_recorded = captured.lock().unwrap().clone();
@@ -2605,7 +2995,10 @@ async fn test_topic_169a18_ooda_tracing_spans() {
         .iter()
         .filter(|s| s.execution_phase == OODA_PHASE_REMEDIATE)
         .collect();
-    assert!(!remediate_spans.is_empty(), "Remediate span must be triggered");
+    assert!(
+        !remediate_spans.is_empty(),
+        "Remediate span must be triggered"
+    );
     assert_eq!(remediate_spans[0].subtask_id, "ST-FAIL");
     assert!(remediate_spans[0].task_id == rem_task_id || remediate_spans[0].task_id.is_empty());
 
@@ -2663,8 +3056,8 @@ fn test_topic_a60060_lint_rules_root_cause_eliminated() {
 
     // Verify workspace Cargo.toml also configures ambiguous_glob_reexports = "deny"
     let cargo_toml_path = root_dir.join("Cargo.toml");
-    let cargo_toml = std::fs::read_to_string(&cargo_toml_path)
-        .expect("Must read workspace Cargo.toml");
+    let cargo_toml =
+        std::fs::read_to_string(&cargo_toml_path).expect("Must read workspace Cargo.toml");
     assert!(
         cargo_toml.contains("ambiguous_glob_reexports = \"deny\""),
         "Workspace Cargo.toml must deny ambiguous_glob_reexports in [workspace.lints.rust]"
@@ -2743,8 +3136,8 @@ fn test_topic_7b43f7_clippy_lint_rules_root_cause_eliminated() {
 
     // Verify workspace Cargo.toml configurations
     let cargo_toml_path = root_dir.join("Cargo.toml");
-    let cargo_toml = std::fs::read_to_string(&cargo_toml_path)
-        .expect("Must read workspace Cargo.toml");
+    let cargo_toml =
+        std::fs::read_to_string(&cargo_toml_path).expect("Must read workspace Cargo.toml");
 
     assert!(
         cargo_toml.contains("clone_on_copy = \"deny\""),
@@ -2774,7 +3167,10 @@ fn test_topic_7b43f7_clippy_lint_rules_root_cause_eliminated() {
         valid: bool,
     }
 
-    let token1 = CopyToken { id: 42, valid: true };
+    let token1 = CopyToken {
+        id: 42,
+        valid: true,
+    };
     let token2 = token1; // Copy semantics, not .clone()
     assert_eq!(token1, token2);
 
@@ -2836,8 +3232,8 @@ fn test_topic_211ead_no_panic_in_execution_tests_rs() {
     let tests_path = manifest_dir.join("src/execution/tests.rs");
     assert!(tests_path.is_file(), "src/execution/tests.rs must exist");
 
-    let content = std::fs::read_to_string(&tests_path)
-        .expect("Failed to read src/execution/tests.rs");
+    let content =
+        std::fs::read_to_string(&tests_path).expect("Failed to read src/execution/tests.rs");
 
     let panic_calls: Vec<(usize, &str)> = content
         .lines()
@@ -2860,23 +3256,51 @@ fn test_topic_211ead_no_panic_in_execution_tests_rs() {
 #[test]
 fn test_topic_395f34_backoff_policy_architecture_and_exports() {
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let root_dir = manifest_dir.parent().expect("crates/").parent().expect("root");
+    let root_dir = manifest_dir
+        .parent()
+        .expect("crates/")
+        .parent()
+        .expect("root");
     let backoff_path = root_dir.join("crates/agent-engine/src/backoff.rs");
-    assert!(backoff_path.is_file(), "crates/agent-engine/src/backoff.rs must exist");
+    assert!(
+        backoff_path.is_file(),
+        "crates/agent-engine/src/backoff.rs must exist"
+    );
 
     let content = std::fs::read_to_string(&backoff_path).expect("Read backoff.rs");
 
     // Ensure struct BackoffPolicy definition
-    assert!(content.contains("pub struct BackoffPolicy"), "Must define struct BackoffPolicy");
-    assert!(content.contains("pub initial_interval: Duration"), "Must contain initial_interval");
-    assert!(content.contains("pub max_interval: Duration"), "Must contain max_interval");
-    assert!(content.contains("pub multiplier: f64"), "Must contain multiplier");
+    assert!(
+        content.contains("pub struct BackoffPolicy"),
+        "Must define struct BackoffPolicy"
+    );
+    assert!(
+        content.contains("pub initial_interval: Duration"),
+        "Must contain initial_interval"
+    );
+    assert!(
+        content.contains("pub max_interval: Duration"),
+        "Must contain max_interval"
+    );
+    assert!(
+        content.contains("pub multiplier: f64"),
+        "Must contain multiplier"
+    );
     assert!(content.contains("pub jitter: bool"), "Must contain jitter");
 
     // Verify public helper constructors and methods
-    assert!(content.contains("pub fn calculate_max_delay"), "Must provide calculate_max_delay");
-    assert!(content.contains("pub fn compute_delay"), "Must provide compute_delay");
-    assert!(content.contains("pub async fn sleep_for_attempt"), "Must provide sleep_for_attempt");
+    assert!(
+        content.contains("pub fn calculate_max_delay"),
+        "Must provide calculate_max_delay"
+    );
+    assert!(
+        content.contains("pub fn compute_delay"),
+        "Must provide compute_delay"
+    );
+    assert!(
+        content.contains("pub async fn sleep_for_attempt"),
+        "Must provide sleep_for_attempt"
+    );
 
     // Verify zero explicit panic!()
     let panic_matches: Vec<(usize, &str)> = content
@@ -2888,7 +3312,9 @@ fn test_topic_395f34_backoff_policy_architecture_and_exports() {
         })
         .map(|(i, line)| (i + 1, line.trim()))
         .collect();
-    assert!(panic_matches.is_empty(), "backoff.rs must contain zero panic calls: {:?}", panic_matches);
+    assert!(
+        panic_matches.is_empty(),
+        "backoff.rs must contain zero panic calls: {:?}",
+        panic_matches
+    );
 }
-
-

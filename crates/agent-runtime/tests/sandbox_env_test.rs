@@ -161,7 +161,10 @@ async fn test_isolation_mode_git_worktree_fails_on_non_git_repo() {
     let mut env = SandboxEnvironment::new(&non_git_dir, IsolationMode::Worktree);
 
     let res = env.prepare("task-invalid").await;
-    assert!(res.is_err(), "Worktree should fail when repo is not a valid git repository");
+    assert!(
+        res.is_err(),
+        "Worktree should fail when repo is not a valid git repository"
+    );
 
     let _ = std::fs::remove_dir_all(&non_git_dir);
 }
@@ -185,7 +188,10 @@ fn test_wrap_command_host_driver() {
     assert_eq!(wrapped_args, args);
 
     let sandbox_spec = env.command_sandbox(Path::new("/tmp"));
-    assert!(sandbox_spec.is_none(), "Host driver must not return a CommandSandbox");
+    assert!(
+        sandbox_spec.is_none(),
+        "Host driver must not return a CommandSandbox"
+    );
 }
 
 #[test]
@@ -241,10 +247,10 @@ fn test_wrap_command_bubblewrap_isolation_flags() {
     assert!(!args.windows(3).any(|w| w == ["--ro-bind", "/", "/"]));
 
     // Original command and arguments must be trailing
-    assert_eq!(args.iter().rev().take(2).collect::<Vec<_>>(), vec![
-        &"test".to_string(),
-        &"cargo".to_string(),
-    ]);
+    assert_eq!(
+        args.iter().rev().take(2).collect::<Vec<_>>(),
+        vec![&"test".to_string(), &"cargo".to_string(),]
+    );
 }
 
 #[test]
@@ -323,9 +329,7 @@ fn test_wrap_command_bubblewrap_credential_and_env_injection() {
         .windows(3)
         .any(|w| w == ["--setenv", test_env_key, test_env_val]));
     // Unset environment variable NOT injected
-    assert!(!args
-        .windows(2)
-        .any(|w| w == ["--setenv", missing_env_key]));
+    assert!(!args.windows(2).any(|w| w == ["--setenv", missing_env_key]));
 
     std::env::remove_var(test_env_key);
     let _ = std::fs::remove_dir_all(&cred_dir);
@@ -356,7 +360,11 @@ fn test_wrap_command_docker_driver() {
     let env = SandboxEnvironment::with_config(".", config);
 
     let target_dir = std::env::temp_dir();
-    let (bin, args) = env.wrap_command("python", &["-c".to_string(), "print(1)".to_string()], &target_dir);
+    let (bin, args) = env.wrap_command(
+        "python",
+        &["-c".to_string(), "print(1)".to_string()],
+        &target_dir,
+    );
 
     assert_eq!(bin, "docker");
     assert_eq!(args[0], "run");
@@ -376,10 +384,7 @@ fn test_wrap_command_docker_driver() {
     assert!(args.windows(2).any(|w| w == ["-w", "/workspace"]));
 
     // Credential volume mount
-    let cred_mapping = format!(
-        "{}:/root/docker_key.pem:ro",
-        cred_file.to_string_lossy()
-    );
+    let cred_mapping = format!("{}:/root/docker_key.pem:ro", cred_file.to_string_lossy());
     assert!(args.windows(2).any(|w| w == ["-v", cred_mapping.as_str()]));
 
     // Environment injection
@@ -432,7 +437,9 @@ fn test_command_sandbox_spec_generation() {
         .expect("bwrap command_sandbox should return Some");
     assert_eq!(bwrap_sandbox.program, "bwrap");
     assert!(bwrap_sandbox.container_name.is_none());
-    assert!(!bwrap_sandbox.prefix_args.contains(&"__engine__".to_string()));
+    assert!(!bwrap_sandbox
+        .prefix_args
+        .contains(&"__engine__".to_string()));
     assert_eq!(bwrap_sandbox.env_whitelist, vec!["MY_VAR".to_string()]);
 
     // Docker
@@ -452,7 +459,9 @@ fn test_command_sandbox_spec_generation() {
     assert_eq!(docker_sandbox.prefix_args[0], "run");
     assert_eq!(docker_sandbox.prefix_args[1], "--name");
     assert_eq!(docker_sandbox.prefix_args[2], cname);
-    assert!(!docker_sandbox.prefix_args.contains(&"__engine__".to_string()));
+    assert!(!docker_sandbox
+        .prefix_args
+        .contains(&"__engine__".to_string()));
 }
 
 // ============================================================================
@@ -488,7 +497,9 @@ async fn test_context_injection_and_purge() {
     tokio::fs::write(&exec_file, "runtime state").await.unwrap();
 
     let persistent_file = multica_dir.join("persistent_config.json");
-    tokio::fs::write(&persistent_file, "{\"preserve\": true}").await.unwrap();
+    tokio::fs::write(&persistent_file, "{\"preserve\": true}")
+        .await
+        .unwrap();
 
     // Purge sidecar context
     env.purge_sidecar_context(&workspace)
@@ -498,11 +509,20 @@ async fn test_context_injection_and_purge() {
     // ephemeral briefing & context files must be deleted
     assert!(!agent_ctx.exists(), ".agent_context.md should be deleted");
     assert!(!brief_file.exists(), ".multica/brief.md should be deleted");
-    assert!(!exec_file.exists(), ".multica/execution_context.md should be deleted");
+    assert!(
+        !exec_file.exists(),
+        ".multica/execution_context.md should be deleted"
+    );
 
     // Persistent files and the .multica directory must remain intact
-    assert!(multica_dir.exists(), ".multica directory must NOT be deleted");
-    assert!(persistent_file.exists(), "Persistent files inside .multica must be preserved");
+    assert!(
+        multica_dir.exists(),
+        ".multica directory must NOT be deleted"
+    );
+    assert!(
+        persistent_file.exists(),
+        "Persistent files inside .multica must be preserved"
+    );
 
     let persistent_read = tokio::fs::read_to_string(&persistent_file).await.unwrap();
     assert_eq!(persistent_read, "{\"preserve\": true}");
@@ -627,23 +647,28 @@ fn test_ephemeral_overlay_bubblewrap_flags() {
 
     // Standard read-write --bind must NOT be present for target_dir
     assert!(
-        !args.windows(3).any(|w| w == ["--bind", target_str.as_str(), target_str.as_str()]),
+        !args
+            .windows(3)
+            .any(|w| w == ["--bind", target_str.as_str(), target_str.as_str()]),
         "Bubblewrap must NOT bind target directory read-write when ephemeral_overlay is active"
     );
 
     // Read-only base binding must be present
     assert!(
-        args.windows(3).any(|w| w == ["--ro-bind", target_str.as_str(), target_str.as_str()]),
+        args.windows(3)
+            .any(|w| w == ["--ro-bind", target_str.as_str(), target_str.as_str()]),
         "Bubblewrap must bind base target directory read-only"
     );
 
     // Ephemeral overlay mounts (--overlay-src and --tmp-overlay)
     assert!(
-        args.windows(2).any(|w| w == ["--overlay-src", target_str.as_str()]),
+        args.windows(2)
+            .any(|w| w == ["--overlay-src", target_str.as_str()]),
         "Bubblewrap must specify --overlay-src for the base directory"
     );
     assert!(
-        args.windows(2).any(|w| w == ["--tmp-overlay", target_str.as_str()]),
+        args.windows(2)
+            .any(|w| w == ["--tmp-overlay", target_str.as_str()]),
         "Bubblewrap must specify --tmp-overlay for the writable tmpfs upper"
     );
 
@@ -692,7 +717,11 @@ fn test_ephemeral_overlay_docker_flags() {
 
 #[test]
 fn test_ephemeral_overlay_bwrap_execution_isolation() {
-    if std::process::Command::new("bwrap").arg("--version").output().is_err() {
+    if std::process::Command::new("bwrap")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
         return;
     }
 
@@ -707,13 +736,14 @@ fn test_ephemeral_overlay_bwrap_execution_isolation() {
     let env = SandboxEnvironment::with_config(".", spec);
     let (bin, args) = env.wrap_command(
         "sh",
-        &["-c".to_string(), format!("echo 'secret-data' > {}", test_file.display())],
+        &[
+            "-c".to_string(),
+            format!("echo 'secret-data' > {}", test_file.display()),
+        ],
         &test_dir,
     );
 
-    let status = std::process::Command::new(bin)
-        .args(&args)
-        .status();
+    let status = std::process::Command::new(bin).args(&args).status();
 
     if let Ok(st) = status {
         if st.success() {
@@ -727,4 +757,3 @@ fn test_ephemeral_overlay_bwrap_execution_isolation() {
 
     let _ = std::fs::remove_dir_all(&test_dir);
 }
-

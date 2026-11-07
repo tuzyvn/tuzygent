@@ -1,6 +1,5 @@
 use agent_domain::{
-    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul,
-    AutonomyLevel,
+    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel,
 };
 use agent_memory::{
     PersonaBenchmarkHarness, PersonaBenchmarkStats, PersonaError, ResilientPersonaLoader,
@@ -54,13 +53,19 @@ fn test_topic_8c43f7_7e124f_persona_benchmark_and_lock_contention_isolation() {
     println!("  Total requests      : {}", stats.total_requests);
     println!("  Successful ops      : {}", stats.successful_operations);
     println!("  Rejected ops        : {}", stats.rejected_count);
-    println!("  Throughput          : {:.2} ops/sec", stats.throughput_ops_per_sec);
+    println!(
+        "  Throughput          : {:.2} ops/sec",
+        stats.throughput_ops_per_sec
+    );
     println!("  P50 Latency         : {:.2} µs", stats.p50_latency_us);
     println!("  P90 Latency         : {:.2} µs", stats.p90_latency_us);
     println!("  P99 Latency         : {:.2} µs", stats.p99_latency_us);
     println!("  Max Latency         : {:.2} µs", stats.max_latency_us);
     println!("  Duration            : {:?}", stats.total_duration);
-    println!("  Memory Allocated    : {} bytes", stats.memory_allocated_bytes);
+    println!(
+        "  Memory Allocated    : {} bytes",
+        stats.memory_allocated_bytes
+    );
 
     assert_eq!(stats.total_requests, 10_000);
     assert_eq!(stats.successful_operations, 9_000);
@@ -94,7 +99,10 @@ fn test_topic_8c43f7_7e124f_persona_benchmark_and_lock_contention_isolation() {
         mem_after
     );
     println!("\n[2. Bounded Memory Check]");
-    println!("  Memory before: {} bytes | Memory after 5k extra ops: {} bytes", mem_before, mem_after);
+    println!(
+        "  Memory before: {} bytes | Memory after 5k extra ops: {} bytes",
+        mem_before, mem_after
+    );
 
     // 3. Batch resolution optimization test
     let batch_profiles = vec![
@@ -107,7 +115,10 @@ fn test_topic_8c43f7_7e124f_persona_benchmark_and_lock_contention_isolation() {
     assert_eq!(batch_res.len(), 4);
     assert!(batch_res[0].is_ok());
     assert!(batch_res[1].is_ok());
-    assert!(matches!(batch_res[2], Err(PersonaError::InvalidIdentity(_))));
+    assert!(matches!(
+        batch_res[2],
+        Err(PersonaError::InvalidIdentity(_))
+    ));
     assert!(batch_res[3].is_ok());
     println!("\n[3. Batch Processing Check]");
     println!("  Batch of 4 profiles processed with granular error isolation successfully.");
@@ -118,20 +129,50 @@ fn test_topic_8c43f7_7e124f_persona_benchmark_and_lock_contention_isolation() {
     // 4a. Single Lock (Contention Bottleneck)
     let single_lock_stats = PersonaBenchmarkHarness::run_single_lock_benchmark(10_000, 4);
     println!("  --- Architecture A: Single Global Mutex (Contention Point) ---");
-    println!("    Throughput         : {:.2} ops/sec", single_lock_stats.throughput_ops_per_sec);
-    println!("    P50 Latency        : {:.2} µs", single_lock_stats.p50_latency_us);
-    println!("    P90 Latency        : {:.2} µs", single_lock_stats.p90_latency_us);
-    println!("    P99 Latency        : {:.2} µs", single_lock_stats.p99_latency_us);
-    println!("    Max Latency        : {:.2} µs", single_lock_stats.max_latency_us);
+    println!(
+        "    Throughput         : {:.2} ops/sec",
+        single_lock_stats.throughput_ops_per_sec
+    );
+    println!(
+        "    P50 Latency        : {:.2} µs",
+        single_lock_stats.p50_latency_us
+    );
+    println!(
+        "    P90 Latency        : {:.2} µs",
+        single_lock_stats.p90_latency_us
+    );
+    println!(
+        "    P99 Latency        : {:.2} µs",
+        single_lock_stats.p99_latency_us
+    );
+    println!(
+        "    Max Latency        : {:.2} µs",
+        single_lock_stats.max_latency_us
+    );
 
     // 4b. Sharded Lock (Fine-Grained Partitioning)
     let sharded_stats = PersonaBenchmarkHarness::run_concurrent_benchmark(10_000, 4);
     println!("  --- Architecture B: 16-Shard Partitioned Locks (Contention Isolated) ---");
-    println!("    Throughput         : {:.2} ops/sec", sharded_stats.throughput_ops_per_sec);
-    println!("    P50 Latency        : {:.2} µs", sharded_stats.p50_latency_us);
-    println!("    P90 Latency        : {:.2} µs", sharded_stats.p90_latency_us);
-    println!("    P99 Latency        : {:.2} µs", sharded_stats.p99_latency_us);
-    println!("    Max Latency        : {:.2} µs", sharded_stats.max_latency_us);
+    println!(
+        "    Throughput         : {:.2} ops/sec",
+        sharded_stats.throughput_ops_per_sec
+    );
+    println!(
+        "    P50 Latency        : {:.2} µs",
+        sharded_stats.p50_latency_us
+    );
+    println!(
+        "    P90 Latency        : {:.2} µs",
+        sharded_stats.p90_latency_us
+    );
+    println!(
+        "    P99 Latency        : {:.2} µs",
+        sharded_stats.p99_latency_us
+    );
+    println!(
+        "    Max Latency        : {:.2} µs",
+        sharded_stats.max_latency_us
+    );
 
     assert_eq!(sharded_stats.total_requests, 10_000);
     assert_eq!(sharded_stats.successful_operations, 9_000);

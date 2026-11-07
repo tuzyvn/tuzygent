@@ -29,7 +29,11 @@ async fn test_execute_queue_resumes_completed_subtask() -> Result<(), Box<dyn st
 
     let executor = setup_test_executor(engine, None, workdir);
 
-    let mut task = Task::new("Resume Task", "Skip already completed subtasks", Priority::Normal);
+    let mut task = Task::new(
+        "Resume Task",
+        "Skip already completed subtasks",
+        Priority::Normal,
+    );
 
     // Subtask 1: Already completed from a previous run
     let mut subtask_1 = SubTask::new("1", "Done step", "echo step1", "Custom check");
@@ -52,23 +56,28 @@ async fn test_execute_queue_resumes_completed_subtask() -> Result<(), Box<dyn st
 
     // Subtask 1 should remain Completed with its original excerpt untouched
     assert_eq!(task.subtasks[0].status, TaskStatus::Completed);
-    assert_eq!(task.subtasks[0].output_excerpt.as_deref(), Some("previous output excerpt"));
+    assert_eq!(
+        task.subtasks[0].output_excerpt.as_deref(),
+        Some("previous output excerpt")
+    );
 
     // Subtask 2 should be executed and marked Completed
     assert_eq!(task.subtasks[1].status, TaskStatus::Completed);
-    assert_eq!(task.subtasks[1].output_excerpt.as_deref(), Some("Executed pending step"));
+    assert_eq!(
+        task.subtasks[1].output_excerpt.as_deref(),
+        Some("Executed pending step")
+    );
 
     // Ensure engine was called ONLY for Subtask 2, never for Subtask 1
-    let cmds = executed_commands
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let cmds = executed_commands.lock().unwrap_or_else(|e| e.into_inner());
     assert_eq!(cmds.as_slice(), &["echo step2"]);
 
     Ok(())
 }
 
 #[tokio::test]
-async fn test_execute_queue_all_subtasks_already_completed() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_execute_queue_all_subtasks_already_completed(
+) -> Result<(), Box<dyn std::error::Error>> {
     let env = TestEnv::new("test_runner_all_done");
     let workdir = env.path();
 
@@ -126,14 +135,29 @@ async fn test_execute_queue_successful_execution() -> Result<(), Box<dyn std::er
 
     let executor = setup_test_executor(engine, None, workdir);
 
-    let mut task = Task::new("Success Task", "Task that completes smoothly", Priority::Normal);
-    let st = SubTask::new("ST-OK", "Create artifact", "make build", "file: verified_fixture");
+    let mut task = Task::new(
+        "Success Task",
+        "Task that completes smoothly",
+        Priority::Normal,
+    );
+    let st = SubTask::new(
+        "ST-OK",
+        "Create artifact",
+        "make build",
+        "file: verified_fixture",
+    );
     task.subtasks.push(st);
 
     let mut verifs = Vec::new();
     let mut context = String::new();
     let outcome = executor
-        .execute_queue(&mut task, workdir, "system prompt", &mut verifs, &mut context)
+        .execute_queue(
+            &mut task,
+            workdir,
+            "system prompt",
+            &mut verifs,
+            &mut context,
+        )
         .await?;
 
     assert_eq!(outcome, QueueExecutionOutcome::Completed);

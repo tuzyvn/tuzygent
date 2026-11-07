@@ -153,7 +153,10 @@ impl ResilientWorkspaceManager {
     }
 
     /// Chuẩn bị hàng loạt workspace theo batch
-    pub async fn batch_prepare(&mut self, task_ids: &[&str]) -> Vec<Result<PathBuf, WorkspaceError>> {
+    pub async fn batch_prepare(
+        &mut self,
+        task_ids: &[&str],
+    ) -> Vec<Result<PathBuf, WorkspaceError>> {
         let mut results = Vec::with_capacity(task_ids.len());
         for task_id in task_ids {
             results.push(self.prepare_resilient(task_id).await);
@@ -202,11 +205,7 @@ impl ResilientWorkspaceManager {
     }
 
     pub fn memory_usage_bytes(&self) -> usize {
-        let active_count = self
-            .active_workspaces
-            .lock()
-            .map(|a| a.len())
-            .unwrap_or(0);
+        let active_count = self.active_workspaces.lock().map(|a| a.len()).unwrap_or(0);
         let audit_count = self.audit_ledger.lock().map(|l| l.len()).unwrap_or(0);
         active_count * 128 + audit_count * 256
     }
@@ -216,10 +215,7 @@ impl ResilientWorkspaceManager {
     }
 
     pub fn active_count(&self) -> usize {
-        self.active_workspaces
-            .lock()
-            .map(|a| a.len())
-            .unwrap_or(0)
+        self.active_workspaces.lock().map(|a| a.len()).unwrap_or(0)
     }
 
     pub fn audit_records(&self) -> Vec<WorkspaceAuditRecord> {

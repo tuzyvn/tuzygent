@@ -52,7 +52,9 @@ impl GoalDecomposer {
             Some(self.guardrail.clone()),
         );
         if let Some(ref policy) = self.backoff_policy {
-            service = service.with_backoff_policy(policy.clone()).with_max_retries(3);
+            service = service
+                .with_backoff_policy(policy.clone())
+                .with_max_retries(3);
         }
         service.execute(self.engine.clone(), input).await
     }
@@ -309,7 +311,8 @@ Done!"#;
   ]
 }"#;
 
-        let parsed = GoalDecomposer::parse_subtasks_json(raw).expect("should parse wrapped subtasks");
+        let parsed =
+            GoalDecomposer::parse_subtasks_json(raw).expect("should parse wrapped subtasks");
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].id, "ST-WRAP-1");
         assert_eq!(parsed[0].title, "Wrapped task");
@@ -322,7 +325,8 @@ Done!"#;
     }
   ]
 }"#;
-        let plan_parsed = GoalDecomposer::parse_subtasks_json(plan_raw).expect("should parse plan subtasks");
+        let plan_parsed =
+            GoalDecomposer::parse_subtasks_json(plan_raw).expect("should parse plan subtasks");
         assert_eq!(plan_parsed.len(), 1);
         assert_eq!(plan_parsed[0].id, "ST-1");
     }

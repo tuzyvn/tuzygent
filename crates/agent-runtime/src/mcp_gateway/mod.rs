@@ -11,7 +11,9 @@ pub use types::{
     MCP_ERR_SERVER_UNAVAILABLE,
 };
 
-use agent_domain::{ActionSeverity, AuditEventType, AuditIntegrityError, AuditLedger, GuardrailPolicy};
+use agent_domain::{
+    ActionSeverity, AuditEventType, AuditIntegrityError, AuditLedger, GuardrailPolicy,
+};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -79,8 +81,11 @@ impl McpToolGateway {
     pub fn register_server(&mut self, config: McpServerConfig) {
         for blocked in &config.blocked_tools {
             self.blocked_tools.insert(blocked.to_lowercase());
-            self.blocked_tools
-                .insert(format!("{}:{}", config.server_id.to_lowercase(), blocked.to_lowercase()));
+            self.blocked_tools.insert(format!(
+                "{}:{}",
+                config.server_id.to_lowercase(),
+                blocked.to_lowercase()
+            ));
         }
         self.servers.insert(config.server_id.clone(), config);
     }
@@ -333,10 +338,7 @@ impl McpToolGateway {
 
         // 3. Ensure tool is registered
         let Some(tool_def) = tool_opt else {
-            let msg = format!(
-                "Tool '{}' is not registered on MCP gateway",
-                params.name
-            );
+            let msg = format!("Tool '{}' is not registered on MCP gateway", params.name);
             self.record_audit(
                 AuditEventType::PolicyViolation,
                 ActionSeverity::HighImpact,
@@ -542,14 +544,11 @@ impl McpToolGateway {
         actor: Option<&str>,
     ) {
         if let Some(actor_name) = actor {
-            self.audit_ledger.record_with_actor(
-                event_type.as_str(),
-                severity,
-                details,
-                actor_name,
-            );
+            self.audit_ledger
+                .record_with_actor(event_type.as_str(), severity, details, actor_name);
         } else {
-            self.audit_ledger.record_event(event_type, severity, details);
+            self.audit_ledger
+                .record_event(event_type, severity, details);
         }
     }
 }

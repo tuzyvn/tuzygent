@@ -52,11 +52,13 @@ impl InterAgentBus {
     }
 
     pub fn set_max_payload_bytes(&self, max: Option<usize>) {
-        self.max_payload_bytes.store(max.unwrap_or(0), Ordering::SeqCst);
+        self.max_payload_bytes
+            .store(max.unwrap_or(0), Ordering::SeqCst);
     }
 
     pub fn set_overload_watermark(&self, watermark: Option<usize>) {
-        self.overload_watermark.store(watermark.unwrap_or(0), Ordering::SeqCst);
+        self.overload_watermark
+            .store(watermark.unwrap_or(0), Ordering::SeqCst);
     }
 
     pub fn publish(&self, event: InterAgentEvent) -> Result<usize, String> {
@@ -67,7 +69,9 @@ impl InterAgentBus {
 
             let max_bytes = self.max_payload_bytes.load(Ordering::SeqCst);
             if max_bytes > 0 {
-                let size = serde_json::to_string(&event.payload).map(|s| s.len()).unwrap_or(0);
+                let size = serde_json::to_string(&event.payload)
+                    .map(|s| s.len())
+                    .unwrap_or(0);
                 if size > max_bytes {
                     return Err(format!(
                         "Bus payload overload: payload size {} exceeds limit of {} bytes",
@@ -96,7 +100,10 @@ impl InterAgentBus {
                     if sender.receiver_count() == 0 {
                         Ok(0)
                     } else {
-                        Err("Failed to publish inter-agent event: broadcast channel error".to_string())
+                        Err(
+                            "Failed to publish inter-agent event: broadcast channel error"
+                                .to_string(),
+                        )
                     }
                 }
             }
@@ -142,7 +149,9 @@ impl InterAgentBus {
             let mut count = 0;
             for event in events {
                 if max_bytes > 0 {
-                    let size = serde_json::to_string(&event.payload).map(|s| s.len()).unwrap_or(0);
+                    let size = serde_json::to_string(&event.payload)
+                        .map(|s| s.len())
+                        .unwrap_or(0);
                     if size > max_bytes {
                         return Err(format!(
                             "Bus payload overload: payload size {} exceeds limit of {} bytes",

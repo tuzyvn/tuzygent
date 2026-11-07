@@ -335,7 +335,10 @@ mod tests {
 
     #[test]
     fn test_expand_home_unit() {
-        assert_eq!(expand_home("/absolute/path"), PathBuf::from("/absolute/path"));
+        assert_eq!(
+            expand_home("/absolute/path"),
+            PathBuf::from("/absolute/path")
+        );
         assert_eq!(expand_home("rel/path"), PathBuf::from("rel/path"));
     }
 }

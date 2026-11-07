@@ -161,7 +161,10 @@ impl ResilientUpdater {
                 &repo_url,
             ])
             .arg(source);
-            checked_command(&mut cmd, "Cannot fetch AgentCore; Git and network access are required")
+            checked_command(
+                &mut cmd,
+                "Cannot fetch AgentCore; Git and network access are required",
+            )
         })
     }
 
@@ -226,9 +229,12 @@ impl ResilientUpdater {
                 CliExecutionError::TransientIo(format!("Cannot stage candidate executable: {e}"))
             })?;
 
-            let output = Command::new(&staged).arg("--version").output().map_err(|e| {
-                CliExecutionError::TransientIo(format!("Cannot run candidate executable: {e}"))
-            })?;
+            let output = Command::new(&staged)
+                .arg("--version")
+                .output()
+                .map_err(|e| {
+                    CliExecutionError::TransientIo(format!("Cannot run candidate executable: {e}"))
+                })?;
 
             let version = String::from_utf8_lossy(&output.stdout);
             if !output.status.success()
@@ -266,9 +272,28 @@ impl ResilientUpdater {
         let temporary = TemporaryDirectory::new(&std::env::temp_dir())?;
         let source = temporary.path().join("source");
         println!("Checking {} ({})...", self.repository_url, self.branch);
-        self.fetch_repository(&source)?;
-        let latest = self.check_remote_commit(&source)?;
         let current = env!("AGENTCTL_COMMIT");
+        if let Err(error) = self.fetch_repository(&source) {
+            println!("Installed: {current}\nLatest:    unavailable");
+            if check {
+                return Ok(UpdateStatus::LatestUnavailable {
+                    current: current.to_string(),
+                });
+            }
+            return Err(error);
+        }
+        let latest = match self.check_remote_commit(&source) {
+            Ok(latest) => latest,
+            Err(error) => {
+                println!("Installed: {current}\nLatest:    unavailable");
+                if check {
+                    return Ok(UpdateStatus::LatestUnavailable {
+                        current: current.to_string(),
+                    });
+                }
+                return Err(error);
+            }
+        };
         println!("Installed: {current}\nLatest:    {latest}");
         if current == latest {
             println!("Already up to date.");
@@ -289,11 +314,10 @@ impl ResilientUpdater {
                 CliExecutionError::Other(format!("Cannot locate current executable: {e}"))
             })?,
         };
-        let _write_probe = TemporaryDirectory::new(
-            destination
-                .parent()
-                .ok_or_else(|| CliExecutionError::Other("Missing install directory".to_string()))?,
-        )?;
+        let _write_probe =
+            TemporaryDirectory::new(destination.parent().ok_or_else(|| {
+                CliExecutionError::Other("Missing install directory".to_string())
+            })?)?;
 
         println!("Building {latest} in release mode (requires Cargo and a Rust toolchain)...");
         let target = temporary.path().join("target");

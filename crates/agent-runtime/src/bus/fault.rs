@@ -51,15 +51,15 @@ impl BusFault {
                 "Simulated transient I/O failure on inter-agent event bus".to_string(),
             ),
             Self::ChannelClosed => BusError::ChannelClosed,
-            Self::ChannelFull => BusError::ChannelFull(
-                "Simulated broadcast channel capacity saturation".to_string(),
-            ),
+            Self::ChannelFull => {
+                BusError::ChannelFull("Simulated broadcast channel capacity saturation".to_string())
+            }
             Self::CapacityOverload => BusError::CapacityOverload(
                 "Simulated capacity overload threshold exceeded on bus".to_string(),
             ),
-            Self::CorruptedEvent => {
-                BusError::CorruptedEvent("Simulated malformed or unparseable event packet".to_string())
-            }
+            Self::CorruptedEvent => BusError::CorruptedEvent(
+                "Simulated malformed or unparseable event packet".to_string(),
+            ),
             Self::ServiceUnavailable => {
                 BusError::ServiceUnavailable("Simulated temporary bus backend downtime".to_string())
             }

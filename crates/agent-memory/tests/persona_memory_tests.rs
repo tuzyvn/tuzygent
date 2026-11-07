@@ -193,7 +193,9 @@ fn test_modular_persona_memory_schema_and_metadata_accessors() {
     agent_memory::persona_memory::schema::init_schema(&conn).unwrap();
 
     // Verify record episode and lifecycle work with modular service
-    let ep_id = m.record_episode("t1", "modular memory check", true).unwrap();
+    let ep_id = m
+        .record_episode("t1", "modular memory check", true)
+        .unwrap();
     let l_id = m.propose_lesson("modular lesson", "cond1", &ep_id).unwrap();
     m.activate(&l_id).unwrap();
 

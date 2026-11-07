@@ -65,7 +65,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_sidecar_context_manager_lifecycle() -> Result<()> {
-        let temp_dir = std::env::temp_dir().join(format!("ctx_mgr_test_{}", Uuid::new_v4().simple()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("ctx_mgr_test_{}", Uuid::new_v4().simple()));
         let _ = fs::create_dir_all(&temp_dir).await;
         let manager = SidecarContextManager::new(&temp_dir);
 

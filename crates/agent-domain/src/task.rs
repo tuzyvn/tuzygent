@@ -72,11 +72,24 @@ pub enum TaskStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VerificationSpec {
-    Command { command: String, expected_exit_code: i32 },
-    FileExists { path: String, min_bytes: Option<u64> },
-    JsonValid { path: String },
-    ContentContains { path: String, pattern: String },
-    Custom { description: String },
+    Command {
+        command: String,
+        expected_exit_code: i32,
+    },
+    FileExists {
+        path: String,
+        min_bytes: Option<u64>,
+    },
+    JsonValid {
+        path: String,
+    },
+    ContentContains {
+        path: String,
+        pattern: String,
+    },
+    Custom {
+        description: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -269,8 +282,12 @@ impl Task {
     pub fn with_scheduled_at(mut self, scheduled_at: chrono::DateTime<chrono::Utc>) -> Self {
         self.run_after = Some(scheduled_at);
         self.scheduled_at = Some(scheduled_at);
-        self.status = TaskStatus::Scheduled { run_after: scheduled_at };
-        self.schedule_spec = Some(crate::schedule::ScheduleSpec::OnceAt { run_after: scheduled_at });
+        self.status = TaskStatus::Scheduled {
+            run_after: scheduled_at,
+        };
+        self.schedule_spec = Some(crate::schedule::ScheduleSpec::OnceAt {
+            run_after: scheduled_at,
+        });
         self
     }
 
@@ -337,7 +354,10 @@ impl Task {
         from_step: Option<usize>,
         new_title: Option<String>,
         new_goal: Option<String>,
-    ) -> Result<(Self, crate::checkpoint::TaskCheckpoint), crate::checkpoint::CheckpointIntegrityError> {
+    ) -> Result<
+        (Self, crate::checkpoint::TaskCheckpoint),
+        crate::checkpoint::CheckpointIntegrityError,
+    > {
         let new_id = TaskId::new();
         let forked_cp = checkpoint.fork_for_task(new_id.clone(), from_step)?;
         let now = chrono::Utc::now();
@@ -368,19 +388,33 @@ mod tests {
 
     #[test]
     fn test_task_lifecycle_and_subtask_management() -> Result<(), TaskError> {
-        let mut task = Task::new("Security Hardening", "Implement enterprise guardrail policies", Priority::High);
+        let mut task = Task::new(
+            "Security Hardening",
+            "Implement enterprise guardrail policies",
+            Priority::High,
+        );
         assert_eq!(task.status, TaskStatus::Queued);
         assert!(!task.is_completed());
         assert!(!task.is_failed());
         assert!(task.subtasks.is_empty());
 
-        let subtask1 = SubTask::new("sub-1", "Lint security rules", "cargo test -p agent-domain", "Exit code 0");
+        let subtask1 = SubTask::new(
+            "sub-1",
+            "Lint security rules",
+            "cargo test -p agent-domain",
+            "Exit code 0",
+        );
         assert!(!subtask1.is_remediation());
         task.add_subtask(subtask1);
         assert_eq!(task.subtasks.len(), 1);
 
         let remediation = SubTask::new_remediation(
-            "sub-1-fix", "Remediate test failure", "cargo fix --allow-no-vcs", "sub-1", "Compilation error in guardrail", 1,
+            "sub-1-fix",
+            "Remediate test failure",
+            "cargo fix --allow-no-vcs",
+            "sub-1",
+            "Compilation error in guardrail",
+            1,
         );
         assert!(remediation.is_remediation());
         assert_eq!(remediation.parent_subtask_id.as_deref(), Some("sub-1"));
@@ -396,7 +430,10 @@ mod tests {
             sub.status = TaskStatus::Completed;
         }
         assert_eq!(task.get_subtask("sub-1")?.status, TaskStatus::Completed);
-        assert_eq!(task.find_subtask("sub-1").map(|s| &s.status), Some(&TaskStatus::Completed));
+        assert_eq!(
+            task.find_subtask("sub-1").map(|s| &s.status),
+            Some(&TaskStatus::Completed)
+        );
 
         task.status = TaskStatus::Completed;
         assert!(task.is_completed());
@@ -405,7 +442,11 @@ mod tests {
 
     #[test]
     fn test_safe_subtask_lookup_and_error_handling() {
-        let mut task = Task::new("Resilience Check", "Verify zero-panic subtask lookup", Priority::Normal);
+        let mut task = Task::new(
+            "Resilience Check",
+            "Verify zero-panic subtask lookup",
+            Priority::Normal,
+        );
 
         // Safe query on empty task returns TaskError without panic
         assert_eq!(
@@ -422,7 +463,10 @@ mod tests {
         task.add_subtask(sub);
 
         assert!(task.get_subtask("st-alpha").is_ok());
-        assert_eq!(task.get_subtask("st-alpha").map(|s| s.id.as_str()), Ok("st-alpha"));
+        assert_eq!(
+            task.get_subtask("st-alpha").map(|s| s.id.as_str()),
+            Ok("st-alpha")
+        );
 
         // Error message verification
         match task.get_subtask("nonexistent") {
@@ -431,7 +475,10 @@ mod tests {
         }
 
         let err_op = TaskError::InvalidOperation("Unsupported state transition".to_string());
-        assert_eq!(err_op.to_string(), "Invalid task operation: Unsupported state transition");
+        assert_eq!(
+            err_op.to_string(),
+            "Invalid task operation: Unsupported state transition"
+        );
     }
 
     #[test]

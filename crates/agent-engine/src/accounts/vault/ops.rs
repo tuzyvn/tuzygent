@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::accounts::types::{AccountEngineKind, AccountProfile, AccountStatus};
 use super::AccountVault;
+use crate::accounts::types::{AccountEngineKind, AccountProfile, AccountStatus};
 
 /// Kiểm tra tính hợp lệ và chuẩn hóa ID tài khoản
 pub fn sanitize_account_id(id: &str) -> Result<String, std::io::Error> {
@@ -15,15 +15,24 @@ pub fn sanitize_account_id(id: &str) -> Result<String, std::io::Error> {
     {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            format!("Invalid account ID '{}': must not be empty or contain path traversal characters", id),
+            format!(
+                "Invalid account ID '{}': must not be empty or contain path traversal characters",
+                id
+            ),
         ));
     }
 
     let safe_id = trimmed_id.to_lowercase().replace(' ', "_");
-    if !safe_id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+    if !safe_id
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+    {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            format!("Invalid account ID '{}': only alphanumeric, underscore, and dash are allowed", id),
+            format!(
+                "Invalid account ID '{}': only alphanumeric, underscore, and dash are allowed",
+                id
+            ),
         ));
     }
 
@@ -35,7 +44,10 @@ pub fn validate_engine_name(engine_str: &str) -> Result<(), std::io::Error> {
     if engine_str.contains('/') || engine_str.contains('\\') || engine_str.contains("..") {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            format!("Invalid engine name '{}': path traversal detected", engine_str),
+            format!(
+                "Invalid engine name '{}': path traversal detected",
+                engine_str
+            ),
         ));
     }
     Ok(())
@@ -62,7 +74,8 @@ impl AccountVault {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let _ = std::fs::set_permissions(&account_home, std::fs::Permissions::from_mode(0o700));
+                let _ =
+                    std::fs::set_permissions(&account_home, std::fs::Permissions::from_mode(0o700));
             }
         }
 
@@ -104,7 +117,11 @@ impl AccountVault {
     }
 
     /// Xóa một tài khoản khỏi pool
-    pub fn remove_account(&self, engine: &AccountEngineKind, id: &str) -> Result<bool, std::io::Error> {
+    pub fn remove_account(
+        &self,
+        engine: &AccountEngineKind,
+        id: &str,
+    ) -> Result<bool, std::io::Error> {
         let removed = {
             let mut lock = self.accounts_write();
             if let Some(list) = lock.get_mut(engine) {

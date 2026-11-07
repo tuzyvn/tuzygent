@@ -29,8 +29,9 @@ fn create_load_test_app(token: &str, allowed_origins: Vec<&str>) -> Router {
         std::env::temp_dir().join(format!("test_vault_{}", uuid::Uuid::new_v4().simple()));
     let task_store =
         Arc::new(agent_runtime::SqliteTaskStore::memory().expect("sqlite memory store"));
-    let task_service =
-        Arc::new(agent_runtime::TaskService::new(task_store, "/tmp", 2, None, None));
+    let task_service = Arc::new(agent_runtime::TaskService::new(
+        task_store, "/tmp", 2, None, None,
+    ));
     let origins = allowed_origins
         .into_iter()
         .map(|o| o.parse().expect("valid header value"))
@@ -55,13 +56,39 @@ fn print_stats_table(title: &str, stats: &AuthBenchmarkStats) {
     println!(" Total Requests     : {:>10}", stats.total_requests);
     println!(" Successful Ops     : {:>10}", stats.successful_operations);
     println!(" Rejected Ops       : {:>10}", stats.rejected_count);
-    println!(" Total Duration     : {:>10.3} ms", stats.total_duration.as_secs_f64() * 1000.0);
-    println!(" Throughput         : {:>10.2} ops/sec", stats.throughput_ops_per_sec);
-    println!(" P50 Latency        : {:>10.2} µs ({:.4} ms)", stats.p50_latency_us, stats.p50_latency_us / 1000.0);
-    println!(" P90 Latency        : {:>10.2} µs ({:.4} ms)", stats.p90_latency_us, stats.p90_latency_us / 1000.0);
-    println!(" P99 Latency        : {:>10.2} µs ({:.4} ms)", stats.p99_latency_us, stats.p99_latency_us / 1000.0);
-    println!(" Max Latency        : {:>10.2} µs ({:.4} ms)", stats.max_latency_us, stats.max_latency_us / 1000.0);
-    println!(" Memory Footprint   : {:>10} bytes ({:.2} KB)", stats.memory_allocated_bytes, stats.memory_allocated_bytes as f64 / 1024.0);
+    println!(
+        " Total Duration     : {:>10.3} ms",
+        stats.total_duration.as_secs_f64() * 1000.0
+    );
+    println!(
+        " Throughput         : {:>10.2} ops/sec",
+        stats.throughput_ops_per_sec
+    );
+    println!(
+        " P50 Latency        : {:>10.2} µs ({:.4} ms)",
+        stats.p50_latency_us,
+        stats.p50_latency_us / 1000.0
+    );
+    println!(
+        " P90 Latency        : {:>10.2} µs ({:.4} ms)",
+        stats.p90_latency_us,
+        stats.p90_latency_us / 1000.0
+    );
+    println!(
+        " P99 Latency        : {:>10.2} µs ({:.4} ms)",
+        stats.p99_latency_us,
+        stats.p99_latency_us / 1000.0
+    );
+    println!(
+        " Max Latency        : {:>10.2} µs ({:.4} ms)",
+        stats.max_latency_us,
+        stats.max_latency_us / 1000.0
+    );
+    println!(
+        " Memory Footprint   : {:>10} bytes ({:.2} KB)",
+        stats.memory_allocated_bytes,
+        stats.memory_allocated_bytes as f64 / 1024.0
+    );
     println!("================================================================================\n");
 }
 
@@ -71,8 +98,12 @@ async fn test_auth_load_10k_concurrent_requests_sharded() {
     const CONCURRENCY: usize = 16;
     let valid_token = "secret_auth_token_sharded_10k";
 
-    println!("\n>>> Running 10,000 concurrent requests test with 16 worker tasks (16-way sharded)...");
-    let stats = AuthBenchmarkHarness::run_concurrent_benchmark(TOTAL_REQUESTS, CONCURRENCY, valid_token).await;
+    println!(
+        "\n>>> Running 10,000 concurrent requests test with 16 worker tasks (16-way sharded)..."
+    );
+    let stats =
+        AuthBenchmarkHarness::run_concurrent_benchmark(TOTAL_REQUESTS, CONCURRENCY, valid_token)
+            .await;
 
     print_stats_table("10,000 Concurrent Requests (16-Way Sharded Mutex)", &stats);
 
@@ -120,7 +151,8 @@ async fn test_auth_load_10k_simultaneous_tasks() {
         let t_str = valid_token.to_string();
         join_set.spawn(async move {
             let is_invalid = req_idx.is_multiple_of(10);
-            let (candidate, invalid) = AuthBenchmarkHarness::make_benchmark_token(req_idx, is_invalid, &t_str);
+            let (candidate, invalid) =
+                AuthBenchmarkHarness::make_benchmark_token(req_idx, is_invalid, &t_str);
             let req_start = Instant::now();
             let res = v_clone.validate_token_resilient(&candidate).await;
             let latency_us = req_start.elapsed().as_secs_f64() * 1_000_000.0;
@@ -151,7 +183,11 @@ async fn test_auth_load_10k_simultaneous_tasks() {
     let p99 = calculate_percentile(&latencies_us, 0.99);
     let max = latencies_us.last().copied().unwrap_or(0.0);
     let secs = total_duration.as_secs_f64();
-    let throughput = if secs > 0.0 { TOTAL_REQUESTS as f64 / secs } else { 0.0 };
+    let throughput = if secs > 0.0 {
+        TOTAL_REQUESTS as f64 / secs
+    } else {
+        0.0
+    };
     let mem_usage = validator.memory_usage_bytes().await;
 
     let stats = AuthBenchmarkStats {
@@ -243,7 +279,11 @@ async fn test_auth_load_10k_http_endpoint_simulation() {
                     .expect("valid http request");
 
                 let t0 = Instant::now();
-                let resp = app_clone.clone().oneshot(req).await.expect("service response");
+                let resp = app_clone
+                    .clone()
+                    .oneshot(req)
+                    .await
+                    .expect("service response");
                 let elapsed_us = t0.elapsed().as_secs_f64() * 1_000_000.0;
                 local_latencies.push(elapsed_us);
 
@@ -277,7 +317,11 @@ async fn test_auth_load_10k_http_endpoint_simulation() {
     let p99 = calculate_percentile(&all_latencies, 0.99);
     let max = all_latencies.last().copied().unwrap_or(0.0);
     let secs = total_duration.as_secs_f64();
-    let throughput = if secs > 0.0 { TOTAL_REQUESTS as f64 / secs } else { 0.0 };
+    let throughput = if secs > 0.0 {
+        TOTAL_REQUESTS as f64 / secs
+    } else {
+        0.0
+    };
 
     let stats = AuthBenchmarkStats {
         total_requests: TOTAL_REQUESTS,
@@ -329,9 +373,18 @@ async fn test_auth_load_10k_bounded_memory_ring_buffer() {
     let stats_3 = AuthBenchmarkHarness::run_benchmark(&mut validator, TOTAL_REQUESTS, valid_token);
     let mem_burst_3 = validator.memory_usage_bytes();
 
-    print_stats_table("10,000 Requests Burst 1 (Bounded Memory 1,000 entries)", &stats_1);
-    print_stats_table("10,000 Requests Burst 2 (Bounded Memory 1,000 entries)", &stats_2);
-    print_stats_table("10,000 Requests Burst 3 (Bounded Memory 1,000 entries)", &stats_3);
+    print_stats_table(
+        "10,000 Requests Burst 1 (Bounded Memory 1,000 entries)",
+        &stats_1,
+    );
+    print_stats_table(
+        "10,000 Requests Burst 2 (Bounded Memory 1,000 entries)",
+        &stats_2,
+    );
+    print_stats_table(
+        "10,000 Requests Burst 3 (Bounded Memory 1,000 entries)",
+        &stats_3,
+    );
 
     println!(
         "[Memory Footprint] Burst 1: {} bytes, Burst 2: {} bytes, Burst 3: {} bytes",
@@ -400,10 +453,19 @@ async fn test_auth_load_10k_batch_validation() {
     println!(" Batch Size         : {:>10}", BATCH_SIZE);
     println!(" Validated Valid    : {:>10}", success_count);
     println!(" Rejected Invalid   : {:>10}", rejected_count);
-    println!(" Batch Duration     : {:>10.3} ms", duration.as_secs_f64() * 1000.0);
+    println!(
+        " Batch Duration     : {:>10.3} ms",
+        duration.as_secs_f64() * 1000.0
+    );
     println!(" Throughput         : {:>10.2} ops/sec", throughput);
-    println!(" Avg Latency/Item   : {:>10.2} ns", (duration.as_nanos() as f64) / (BATCH_SIZE as f64));
+    println!(
+        " Avg Latency/Item   : {:>10.2} ns",
+        (duration.as_nanos() as f64) / (BATCH_SIZE as f64)
+    );
     println!("================================================================================\n");
 
-    assert!(throughput > 100_000.0, "Batch throughput should exceed 100,000 ops/sec");
+    assert!(
+        throughput > 100_000.0,
+        "Batch throughput should exceed 100,000 ops/sec"
+    );
 }

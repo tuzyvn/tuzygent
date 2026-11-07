@@ -1,8 +1,7 @@
 use crate::persona::fault::PersonaError;
 use crate::persona::resilience::ResilientPersonaLoader;
 use agent_domain::{
-    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul,
-    AutonomyLevel,
+    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -101,17 +100,29 @@ impl PersonaBenchmarkHarness {
                     role_code: format!("ROLE-{:04}", idx % 100),
                     title: format!("Specialist {}", idx),
                     primary_domain: "Distributed Agent Memory & Systems".to_string(),
-                    capabilities: vec!["memory persistence".to_string(), "concurrency control".to_string()],
+                    capabilities: vec![
+                        "memory persistence".to_string(),
+                        "concurrency control".to_string(),
+                    ],
                 },
                 soul: AgentSoul {
                     persona: "Deterministic, ultra-fast and concurrent-safe.".to_string(),
                     tone_of_voice: "Precise and resilient".to_string(),
-                    core_values: vec!["Lock-free Concurrency".to_string(), "Zero-copy Caching".to_string()],
+                    core_values: vec![
+                        "Lock-free Concurrency".to_string(),
+                        "Zero-copy Caching".to_string(),
+                    ],
                     voice_profile: None,
                 },
                 mission: AgentMission {
-                    high_level_objective: format!("Handle 10,000 concurrent requests for persona {}", idx),
-                    kpis: vec!["P99 latency < 20ms".to_string(), "Zero lock starvation".to_string()],
+                    high_level_objective: format!(
+                        "Handle 10,000 concurrent requests for persona {}",
+                        idx
+                    ),
+                    kpis: vec![
+                        "P99 latency < 20ms".to_string(),
+                        "Zero lock starvation".to_string(),
+                    ],
                     constraints: vec!["Strict memory bounding".to_string()],
                 },
             }
@@ -202,7 +213,10 @@ impl PersonaBenchmarkHarness {
             }
         }
 
-        let mem_usage = shared_loader.lock().expect("lock acquired").memory_usage_bytes();
+        let mem_usage = shared_loader
+            .lock()
+            .expect("lock acquired")
+            .memory_usage_bytes();
 
         Self::compute_stats(
             all_latencies,
@@ -223,9 +237,7 @@ impl PersonaBenchmarkHarness {
         let shards: Arc<Vec<RwLock<ResilientPersonaLoader>>> = Arc::new(
             (0..NUM_SHARDS)
                 .map(|_| {
-                    RwLock::new(
-                        ResilientPersonaLoader::default().with_max_capacity(per_shard_cap),
-                    )
+                    RwLock::new(ResilientPersonaLoader::default().with_max_capacity(per_shard_cap))
                 })
                 .collect(),
         );

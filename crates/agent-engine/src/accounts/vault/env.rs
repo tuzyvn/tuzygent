@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::accounts::types::{AccountEngineKind, AccountProfile};
 use super::fs::copy_credential_dir;
 use super::AccountVault;
+use crate::accounts::types::{AccountEngineKind, AccountProfile};
 
 /// Xây dựng bảng biến môi trường cách ly (Process Environment Injection) cho CLI từ AccountProfile
 pub fn build_account_env(account: &AccountProfile) -> HashMap<String, String> {
@@ -44,9 +44,16 @@ pub fn build_account_env(account: &AccountProfile) -> HashMap<String, String> {
 
 impl AccountVault {
     /// Tự động sao chép credentials/session của CLI đang có sẵn trên máy host vào sandbox của tài khoản
-    pub fn import_local_credentials(&self, engine: &AccountEngineKind, id: &str) -> Result<bool, std::io::Error> {
+    pub fn import_local_credentials(
+        &self,
+        engine: &AccountEngineKind,
+        id: &str,
+    ) -> Result<bool, std::io::Error> {
         let account = self.get_account(engine, id).ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::NotFound, format!("Account '{}' not found", id))
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Account '{}' not found", id),
+            )
         })?;
 
         let host_home = std::env::var("HOME")
@@ -65,7 +72,10 @@ impl AccountVault {
             AccountEngineKind::Antigravity => {
                 let candidates = [
                     (host_path.join(".gemini"), account.home_dir.join(".gemini")),
-                    (host_path.join(".config").join("antigravity"), account.home_dir.join(".config").join("antigravity")),
+                    (
+                        host_path.join(".config").join("antigravity"),
+                        account.home_dir.join(".config").join("antigravity"),
+                    ),
                 ];
                 for (src, dst) in &candidates {
                     if src.exists() && src.is_dir() {
@@ -77,7 +87,10 @@ impl AccountVault {
             AccountEngineKind::Codex => {
                 let candidates = [
                     (host_path.join(".codex"), account.home_dir.join(".codex")),
-                    (host_path.join(".config").join("codex"), account.home_dir.join(".config").join("codex")),
+                    (
+                        host_path.join(".config").join("codex"),
+                        account.home_dir.join(".config").join("codex"),
+                    ),
                 ];
                 for (src, dst) in &candidates {
                     if src.exists() && src.is_dir() {

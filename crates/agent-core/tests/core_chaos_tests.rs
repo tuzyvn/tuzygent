@@ -9,9 +9,14 @@ use std::sync::Arc;
 fn test_safe_unwrap_eliminates_panics_on_option_and_result() {
     // 1. None Option safety
     let none_val: Option<String> = None;
-    assert_eq!(none_val.clone().safe_unwrap_or("fallback".to_string()), "fallback");
     assert_eq!(
-        none_val.clone().safe_unwrap_or_else(|| "computed".to_string()),
+        none_val.clone().safe_unwrap_or("fallback".to_string()),
+        "fallback"
+    );
+    assert_eq!(
+        none_val
+            .clone()
+            .safe_unwrap_or_else(|| "computed".to_string()),
         "computed"
     );
     assert_eq!(none_val.clone().safe_unwrap_or_default(), "");
@@ -38,7 +43,10 @@ fn test_safe_unwrap_eliminates_panics_on_option_and_result() {
 
     // 3. Some / Ok values unpack cleanly
     let some_val: Option<String> = Some("active-agent".to_string());
-    assert_eq!(some_val.safe_unwrap_or("fallback".to_string()), "active-agent");
+    assert_eq!(
+        some_val.safe_unwrap_or("fallback".to_string()),
+        "active-agent"
+    );
 
     let ok_val: Result<i32, &str> = Ok(99);
     assert_eq!(ok_val.safe_unwrap_or(0), 99);
@@ -46,9 +54,12 @@ fn test_safe_unwrap_eliminates_panics_on_option_and_result() {
 
 #[test]
 fn test_safe_guard_catches_panics() {
-    let safe_outcome = SafeGuard::catch_unwind_safe(|| {
-        panic!("simulated unexpected panic in worker");
-    }, "recovered_cleanly");
+    let safe_outcome = SafeGuard::catch_unwind_safe(
+        || {
+            panic!("simulated unexpected panic in worker");
+        },
+        "recovered_cleanly",
+    );
     assert_eq!(safe_outcome, "recovered_cleanly");
 
     let result_outcome = SafeGuard::catch_unwind_result(|| {
@@ -77,7 +88,10 @@ fn test_resilient_core_agent_fault_injection_and_circuit_breaker() {
     // Inject transient failure
     policy.set_fault(CoreFaultKind::SimulateTransientFailure);
     let fail1 = agent.execute_operation("check_status", "param=2");
-    assert!(matches!(fail1.unwrap_err(), CoreExecutionError::TransientEngineFailure(_)));
+    assert!(matches!(
+        fail1.unwrap_err(),
+        CoreExecutionError::TransientEngineFailure(_)
+    ));
     assert_eq!(policy.circuit_state(), CircuitState::HalfOpen);
 
     let _ = agent.execute_operation("check_status", "param=3");
@@ -86,7 +100,10 @@ fn test_resilient_core_agent_fault_injection_and_circuit_breaker() {
 
     // When Circuit is open, requests are fast-rejected
     let open_res = agent.execute_operation("check_status", "param=5");
-    assert!(matches!(open_res.unwrap_err(), CoreExecutionError::CircuitOpen(_)));
+    assert!(matches!(
+        open_res.unwrap_err(),
+        CoreExecutionError::CircuitOpen(_)
+    ));
 
     // Clear fault & recover
     policy.clear_fault();
@@ -132,11 +149,7 @@ fn test_sharded_core_agent_runner_distribution() {
     assert_eq!(runner.total_record_count(), 300);
     assert!(runner.total_memory_usage() > 0);
 
-    let batch = vec![
-        ("batch_1", "p1"),
-        ("batch_2", "p2"),
-        ("batch_3", "p3"),
-    ];
+    let batch = vec![("batch_1", "p1"), ("batch_2", "p2"), ("batch_3", "p3")];
     let batch_res = runner.execute_batch(batch);
     assert_eq!(batch_res.len(), 3);
     assert!(batch_res.iter().all(|r| r.is_ok()));
@@ -262,4 +275,3 @@ fn test_topic_efe10f_safe_unwrap_zero_smell_and_safe_fallback() {
     assert!(err_msg.contains("disk full"));
     assert!(err_msg.contains("write_checkpoint"));
 }
-

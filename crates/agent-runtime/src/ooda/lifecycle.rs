@@ -39,9 +39,12 @@ impl AutonomousOodaLoop {
 
     pub async fn run_goal_detailed(&self, task: &mut Task) -> Result<TaskResult, String> {
         let start_time = std::time::Instant::now();
-        let mut all_verifications: Vec<VerificationResult> = task.subtasks.iter()
+        let mut all_verifications: Vec<VerificationResult> = task
+            .subtasks
+            .iter()
             .filter(|step| step.status == TaskStatus::Completed)
-            .filter_map(|step| step.verification_result.clone()).collect();
+            .filter_map(|step| step.verification_result.clone())
+            .collect();
 
         info!("🎯 [OODA] Starting autonomous run for goal: {}", task.title);
         task.status = TaskStatus::PreparingSandbox;
@@ -63,31 +66,28 @@ impl AutonomousOodaLoop {
             subtask_id = "",
             execution_phase = super::OODA_PHASE_OBSERVE,
         );
-        let (mut sandbox, active_workdir) = match prepare_sandbox_and_brief(
-            &self.workspace_dir,
-            &self.sandbox_config,
-            task,
-        )
-        .instrument(observe_span)
-        .await
-        {
-            Ok(res) => res,
-            Err(err_msg) => {
-                task.status = TaskStatus::Failed {
-                    error: err_msg.clone(),
-                };
-                publish_event(
-                    self.bus.as_ref(),
-                    "task.failed",
-                    serde_json::json!({
-                        "task_id": task.id.0,
-                        "title": task.title,
-                        "error": err_msg,
-                    }),
-                );
-                return Err(err_msg);
-            }
-        };
+        let (mut sandbox, active_workdir) =
+            match prepare_sandbox_and_brief(&self.workspace_dir, &self.sandbox_config, task)
+                .instrument(observe_span)
+                .await
+            {
+                Ok(res) => res,
+                Err(err_msg) => {
+                    task.status = TaskStatus::Failed {
+                        error: err_msg.clone(),
+                    };
+                    publish_event(
+                        self.bus.as_ref(),
+                        "task.failed",
+                        serde_json::json!({
+                            "task_id": task.id.0,
+                            "title": task.title,
+                            "error": err_msg,
+                        }),
+                    );
+                    return Err(err_msg);
+                }
+            };
 
         // 1. Orient: Load Relevant Long-term Context
         let orient_span = info_span!(
@@ -96,22 +96,29 @@ impl AutonomousOodaLoop {
             subtask_id = "",
             execution_phase = super::OODA_PHASE_ORIENT,
         );
-        let (memory, long_term_ctx) =
-            match orient_context(&self.workspace_dir, &self.persona, task)
-                .instrument(orient_span)
-                .await
-            {
-                Ok(res) => res,
-                Err(err_msg) => {
-                    self.handle_task_failure(task, &mut sandbox, &active_workdir, &err_msg)
-                        .await;
-                    return Err(err_msg);
-                }
-            };
+        let (memory, long_term_ctx) = match orient_context(&self.workspace_dir, &self.persona, task)
+            .instrument(orient_span)
+            .await
+        {
+            Ok(res) => res,
+            Err(err_msg) => {
+                self.handle_task_failure(task, &mut sandbox, &active_workdir, &err_msg)
+                    .await;
+                return Err(err_msg);
+            }
+        };
         let mut working_context = String::new();
-        for step in task.subtasks.iter().filter(|step| step.status == TaskStatus::Completed) {
+        for step in task
+            .subtasks
+            .iter()
+            .filter(|step| step.status == TaskStatus::Completed)
+        {
             if let Some(output) = &step.output_excerpt {
-                crate::ooda::execution::runner::update_working_context(&mut working_context, &step.id, output);
+                crate::ooda::execution::runner::update_working_context(
+                    &mut working_context,
+                    &step.id,
+                    output,
+                );
             }
         }
 
@@ -176,7 +183,8 @@ impl AutonomousOodaLoop {
         );
         let executor = self.executor();
         if let Err(err) = executor.checkpoint(task).await {
-            self.handle_task_failure(task, &mut sandbox, &active_workdir, &err).await;
+            self.handle_task_failure(task, &mut sandbox, &active_workdir, &err)
+                .await;
             return Err(err);
         }
         let outcome = match executor
@@ -307,7 +315,9 @@ impl AutonomousOodaLoop {
         } else {
             format!(
                 "Goal '{}' finished with status {:?}. Total {} subtasks processed.",
-                task.title, task.status, task.subtasks.len()
+                task.title,
+                task.status,
+                task.subtasks.len()
             )
         };
         let task_result = TaskResult {

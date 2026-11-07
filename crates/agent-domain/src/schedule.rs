@@ -229,7 +229,8 @@ impl ScheduleSpec {
     pub fn after_delay_from(now: DateTime<Utc>, delay: std::time::Duration) -> Self {
         let delay_ms = u64::try_from(delay.as_millis()).unwrap_or(u64::MAX);
         let delta = Duration::milliseconds(i64::try_from(delay_ms).unwrap_or(i64::MAX));
-        Self::Delayed { delay_ms, run_after: now + delta }
+        let run_after = now.checked_add_signed(delta).unwrap_or(DateTime::<Utc>::MAX_UTC);
+        Self::Delayed { delay_ms, run_after }
     }
 
     pub fn every(interval: std::time::Duration) -> Self {
@@ -362,5 +363,308 @@ impl TaskScheduleRecord {
                 Ok(None)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn at(y: i32, m: u32, d: u32, h: u32, min: u32, sec: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(y, m, d, h, min, sec).single().unwrap()
+    }
+
+    fn record(spec: ScheduleSpec, now: DateTime<Utc>) -> TaskScheduleRecord {
+        TaskScheduleRecord::new("title", "goal", Priority::Normal, spec, now).unwrap()
+    }
+
+    #[test]
+    fn cron_parse_accepts_five_field_expression() {
+        assert!(CronSchedule::parse("*/5 * * * *").is_ok());
+        assert!(CronSchedule::parse("0 */2 * * * *").is_ok());
+        assert!(CronSchedule::parse("@daily").is_ok());
+        assert!(CronSchedule::parse("@every 5s").is_ok());
+
+        for invalid in [
+            "",
+            "* * *",
+            "* * * * * * *",
+            "*/0 * * * *",
+            "60 * * * *",
+            "0 24 * * *",
+            "0 0 32 * *",
+            "0 0 0 0 *",
+            "0 0 0 * 13",
+            "0 0 0 * * 8",
+            "@every 5fortnights",
+        ] {
+            assert!(
+                CronSchedule::parse(invalid).is_err(),
+                "accepted {invalid:?}"
+            );
+        }
+        assert!(matches!(
+            CronSchedule::parse("@every 0s"),
+            Err(ScheduleError::InvalidInterval(_))
+        ));
+        assert!(matches!(
+            CronSchedule::parse("@every 0ms"),
+            Err(ScheduleError::InvalidInterval(_))
+        ));
+    }
+
+    #[test]
+    fn cron_next_after_is_strict_and_handles_every_and_exhaustion() {
+        let start = at(2026, 11, 7, 9, 30, 0);
+        let cron = CronSchedule::parse("0 30 9 * * *").unwrap();
+        assert_eq!(cron.next_after(start).unwrap(), at(2026, 11, 8, 9, 30, 0));
+
+        let every = CronSchedule::parse("@every 5s").unwrap();
+        assert_eq!(every.next_after(start).unwrap(), at(2026, 11, 7, 9, 30, 5));
+
+        let secondly = CronSchedule::parse("* * * * * *").unwrap();
+        assert_eq!(
+            secondly.next_after(start + Duration::milliseconds(500)).unwrap(),
+            start + Duration::seconds(1)
+        );
+
+        let impossible = CronSchedule::parse("0 0 0 31 2 *").unwrap();
+        assert!(matches!(
+            impossible.next_after(start),
+            Err(ScheduleError::NoNextOccurrence(_))
+        ));
+    }
+
+    #[test]
+    fn once_at_keeps_the_requested_timestamp() {
+        let run_after = at(2026, 12, 1, 12, 0, 0);
+        assert_eq!(
+            ScheduleSpec::once_at(run_after),
+            ScheduleSpec::OnceAt { run_after }
+        );
+    }
+
+    #[test]
+    fn after_delay_sets_run_time_near_construction_time() {
+        let before = Utc::now();
+        let delay = std::time::Duration::from_millis(2_500);
+        let ScheduleSpec::Delayed {
+            delay_ms,
+            run_after,
+        } = ScheduleSpec::after_delay(delay)
+        else {
+            panic!("after_delay must create Delayed");
+        };
+        let after = Utc::now();
+        assert_eq!(delay_ms, 2_500);
+        assert!(run_after >= before + Duration::milliseconds(2_500));
+        assert!(run_after <= after + Duration::milliseconds(2_500));
+    }
+
+    #[test]
+    fn after_delay_from_uses_fixed_time_and_millisecond_precision() {
+        let now = at(2026, 11, 7, 9, 30, 0);
+        assert_eq!(
+            ScheduleSpec::after_delay_from(now, std::time::Duration::from_millis(1_234)),
+            ScheduleSpec::Delayed {
+                delay_ms: 1_234,
+                run_after: now + Duration::milliseconds(1_234),
+            }
+        );
+
+        let ScheduleSpec::Delayed {
+            delay_ms,
+            run_after,
+        } = ScheduleSpec::after_delay_from(now, std::time::Duration::from_secs(u64::MAX))
+        else {
+            panic!("after_delay_from must create Delayed");
+        };
+        assert_eq!(delay_ms, u64::MAX);
+        assert_eq!(run_after, DateTime::<Utc>::MAX_UTC);
+
+        assert_eq!(
+            ScheduleSpec::after_delay_from(now, std::time::Duration::ZERO),
+            ScheduleSpec::Delayed {
+                delay_ms: 0,
+                run_after: now,
+            }
+        );
+    }
+
+    #[test]
+    fn every_seconds_converts_to_milliseconds_and_clamps_zero() {
+        assert_eq!(
+            ScheduleSpec::every_seconds(3),
+            ScheduleSpec::Interval { interval_ms: 3_000 }
+        );
+        assert_eq!(
+            ScheduleSpec::every_seconds(0),
+            ScheduleSpec::Interval { interval_ms: 1_000 }
+        );
+        assert_eq!(
+            ScheduleSpec::every_seconds(u64::MAX),
+            ScheduleSpec::Interval {
+                interval_ms: u64::MAX
+            }
+        );
+    }
+
+    #[test]
+    fn is_recurring_matches_schedule_kind() {
+        let now = at(2026, 11, 7, 9, 30, 0);
+        assert!(!ScheduleSpec::once_at(now).is_recurring());
+        assert!(!ScheduleSpec::after_delay_from(now, std::time::Duration::ZERO).is_recurring());
+        assert!(ScheduleSpec::every_seconds(1).is_recurring());
+        assert!(ScheduleSpec::cron("@daily").unwrap().is_recurring());
+    }
+
+    #[test]
+    fn initial_run_at_uses_one_time_and_recurring_rules() {
+        let now = at(2026, 11, 7, 9, 30, 0);
+        let future = now + Duration::hours(1);
+        assert_eq!(
+            ScheduleSpec::once_at(future).initial_run_at(now).unwrap(),
+            future
+        );
+        assert_eq!(
+            ScheduleSpec::after_delay_from(now, std::time::Duration::from_secs(5))
+                .initial_run_at(now)
+                .unwrap(),
+            now + Duration::seconds(5)
+        );
+        assert_eq!(
+            ScheduleSpec::every_seconds(10).initial_run_at(now).unwrap(),
+            now + Duration::seconds(10)
+        );
+        assert_eq!(
+            ScheduleSpec::cron("0 0 10 * * *")
+                .unwrap()
+                .initial_run_at(now)
+                .unwrap(),
+            at(2026, 11, 7, 10, 0, 0)
+        );
+        assert!(matches!(
+            ScheduleSpec::Interval { interval_ms: 0 }.initial_run_at(now),
+            Err(ScheduleError::InvalidInterval(_))
+        ));
+    }
+
+    #[test]
+    fn next_run_after_observes_boundaries_and_rejects_zero_interval() {
+        let now = at(2026, 11, 7, 9, 30, 0);
+        let future = now + Duration::seconds(1);
+        let once = ScheduleSpec::once_at(future);
+        assert_eq!(once.next_run_after(now).unwrap(), Some(future));
+        assert_eq!(once.next_run_after(future).unwrap(), None);
+        assert_eq!(
+            once.next_run_after(future + Duration::seconds(1)).unwrap(),
+            None
+        );
+        assert_eq!(
+            ScheduleSpec::after_delay_from(now, std::time::Duration::from_secs(2))
+                .next_run_after(now)
+                .unwrap(),
+            Some(now + Duration::seconds(2))
+        );
+        assert_eq!(
+            ScheduleSpec::after_delay_from(now, std::time::Duration::ZERO)
+                .next_run_after(now)
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            ScheduleSpec::Interval { interval_ms: 500 }
+                .next_run_after(now)
+                .unwrap(),
+            Some(now + Duration::milliseconds(500))
+        );
+        assert_eq!(
+            ScheduleSpec::cron("0 0 10 * * *")
+                .unwrap()
+                .next_run_after(now)
+                .unwrap(),
+            Some(at(2026, 11, 7, 10, 0, 0))
+        );
+        assert!(matches!(
+            ScheduleSpec::Interval { interval_ms: 0 }.next_run_after(now),
+            Err(ScheduleError::InvalidInterval(_))
+        ));
+    }
+
+    #[test]
+    fn record_builders_set_task_id_limits_and_engine_name() {
+        let now = at(2026, 11, 7, 9, 30, 0);
+        let task_id = TaskId("TASK-fixed".into());
+        let built = record(ScheduleSpec::every_seconds(60), now)
+            .with_task_id(task_id.clone())
+            .with_max_runs(0)
+            .with_engine_name("engine-x");
+        assert_eq!(built.task_id, Some(task_id.clone()));
+        assert_eq!(built.schedule_id, task_id.0);
+        assert_eq!(built.max_runs, Some(1));
+        assert_eq!(built.engine_name.as_deref(), Some("engine-x"));
+        assert_eq!(
+            record(ScheduleSpec::once_at(now), now)
+                .with_max_runs(4)
+                .max_runs,
+            Some(4)
+        );
+    }
+
+    #[test]
+    fn is_due_requires_enabled_and_next_run_not_after_now() {
+        let now = at(2026, 11, 7, 9, 30, 0);
+        let mut entry = record(ScheduleSpec::once_at(now), now);
+        assert!(!entry.is_due(now - Duration::nanoseconds(1)));
+        assert!(entry.is_due(now));
+        assert!(entry.is_due(now + Duration::nanoseconds(1)));
+        entry.enabled = false;
+        assert!(!entry.is_due(now + Duration::days(1)));
+    }
+
+    #[test]
+    fn advance_after_trigger_updates_run_state_and_stops_when_required() {
+        let now = at(2026, 11, 7, 9, 30, 0);
+        let triggered_at = now + Duration::seconds(30);
+        let spawned_task_id = TaskId("TASK-spawned".into());
+
+        let mut recurring = TaskScheduleRecord::new(
+            "title",
+            "goal",
+            Priority::Normal,
+            ScheduleSpec::every_seconds(60),
+            now,
+        )
+        .unwrap()
+        .with_max_runs(2);
+        assert_eq!(
+            recurring.advance_after_trigger(triggered_at, spawned_task_id.clone()).unwrap(),
+            Some(triggered_at + Duration::seconds(60))
+        );
+        assert_eq!(recurring.run_count, 1);
+        assert_eq!(recurring.last_run_at, Some(triggered_at));
+        assert_eq!(recurring.last_spawned_task_id, Some(spawned_task_id.clone()));
+        assert_eq!(recurring.updated_at, triggered_at);
+        assert_eq!(recurring.next_run_at, triggered_at + Duration::seconds(60));
+        assert!(recurring.enabled);
+
+        assert_eq!(
+            recurring.advance_after_trigger(triggered_at + Duration::seconds(60), spawned_task_id.clone()).unwrap(),
+            None
+        );
+        assert_eq!(recurring.run_count, 2);
+        assert!(!recurring.enabled);
+
+        let mut one_shot = TaskScheduleRecord::new(
+            "title",
+            "goal",
+            Priority::Normal,
+            ScheduleSpec::once_at(now),
+            now,
+        )
+        .unwrap();
+        assert_eq!(one_shot.advance_after_trigger(triggered_at, spawned_task_id).unwrap(), None);
+        assert_eq!(one_shot.run_count, 1);
+        assert!(!one_shot.enabled);
     }
 }

@@ -51,8 +51,8 @@ pub use mcp_gateway::{
 };
 pub use ooda::{
     AutonomousOodaLoop, GoalDecomposer, QueueExecutionOutcome, SubtaskExecutor,
-    MAX_SUBTASK_RETRIES, MAX_TOTAL_REMEDIATIONS,
-    OODA_PHASE_ACT, OODA_PHASE_DECIDE, OODA_PHASE_OBSERVE, OODA_PHASE_ORIENT, OODA_PHASE_REMEDIATE,
+    MAX_SUBTASK_RETRIES, MAX_TOTAL_REMEDIATIONS, OODA_PHASE_ACT, OODA_PHASE_DECIDE,
+    OODA_PHASE_OBSERVE, OODA_PHASE_ORIENT, OODA_PHASE_REMEDIATE,
 };
 pub use operator::{KernelOperator, RigExecutionSummary, RigSeatAssignment, SeatStatusReport};
 pub use processtree::ProcessTreeController;

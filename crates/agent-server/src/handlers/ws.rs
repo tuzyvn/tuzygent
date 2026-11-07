@@ -27,7 +27,11 @@ pub async fn handle_socket(socket: WebSocket, state: AppState) {
                 Ok(event) => event,
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
                     let notice = serde_json::json!({"type": "stream.lagged", "skipped": skipped});
-                    if sender.send(Message::Text(notice.to_string().into())).await.is_err() {
+                    if sender
+                        .send(Message::Text(notice.to_string().into()))
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
                     continue;

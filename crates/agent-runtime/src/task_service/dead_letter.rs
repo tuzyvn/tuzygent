@@ -20,10 +20,17 @@ pub(crate) fn evaluate_failure_and_quarantine(
             "Poison task isolated to dead-letter queue ({} failures): {}",
             task.failure_count, err_msg
         );
-        (TaskStatus::Quarantined { reason: reason.clone() }, reason)
+        (
+            TaskStatus::Quarantined {
+                reason: reason.clone(),
+            },
+            reason,
+        )
     } else {
         (
-            TaskStatus::Failed { error: err_msg.to_string() },
+            TaskStatus::Failed {
+                error: err_msg.to_string(),
+            },
             format!("Task execution failed: {}", err_msg),
         )
     }
@@ -48,7 +55,9 @@ impl TaskService {
 
     /// List all quarantined tasks in Dead-Letter Queue (paginated)
     pub async fn list_quarantined_tasks(&self, limit: usize, offset: usize) -> Result<Vec<Task>> {
-        self.store.list_tasks_by_status("quarantined", limit, offset).await
+        self.store
+            .list_tasks_by_status("quarantined", limit, offset)
+            .await
     }
 
     /// Count total number of tasks in Dead-Letter Queue
@@ -81,7 +90,10 @@ impl TaskService {
                 engine_used: task.engine_name.clone(),
             };
             let _ = self.store.save_result(&result).await;
-            info!("☣️ [TaskService] Task {} isolated to Dead-Letter Queue: {}", id, reason_str);
+            info!(
+                "☣️ [TaskService] Task {} isolated to Dead-Letter Queue: {}",
+                id, reason_str
+            );
             return Ok(true);
         }
         Ok(false)
@@ -102,7 +114,11 @@ impl TaskService {
                 // If no subtasks completed, clear subtasks and checkpoint so the new engine
                 // can cleanly decompose the goal afresh.
                 // Otherwise reset incomplete subtasks to Queued for resumption.
-                if !task.subtasks.iter().any(|st| st.status == TaskStatus::Completed) {
+                if !task
+                    .subtasks
+                    .iter()
+                    .any(|st| st.status == TaskStatus::Completed)
+                {
                     task.subtasks.clear();
                     let _ = self.store.save_checkpoint(id, &[]).await;
                 } else {
@@ -115,7 +131,10 @@ impl TaskService {
                 }
 
                 self.store.save_task(&task).await?;
-                info!("🟢 [TaskService] Task {} released from Dead-Letter Queue to Queued", id);
+                info!(
+                    "🟢 [TaskService] Task {} released from Dead-Letter Queue to Queued",
+                    id
+                );
                 if let Some(eng) = engine {
                     self.dispatch(id.clone(), eng);
                 }
@@ -139,7 +158,10 @@ impl TaskService {
             }
             let mut batch_released = 0;
             for task in tasks {
-                if self.release_quarantined_task(&task.id, engine.clone()).await? {
+                if self
+                    .release_quarantined_task(&task.id, engine.clone())
+                    .await?
+                {
                     released_count += 1;
                     batch_released += 1;
                 }

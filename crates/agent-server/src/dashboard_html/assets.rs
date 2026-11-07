@@ -42,7 +42,9 @@ impl Default for DashboardAssetRegistry {
         registry.register(
             "favicon.ico",
             "image/x-icon",
-            vec![0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 24, 0, 48, 0, 0, 0, 22, 0, 0, 0],
+            vec![
+                0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 24, 0, 48, 0, 0, 0, 22, 0, 0, 0,
+            ],
         );
 
         registry
@@ -54,7 +56,12 @@ impl DashboardAssetRegistry {
         Self::default()
     }
 
-    pub fn register(&mut self, name: impl Into<String>, content_type: &'static str, bytes: Vec<u8>) {
+    pub fn register(
+        &mut self,
+        name: impl Into<String>,
+        content_type: &'static str,
+        bytes: Vec<u8>,
+    ) {
         let name_str = name.into();
         self.assets.insert(
             name_str.clone(),
@@ -120,7 +127,9 @@ impl DashboardAssetRegistry {
         self.assets
             .get(name)
             .map(|a| a.bytes.clone())
-            .ok_or_else(|| DashboardError::MissingAsset(format!("Asset '{}' not found in registry", name)))
+            .ok_or_else(|| {
+                DashboardError::MissingAsset(format!("Asset '{}' not found in registry", name))
+            })
     }
 
     /// Resilient asset resolution: if custom disk I/O fails, safely falls back to embedded asset.
@@ -143,7 +152,11 @@ impl DashboardAssetRegistry {
             Err(DashboardError::IoError(_)) => {
                 // Disk failure fallback: serve embedded fallback version
                 if let Some(embedded) = self.assets.get(name) {
-                    (embedded.bytes.clone(), embedded.content_type, StatusCode::OK)
+                    (
+                        embedded.bytes.clone(),
+                        embedded.content_type,
+                        StatusCode::OK,
+                    )
                 } else {
                     (
                         b"<!-- Fallback: Asset unavailable due to I/O error -->".to_vec(),

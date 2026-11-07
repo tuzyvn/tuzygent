@@ -79,7 +79,9 @@ impl ResilientDashboardService {
     }
 
     pub fn with_cache(mut self, capacity: usize) -> Self {
-        self.cache = Some(Arc::new(ShardedDashboardCache::with_default_shards(capacity)));
+        self.cache = Some(Arc::new(ShardedDashboardCache::with_default_shards(
+            capacity,
+        )));
         self
     }
 
@@ -233,15 +235,15 @@ impl ResilientDashboardService {
     ) -> (String, StatusCode) {
         match self.render_dashboard(ctx).await {
             Ok(html) => (html, StatusCode::OK),
-            Err(err) => (
-                FALLBACK_DASHBOARD_HTML.to_string(),
-                err.to_status_code(),
-            ),
+            Err(err) => (FALLBACK_DASHBOARD_HTML.to_string(), err.to_status_code()),
         }
     }
 
     /// Batch rendering for high-throughput scenarios with zero-copy buffer optimization.
-    pub fn render_batch(&self, contexts: &[DashboardContext]) -> Vec<Result<String, DashboardError>> {
+    pub fn render_batch(
+        &self,
+        contexts: &[DashboardContext],
+    ) -> Vec<Result<String, DashboardError>> {
         if self.custom_asset_dir.is_none() {
             return contexts
                 .iter()
@@ -249,14 +251,14 @@ impl ResilientDashboardService {
                 .collect();
         }
 
-        let raw_template = match self.registry.load_asset(
-            "dashboard.html",
-            self.custom_asset_dir.as_deref(),
-            None,
-        ) {
-            Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
-            Err(err) => return vec![Err(err); contexts.len()],
-        };
+        let raw_template =
+            match self
+                .registry
+                .load_asset("dashboard.html", self.custom_asset_dir.as_deref(), None)
+            {
+                Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
+                Err(err) => return vec![Err(err); contexts.len()],
+            };
 
         contexts
             .iter()
@@ -309,9 +311,11 @@ impl ResilientDashboardService {
                         tokio::time::sleep(self.backoff).await;
                         continue;
                     }
-                    return self
-                        .registry
-                        .load_asset_resilient(name, self.custom_asset_dir.as_deref(), None);
+                    return self.registry.load_asset_resilient(
+                        name,
+                        self.custom_asset_dir.as_deref(),
+                        None,
+                    );
                 }
             }
         }

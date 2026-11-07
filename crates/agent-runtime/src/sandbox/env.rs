@@ -103,7 +103,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_coordinator_delegation_lifecycle() -> Result<()> {
-        let temp_base = std::env::temp_dir().join(format!("test_coord_{}", Uuid::new_v4().simple()));
+        let temp_base =
+            std::env::temp_dir().join(format!("test_coord_{}", Uuid::new_v4().simple()));
         let mut env = SandboxEnvironment::new(&temp_base, IsolationMode::Ephemeral);
         let run_dir = env.prepare("task-coord").await?;
         assert!(run_dir.exists());

@@ -124,14 +124,9 @@ fn test_cli_parse_replay_and_fork_commands() {
     }
 
     // 4. Validation rejects empty task_id or from_step == 0
-    let invalid_zero_step = Cli::try_parse_from([
-        "agent-ctl",
-        "replay",
-        "TASK-12345",
-        "--from-step",
-        "0",
-    ])
-    .expect("parse");
+    let invalid_zero_step =
+        Cli::try_parse_from(["agent-ctl", "replay", "TASK-12345", "--from-step", "0"])
+            .expect("parse");
     assert!(invalid_zero_step.validate().is_err());
 }
 
@@ -177,7 +172,10 @@ async fn test_replay_task_from_specific_checkpoint_step_in_place() {
 
     assert_eq!(outcome.action, "replay");
     assert_eq!(outcome.source_task_id, seeded.id);
-    assert_eq!(outcome.task.id, seeded.id, "Replay in-place must retain the same TaskId");
+    assert_eq!(
+        outcome.task.id, seeded.id,
+        "Replay in-place must retain the same TaskId"
+    );
     assert_eq!(outcome.task.status, TaskStatus::Queued);
     assert_eq!(outcome.task.failure_count, 0);
     assert_eq!(
@@ -198,7 +196,10 @@ async fn test_replay_task_from_specific_checkpoint_step_in_place() {
     assert_eq!(outcome.task.subtasks[1].id, "ST-2");
     assert_eq!(outcome.task.subtasks[1].status, TaskStatus::Queued);
     assert_eq!(outcome.task.subtasks[1].output_excerpt, None);
-    assert_eq!(outcome.task.subtasks[1].command_or_prompt, "run step 2 --strict");
+    assert_eq!(
+        outcome.task.subtasks[1].command_or_prompt,
+        "run step 2 --strict"
+    );
 
     assert_eq!(outcome.task.subtasks[2].id, "ST-3");
     assert_eq!(outcome.task.subtasks[2].status, TaskStatus::Queued);
@@ -296,7 +297,10 @@ async fn test_fork_task_from_checkpoint_creates_independent_task_inheriting_stat
         "Original task status must remain untouched"
     );
     assert_eq!(original_after_fork.failure_count, 2);
-    assert_eq!(original_after_fork.subtasks[1].status, TaskStatus::Completed);
+    assert_eq!(
+        original_after_fork.subtasks[1].status,
+        TaskStatus::Completed
+    );
     assert!(matches!(
         original_after_fork.subtasks[2].status,
         TaskStatus::Failed { .. }
@@ -326,7 +330,9 @@ async fn test_fork_task_from_checkpoint_creates_independent_task_inheriting_stat
         .await
         .expect("get forked checkpoint")
         .expect("forked checkpoint persisted");
-    assert!(forked_cp.verify_integrity_for_task(&outcome.task.id).is_ok());
+    assert!(forked_cp
+        .verify_integrity_for_task(&outcome.task.id)
+        .is_ok());
     assert_eq!(forked_cp.metadata.task_id, outcome.task.id);
     assert_eq!(forked_cp.metadata.completed_subtasks, 1);
     assert_eq!(

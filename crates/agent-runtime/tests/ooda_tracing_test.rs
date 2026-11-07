@@ -1,11 +1,9 @@
-use agent_domain::{
-    GuardrailPolicy, Priority, SubTask, Task, TaskStatus,
-};
+use agent_domain::{GuardrailPolicy, Priority, SubTask, Task, TaskStatus};
 use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use agent_memory::{DurableMemoryStore, ScratchpadManager};
 use agent_runtime::{
-    AutonomousOodaLoop,
-    OODA_PHASE_ACT, OODA_PHASE_DECIDE, OODA_PHASE_OBSERVE, OODA_PHASE_ORIENT, OODA_PHASE_REMEDIATE,
+    AutonomousOodaLoop, OODA_PHASE_ACT, OODA_PHASE_DECIDE, OODA_PHASE_OBSERVE, OODA_PHASE_ORIENT,
+    OODA_PHASE_REMEDIATE,
 };
 use async_trait::async_trait;
 use std::path::PathBuf;
@@ -59,7 +57,12 @@ impl tracing::field::Visit for FieldVisitor {
 }
 
 impl<S: Subscriber> Layer<S> for SpanCollector {
-    fn on_new_span(&self, attrs: &tracing::span::Attributes<'_>, _id: &tracing::span::Id, _ctx: Context<'_, S>) {
+    fn on_new_span(
+        &self,
+        attrs: &tracing::span::Attributes<'_>,
+        _id: &tracing::span::Id,
+        _ctx: Context<'_, S>,
+    ) {
         if attrs.metadata().name() == "ooda_phase" {
             let mut visitor = FieldVisitor {
                 task_id: String::new(),
@@ -123,7 +126,8 @@ struct TestDir {
 
 impl TestDir {
     fn new(prefix: &str) -> Self {
-        let path = std::env::temp_dir().join(format!("{}_{}", prefix, uuid::Uuid::new_v4().simple()));
+        let path =
+            std::env::temp_dir().join(format!("{}_{}", prefix, uuid::Uuid::new_v4().simple()));
         std::fs::create_dir_all(&path).unwrap();
         Self { path }
     }
@@ -153,7 +157,9 @@ async fn test_ooda_lifecycle_spans_in_order() {
     let test_path = test_dir.path.clone();
 
     let engine = Arc::new(MockTracingEngine::new(move |input, call_idx| {
-        if input.prompt_or_command.contains("Decompose") || input.prompt_or_command.contains("sequential subtasks") {
+        if input.prompt_or_command.contains("Decompose")
+            || input.prompt_or_command.contains("sequential subtasks")
+        {
             // Planner / Decide decomposition output
             let subtasks_json = r#"[
                 {"id": "ST-1", "title": "Setup", "command_or_prompt": "echo setup", "expected_verification": "exit_code: 0"},
@@ -192,7 +198,11 @@ async fn test_ooda_lifecycle_spans_in_order() {
     .with_auto_approve(true)
     .with_timeout_seconds(30);
 
-    let mut task = Task::new("Build Service", "Compile and verify backend", Priority::Normal);
+    let mut task = Task::new(
+        "Build Service",
+        "Compile and verify backend",
+        Priority::Normal,
+    );
     let original_task_id = task.id.0.clone();
 
     let result = ooda.run_goal(&mut task).await;
@@ -210,10 +220,22 @@ async fn test_ooda_lifecycle_spans_in_order() {
         .collect();
 
     // Verify presence of all expected lifecycle phases
-    assert!(phases.contains(&OODA_PHASE_OBSERVE.to_string()), "Observe phase span missing");
-    assert!(phases.contains(&OODA_PHASE_ORIENT.to_string()), "Orient phase span missing");
-    assert!(phases.contains(&OODA_PHASE_DECIDE.to_string()), "Decide phase span missing");
-    assert!(phases.contains(&OODA_PHASE_ACT.to_string()), "Act phase span missing");
+    assert!(
+        phases.contains(&OODA_PHASE_OBSERVE.to_string()),
+        "Observe phase span missing"
+    );
+    assert!(
+        phases.contains(&OODA_PHASE_ORIENT.to_string()),
+        "Orient phase span missing"
+    );
+    assert!(
+        phases.contains(&OODA_PHASE_DECIDE.to_string()),
+        "Decide phase span missing"
+    );
+    assert!(
+        phases.contains(&OODA_PHASE_ACT.to_string()),
+        "Act phase span missing"
+    );
 
     // Verify ordering: Observe -> Orient -> Decide -> Act
     let obs_idx = phases.iter().position(|p| p == OODA_PHASE_OBSERVE).unwrap();
@@ -221,7 +243,10 @@ async fn test_ooda_lifecycle_spans_in_order() {
     let dec_idx = phases.iter().position(|p| p == OODA_PHASE_DECIDE).unwrap();
     let act_idx = phases.iter().position(|p| p == OODA_PHASE_ACT).unwrap();
 
-    assert!(obs_idx <= ori_idx, "Observe must precede or coincide with Orient");
+    assert!(
+        obs_idx <= ori_idx,
+        "Observe must precede or coincide with Orient"
+    );
     assert!(ori_idx <= dec_idx, "Orient must precede Decide");
     assert!(dec_idx <= act_idx, "Decide must precede Act");
 
@@ -230,7 +255,10 @@ async fn test_ooda_lifecycle_spans_in_order() {
         .iter()
         .filter(|s| s.execution_phase == OODA_PHASE_ACT && !s.subtask_id.is_empty())
         .collect();
-    assert!(act_spans.len() >= 2, "Expected at least 2 Act subtask spans");
+    assert!(
+        act_spans.len() >= 2,
+        "Expected at least 2 Act subtask spans"
+    );
     assert_eq!(act_spans[0].subtask_id, "ST-1");
     assert_eq!(act_spans[1].subtask_id, "ST-2");
 }
@@ -252,7 +280,10 @@ async fn test_ooda_remediation_span_metadata_and_backtracking() {
     let counter_clone = step_fail_counter.clone();
 
     let engine = Arc::new(MockTracingEngine::new(move |input, _call_idx| {
-        if input.prompt_or_command.contains("Analyze why this step failed") {
+        if input
+            .prompt_or_command
+            .contains("Analyze why this step failed")
+        {
             // Remediation subtask formulation
             let rem_json = r#"{
                 "id": "ST-FAIL-FIX-1",
@@ -317,14 +348,25 @@ async fn test_ooda_remediation_span_metadata_and_backtracking() {
     .with_auto_approve(true)
     .with_timeout_seconds(30);
 
-    let mut task = Task::new("Self-Healing Task", "Test remediation spans", Priority::Normal);
-    task.subtasks = vec![
-        SubTask::new("ST-FAIL", "Execute prone step", "failing-cmd", "exit_code: 0"),
-    ];
+    let mut task = Task::new(
+        "Self-Healing Task",
+        "Test remediation spans",
+        Priority::Normal,
+    );
+    task.subtasks = vec![SubTask::new(
+        "ST-FAIL",
+        "Execute prone step",
+        "failing-cmd",
+        "exit_code: 0",
+    )];
     let task_id = task.id.0.clone();
 
     let result = ooda.run_goal(&mut task).await;
-    assert!(result.is_ok(), "Expected self-healing goal to succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Expected self-healing goal to succeed: {:?}",
+        result.err()
+    );
     assert_eq!(task.status, TaskStatus::Completed);
 
     let recorded = captured.lock().unwrap().clone();
@@ -334,7 +376,10 @@ async fn test_ooda_remediation_span_metadata_and_backtracking() {
         .iter()
         .filter(|s| s.execution_phase == OODA_PHASE_REMEDIATE)
         .collect();
-    assert!(!remediate_spans.is_empty(), "Remediate span must be triggered");
+    assert!(
+        !remediate_spans.is_empty(),
+        "Remediate span must be triggered"
+    );
 
     let rem_span = remediate_spans[0];
     assert_eq!(rem_span.subtask_id, "ST-FAIL");
@@ -347,9 +392,15 @@ async fn test_ooda_remediation_span_metadata_and_backtracking() {
         .collect();
 
     let first_act = sequence.iter().position(|&p| p == OODA_PHASE_ACT).unwrap();
-    let remediate_pos = sequence.iter().position(|&p| p == OODA_PHASE_REMEDIATE).unwrap();
+    let remediate_pos = sequence
+        .iter()
+        .position(|&p| p == OODA_PHASE_REMEDIATE)
+        .unwrap();
     let last_act = sequence.iter().rposition(|&p| p == OODA_PHASE_ACT).unwrap();
 
     assert!(first_act < remediate_pos, "Act must precede Remediate");
-    assert!(remediate_pos < last_act, "Remediate must be followed by Act");
+    assert!(
+        remediate_pos < last_act,
+        "Remediate must be followed by Act"
+    );
 }

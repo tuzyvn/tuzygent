@@ -139,14 +139,9 @@ impl ComputeEngine for AntigravityEngine {
                 }
             }) as crate::StreamCallback
         });
-        let output = crate::process::run_command(
-            input,
-            &self.binary_path,
-            &args,
-            &self.env_vars,
-            callback,
-        )
-        .await?;
+        let output =
+            crate::process::run_command(input, &self.binary_path, &args, &self.env_vars, callback)
+                .await?;
         let mut accumulated_text = String::new();
         let mut final_response = String::new();
         let mut total_usage = AntigravityUsage {

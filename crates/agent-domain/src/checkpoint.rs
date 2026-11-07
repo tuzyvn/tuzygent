@@ -154,7 +154,10 @@ impl TaskCheckpoint {
     }
 
     /// Rewinds checkpoint state starting from the subtask matching `subtask_id`.
-    pub fn rewind_to_subtask(&mut self, subtask_id: &str) -> Result<usize, CheckpointIntegrityError> {
+    pub fn rewind_to_subtask(
+        &mut self,
+        subtask_id: &str,
+    ) -> Result<usize, CheckpointIntegrityError> {
         let Some(idx) = self.subtasks.iter().position(|s| s.id == subtask_id) else {
             return Err(CheckpointIntegrityError::CorruptedState(format!(
                 "Subtask '{}' not found in checkpoint",
@@ -271,7 +274,10 @@ mod tests {
         let mut cp = TaskCheckpoint::new(task_id.clone(), vec![st1, st2, st3]);
         assert_eq!(cp.metadata.total_subtasks, 3);
         assert_eq!(cp.metadata.completed_subtasks, 1);
-        assert_eq!(cp.metadata.last_completed_subtask_id.as_deref(), Some("st-1"));
+        assert_eq!(
+            cp.metadata.last_completed_subtask_id.as_deref(),
+            Some("st-1")
+        );
         assert_eq!(cp.metadata.in_flight_subtask_id.as_deref(), Some("st-2"));
         assert!(cp.metadata.checksum.is_some());
         assert!(cp.is_valid());
@@ -305,7 +311,10 @@ mod tests {
         let mut tampered_count = cp.clone();
         tampered_count.metadata.total_subtasks = 5;
         match tampered_count.verify_integrity() {
-            Err(CheckpointIntegrityError::CountMismatch { metadata_count, actual_count }) => {
+            Err(CheckpointIntegrityError::CountMismatch {
+                metadata_count,
+                actual_count,
+            }) => {
                 assert_eq!(metadata_count, 5);
                 assert_eq!(actual_count, 2);
             }
@@ -316,7 +325,10 @@ mod tests {
         let mut tampered_completed = cp.clone();
         tampered_completed.metadata.completed_subtasks = 2;
         match tampered_completed.verify_integrity() {
-            Err(CheckpointIntegrityError::CompletedMismatch { metadata_completed, actual_completed }) => {
+            Err(CheckpointIntegrityError::CompletedMismatch {
+                metadata_completed,
+                actual_completed,
+            }) => {
                 assert_eq!(metadata_completed, 2);
                 assert_eq!(actual_completed, 1);
             }

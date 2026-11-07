@@ -7,22 +7,26 @@ use std::sync::Arc;
 
 impl TaskService {
     /// Approve a task that is currently in WaitingApproval status, resuming execution
-    pub async fn approve_task(
-        &self,
-        id: &TaskId,
-        _engine: Arc<dyn ComputeEngine>,
-    ) -> Result<bool> {
+    pub async fn approve_task(&self, id: &TaskId, _engine: Arc<dyn ComputeEngine>) -> Result<bool> {
         if let Some(task) = self.store.get_task(id).await? {
             if matches!(task.status, TaskStatus::WaitingApproval { .. }) {
-                if matches!(&task.status, TaskStatus::WaitingApproval { reason } if reason.starts_with("Interrupted execution") || reason.starts_with("Recovery requires")) {
-                    return Err(anyhow!("Recovery requires reconciliation; automatic retry is disabled"));
+                if matches!(&task.status, TaskStatus::WaitingApproval { reason } if reason.starts_with("Interrupted execution") || reason.starts_with("Recovery requires"))
+                {
+                    return Err(anyhow!(
+                        "Recovery requires reconciliation; automatic retry is disabled"
+                    ));
                 }
                 if task.subtasks.iter().any(|st| matches!(&st.status, TaskStatus::WaitingApproval { reason } if reason == "Manual verification required")) {
                     return Err(anyhow!("Manual verification review is not yet supported; the task will not be re-executed"));
                 }
-                return Err(anyhow!("Approval of policy-blocked actions is not supported"));
+                return Err(anyhow!(
+                    "Approval of policy-blocked actions is not supported"
+                ));
             } else {
-                return Err(anyhow!("Task is not in WaitingApproval status (current: {:?})", task.status));
+                return Err(anyhow!(
+                    "Task is not in WaitingApproval status (current: {:?})",
+                    task.status
+                ));
             }
         }
         Ok(false)
@@ -58,22 +62,34 @@ impl TaskService {
     }
 
     pub fn review_revision(&self, task: &Task) -> Result<String> {
-        let bytes = serde_json::to_vec(&(task, &self.guardrail, format!("{:?}", self.sandbox_config)))?;
+        let bytes =
+            serde_json::to_vec(&(task, &self.guardrail, format!("{:?}", self.sandbox_config)))?;
         Ok(format!("{:x}", Sha256::digest(bytes)))
     }
 
     /// Review only a completed engine step awaiting human verification; never re-execute it.
-    pub async fn review_task(&self, id: &TaskId, revision: &str, reviewer: &str, approved: bool) -> Result<bool> {
+    pub async fn review_task(
+        &self,
+        id: &TaskId,
+        revision: &str,
+        reviewer: &str,
+        approved: bool,
+    ) -> Result<bool> {
         if reviewer.trim().is_empty() || reviewer.len() > 200 {
             return Err(anyhow!("A reviewer label of at most 200 bytes is required"));
         }
-        if self.sandbox_config.as_ref().is_some_and(|cfg| cfg.mode != crate::sandbox::IsolationMode::LocalDirectory) {
+        if self
+            .sandbox_config
+            .as_ref()
+            .is_some_and(|cfg| cfg.mode != crate::sandbox::IsolationMode::LocalDirectory)
+        {
             return Err(anyhow!("Review resume requires the original workspace; this isolation mode is not supported"));
         }
         let Some(original) = self.store.get_task(id).await? else {
             return Ok(false);
         };
-        if !matches!(&original.status, TaskStatus::WaitingApproval { reason } if reason == "Manual verification required") {
+        if !matches!(&original.status, TaskStatus::WaitingApproval { reason } if reason == "Manual verification required")
+        {
             return Err(anyhow!("Task is not awaiting manual verification"));
         }
         if self.review_revision(&original)? != revision {
@@ -114,7 +130,11 @@ impl TaskService {
             TaskStatus::Failed {
                 error: "Manual verification rejected".into(),
             }
-        } else if task.subtasks.iter().all(|s| s.status == TaskStatus::Completed) {
+        } else if task
+            .subtasks
+            .iter()
+            .all(|s| s.status == TaskStatus::Completed)
+        {
             TaskStatus::Completed
         } else {
             TaskStatus::Queued

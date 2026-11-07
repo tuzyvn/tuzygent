@@ -12,6 +12,7 @@
       "id": "cli_update_check",
       "type": "cli_command",
       "command": "agent-ctl update --check",
+      "fake_git": "fetch_failure",
       "must_contain": ["Checking", "Installed:", "Latest:"]
     }
   ]

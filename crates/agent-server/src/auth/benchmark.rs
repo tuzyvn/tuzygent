@@ -127,7 +127,8 @@ impl AuthBenchmarkHarness {
                 for i in 0..per_task {
                     let req_idx = t_idx * per_task + i;
                     let is_invalid = req_idx.is_multiple_of(10);
-                    let (cand, invalid) = Self::make_benchmark_token(req_idx, is_invalid, &token_str);
+                    let (cand, invalid) =
+                        Self::make_benchmark_token(req_idx, is_invalid, &token_str);
 
                     let t0 = Instant::now();
                     let res = {
@@ -203,7 +204,8 @@ impl AuthBenchmarkHarness {
                 for i in 0..per_task {
                     let req_idx = t_idx * per_task + i;
                     let is_invalid = req_idx.is_multiple_of(10);
-                    let (cand, invalid) = Self::make_benchmark_token(req_idx, is_invalid, &token_str);
+                    let (cand, invalid) =
+                        Self::make_benchmark_token(req_idx, is_invalid, &token_str);
 
                     let t0 = Instant::now();
                     let res = validator_clone.validate_token_resilient(&cand).await;

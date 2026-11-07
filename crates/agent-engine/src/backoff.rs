@@ -242,11 +242,23 @@ mod tests {
         );
 
         // Ratio testing
-        assert_eq!(policy.compute_delay_with_ratio(1, 0.0), Duration::from_millis(0));
-        assert_eq!(policy.compute_delay_with_ratio(1, 0.5), Duration::from_millis(50));
-        assert_eq!(policy.compute_delay_with_ratio(1, 1.0), Duration::from_millis(100));
+        assert_eq!(
+            policy.compute_delay_with_ratio(1, 0.0),
+            Duration::from_millis(0)
+        );
+        assert_eq!(
+            policy.compute_delay_with_ratio(1, 0.5),
+            Duration::from_millis(50)
+        );
+        assert_eq!(
+            policy.compute_delay_with_ratio(1, 1.0),
+            Duration::from_millis(100)
+        );
 
-        assert_eq!(policy.compute_delay_with_ratio(2, 0.5), Duration::from_millis(100));
+        assert_eq!(
+            policy.compute_delay_with_ratio(2, 0.5),
+            Duration::from_millis(100)
+        );
 
         // Random jitter bounds testing
         for _ in 0..50 {

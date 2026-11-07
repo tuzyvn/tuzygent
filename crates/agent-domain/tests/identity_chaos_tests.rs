@@ -17,7 +17,10 @@ fn create_sample_profile(id_prefix: &str, name: &str) -> AgentPersonaProfile {
             role_code: "RESEARCHER".to_string(),
             title: "Research Agent".to_string(),
             primary_domain: "Distributed Systems".to_string(),
-            capabilities: vec!["fault_injection".to_string(), "resilience_testing".to_string()],
+            capabilities: vec![
+                "fault_injection".to_string(),
+                "resilience_testing".to_string(),
+            ],
         },
         soul: AgentSoul {
             persona: "Methodical and resilient".to_string(),
@@ -164,7 +167,10 @@ fn test_identity_audit_ledger_chaos_integration() {
     let mut invalid_profile = profile;
     invalid_profile.identity.name = "".to_string();
     let res_invalid = manager.resolve_and_record(&mut ledger, invalid_profile);
-    assert!(matches!(res_invalid, Err(IdentityError::InvalidIdentity(_))));
+    assert!(matches!(
+        res_invalid,
+        Err(IdentityError::InvalidIdentity(_))
+    ));
     assert_eq!(manager.rejected_count(), 1);
 
     // 3. Verify audit ledger chain integrity
@@ -216,8 +222,8 @@ fn test_topic_a30f60_744860_identity_benchmark_and_resilience() {
     println!("[Reproduction & Benchmark Test] Executing TOPIC-20261105-a30f60 / 744860 Identity Benchmark...");
 
     // 1. Single-threaded benchmark (10,000 requests)
-    let mut manager = ResilientIdentityManager::new(IdentityFaultPolicy::none(), 3)
-        .with_max_capacity(2_000);
+    let mut manager =
+        ResilientIdentityManager::new(IdentityFaultPolicy::none(), 3).with_max_capacity(2_000);
 
     let stats = IdentityBenchmarkHarness::run_benchmark(&mut manager, 10_000);
     assert_eq!(stats.total_requests, 10_000);
@@ -228,14 +234,8 @@ fn test_topic_a30f60_744860_identity_benchmark_and_resilience() {
         "Throughput should exceed 500 ops/sec, got {}",
         stats.throughput_ops_per_sec
     );
-    assert!(
-        stats.p50_latency_us > 0.0,
-        "P50 latency must be tracked"
-    );
-    assert!(
-        stats.p90_latency_us > 0.0,
-        "P90 latency must be tracked"
-    );
+    assert!(stats.p50_latency_us > 0.0, "P50 latency must be tracked");
+    assert!(stats.p90_latency_us > 0.0, "P90 latency must be tracked");
     assert!(
         stats.p99_latency_us < 20_000.0,
         "P99 latency must be under 20ms, got {} us",
@@ -269,7 +269,10 @@ fn test_topic_a30f60_744860_identity_benchmark_and_resilience() {
     assert_eq!(batch_res.len(), 4);
     assert!(batch_res[0].is_ok());
     assert!(batch_res[1].is_ok());
-    assert!(matches!(batch_res[2], Err(IdentityError::InvalidIdentity(_))));
+    assert!(matches!(
+        batch_res[2],
+        Err(IdentityError::InvalidIdentity(_))
+    ));
     assert!(batch_res[3].is_ok());
 
     // 4. Concurrent benchmark test (10,000 requests across 4 threads)
@@ -301,4 +304,3 @@ fn test_topic_a30f60_744860_identity_benchmark_and_resilience() {
     );
     println!("[Reproduction & Benchmark Test] TOPIC-20261105-a30f60 / 744860 passed successfully!");
 }
-

@@ -25,7 +25,8 @@ fn test_step_action_from_remediation_outcome() {
 }
 
 #[tokio::test]
-async fn test_resolve_active_system_context_with_supplement() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_resolve_active_system_context_with_supplement(
+) -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = std::env::temp_dir().join(format!("test_step_{}", uuid::Uuid::new_v4()));
     let _ = std::fs::create_dir_all(&temp_dir);
     let scratchpad = ScratchpadManager::new(temp_dir.join("scratchpad"));
@@ -58,7 +59,8 @@ async fn test_resolve_active_system_context_with_supplement() -> Result<(), Box<
 }
 
 #[tokio::test]
-async fn test_handle_subtask_execution_result_auth_quota_fatal_halt() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_handle_subtask_execution_result_auth_quota_fatal_halt(
+) -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = std::env::temp_dir().join(format!("test_step_auth_{}", uuid::Uuid::new_v4()));
     let _ = std::fs::create_dir_all(&temp_dir);
     let scratchpad = ScratchpadManager::new(temp_dir.join("scratchpad"));
@@ -85,7 +87,8 @@ async fn test_handle_subtask_execution_result_auth_quota_fatal_halt() -> Result<
     let mut verifs = Vec::new();
     let mut total_remediations = 0;
 
-    let auth_err = EngineError::ApiRequestFailed("Invalid API key or Quota exceeded (401)".to_string());
+    let auth_err =
+        EngineError::ApiRequestFailed("Invalid API key or Quota exceeded (401)".to_string());
     let result = handle_subtask_execution_result(
         &executor,
         &mut task,
@@ -159,7 +162,8 @@ async fn test_execute_single_step_out_of_bounds_returns_err() {
 }
 
 #[tokio::test]
-async fn test_handle_subtask_execution_result_policy_rejected_fatal_halt() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_handle_subtask_execution_result_policy_rejected_fatal_halt(
+) -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = std::env::temp_dir().join(format!("test_policy_halt_{}", uuid::Uuid::new_v4()));
     let _ = std::fs::create_dir_all(&temp_dir);
     let scratchpad = ScratchpadManager::new(temp_dir.join("scratchpad"));
@@ -186,7 +190,8 @@ async fn test_handle_subtask_execution_result_policy_rejected_fatal_halt() -> Re
     let mut verifs = Vec::new();
     let mut total_remediations = 0;
 
-    let policy_err = EngineError::PolicyRejected("Command violates hard red-line security policy".to_string());
+    let policy_err =
+        EngineError::PolicyRejected("Command violates hard red-line security policy".to_string());
     let result = handle_subtask_execution_result(
         &executor,
         &mut task,
@@ -208,7 +213,10 @@ async fn test_handle_subtask_execution_result_policy_rejected_fatal_halt() -> Re
 
     assert!(matches!(task.status, TaskStatus::Failed { .. }));
     assert!(matches!(task.subtasks[0].status, TaskStatus::Failed { .. }));
-    assert_eq!(total_remediations, 0, "Policy violations must not spawn remediations");
+    assert_eq!(
+        total_remediations, 0,
+        "Policy violations must not spawn remediations"
+    );
 
     let _ = std::fs::remove_dir_all(&temp_dir);
     Ok(())

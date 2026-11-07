@@ -223,7 +223,10 @@ impl ResilientDurableMemoryStore {
         results
     }
 
-    pub(crate) fn check_fault_injection(&mut self, attempt: usize) -> Result<Option<()>, DurableMemoryError> {
+    pub(crate) fn check_fault_injection(
+        &mut self,
+        attempt: usize,
+    ) -> Result<Option<()>, DurableMemoryError> {
         if let Some(fault) = self.fault_policy.should_inject() {
             match fault {
                 DurableMemoryFault::SocketTimeout

@@ -65,10 +65,13 @@ pub async fn read_stream(
         chunk.clear();
         // Bound the temporary line buffer too: read_until alone can allocate without
         // limit when a subprocess emits a very long line without a newline.
-        let line_limit = effective_max_bytes
-            .saturating_add(1)
-            .min(u64::MAX as usize) as u64;
-        if (&mut reader).take(line_limit).read_until(b'\n', &mut chunk).await? == 0 {
+        let line_limit = effective_max_bytes.saturating_add(1).min(u64::MAX as usize) as u64;
+        if (&mut reader)
+            .take(line_limit)
+            .read_until(b'\n', &mut chunk)
+            .await?
+            == 0
+        {
             break;
         }
         if chunk.len() > effective_max_bytes {

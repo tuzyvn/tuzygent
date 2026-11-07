@@ -8,7 +8,10 @@ struct RecordingEngine(Mutex<Option<EngineInput>>);
 #[async_trait]
 impl ComputeEngine for RecordingEngine {
     async fn execute(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
-        let mut guard = self.0.lock().map_err(|e| EngineError::ProcessFailed(format!("Lock error: {e}")))?;
+        let mut guard = self
+            .0
+            .lock()
+            .map_err(|e| EngineError::ProcessFailed(format!("Lock error: {e}")))?;
         *guard = Some(input.clone());
         Ok(EngineOutput {
             stdout_content: "ok".into(),
@@ -18,7 +21,9 @@ impl ComputeEngine for RecordingEngine {
             session_id: None,
         })
     }
-    fn engine_kind(&self) -> EngineKind { EngineKind::Mock }
+    fn engine_kind(&self) -> EngineKind {
+        EngineKind::Mock
+    }
 }
 
 struct ChaosTestEngine {
@@ -29,7 +34,11 @@ struct ChaosTestEngine {
 
 impl ChaosTestEngine {
     fn new() -> Self {
-        Self { invocations: Arc::new(AtomicUsize::new(0)), panics_first: 0, fails_first: 0 }
+        Self {
+            invocations: Arc::new(AtomicUsize::new(0)),
+            panics_first: 0,
+            fails_first: 0,
+        }
     }
 }
 
@@ -40,7 +49,9 @@ impl ComputeEngine for ChaosTestEngine {
         if count < self.panics_first {
             std::panic::resume_unwind(Box::new("intentional chaos test panic"));
         }
-        if count < self.fails_first { return Err(EngineError::ProcessFailed(format!("chaos err {count}"))); }
+        if count < self.fails_first {
+            return Err(EngineError::ProcessFailed(format!("chaos err {count}")));
+        }
         Ok(EngineOutput {
             stdout_content: format!("executed: {}", input.prompt_or_command),
             exit_code: 0,
@@ -49,18 +60,25 @@ impl ComputeEngine for ChaosTestEngine {
             session_id: None,
         })
     }
-    fn engine_kind(&self) -> EngineKind { EngineKind::Mock }
+    fn engine_kind(&self) -> EngineKind {
+        EngineKind::Mock
+    }
 }
 
 #[tokio::test]
 async fn execution_applies_sandbox_and_output_limit() -> Result<(), Box<dyn std::error::Error>> {
     let engine = Arc::new(RecordingEngine(Mutex::new(None)));
     let service = ExecutionService::new("/tmp", None, None);
-    service.execute(engine.clone(), &EngineInput::new("hello", "/tmp")).await?;
+    service
+        .execute(engine.clone(), &EngineInput::new("hello", "/tmp"))
+        .await?;
     let guard = engine.0.lock().map_err(|e| format!("Lock error: {e}"))?;
     let input = guard.as_ref().ok_or("Recorded input is missing")?;
     assert!(input.command_sandbox.is_some());
-    assert_eq!(input.max_output_bytes, Some(service.guardrail().max_output_bytes));
+    assert_eq!(
+        input.max_output_bytes,
+        Some(service.guardrail().max_output_bytes)
+    );
     Ok(())
 }
 
@@ -69,7 +87,9 @@ async fn policy_rejects_before_engine_is_called() -> Result<(), Box<dyn std::err
     let engine = Arc::new(RecordingEngine(Mutex::new(None)));
     let service = ExecutionService::new("/tmp", None, None);
     assert!(matches!(
-        service.execute(engine.clone(), &EngineInput::new("rm -rf /", "/tmp")).await,
+        service
+            .execute(engine.clone(), &EngineInput::new("rm -rf /", "/tmp"))
+            .await,
         Err(EngineError::PolicyRejected(_))
     ));
     let guard = engine.0.lock().map_err(|e| format!("Lock error: {e}"))?;
@@ -91,9 +111,14 @@ async fn recording_engine_handles_poisoned_mutex_gracefully() {
 #[tokio::test]
 async fn execution_fault_injection_and_retry_recovery() {
     let engine = Arc::new(ChaosTestEngine::new());
-    let policy = ExecutionFaultPolicy::intermittent(ExecutionFault::SocketTimeout, 2).with_max_injections(2);
-    let service = ExecutionService::new("/tmp", None, None).with_fault_policy(policy).with_max_retries(3);
-    let res = service.execute(engine.clone(), &EngineInput::new("echo ok", "/tmp")).await;
+    let policy =
+        ExecutionFaultPolicy::intermittent(ExecutionFault::SocketTimeout, 2).with_max_injections(2);
+    let service = ExecutionService::new("/tmp", None, None)
+        .with_fault_policy(policy)
+        .with_max_retries(3);
+    let res = service
+        .execute(engine.clone(), &EngineInput::new("echo ok", "/tmp"))
+        .await;
     assert!(res.is_ok());
 }
 
@@ -103,7 +128,9 @@ async fn execution_panic_isolation_and_recovery() {
     eng.panics_first = 1;
     let engine = Arc::new(eng);
     let service = ExecutionService::new("/tmp", None, None).with_max_retries(2);
-    let res = service.execute(engine.clone(), &EngineInput::new("echo safe", "/tmp")).await;
+    let res = service
+        .execute(engine.clone(), &EngineInput::new("echo safe", "/tmp"))
+        .await;
     assert!(res.is_ok());
     assert_eq!(engine.invocations.load(Ordering::SeqCst), 2);
 }
@@ -114,7 +141,9 @@ async fn execution_retry_transient_failure_recovery() {
     eng.fails_first = 2;
     let engine = Arc::new(eng);
     let service = ExecutionService::new("/tmp", None, None).with_max_retries(3);
-    let res = service.execute_resilient(engine.clone(), &EngineInput::new("echo retry", "/tmp")).await;
+    let res = service
+        .execute_resilient(engine.clone(), &EngineInput::new("echo retry", "/tmp"))
+        .await;
     assert!(res.is_ok());
     assert_eq!(engine.invocations.load(Ordering::SeqCst), 3);
 }
@@ -148,7 +177,11 @@ async fn catch_unwind_future_catches_poll_panic_safely() {
         .downcast_ref::<&str>()
         .copied()
         .or_else(|| err.downcast_ref::<String>().map(|s| s.as_str()));
-    assert_eq!(msg, Some("worker poll panic triggered"), "Unexpected panic payload type");
+    assert_eq!(
+        msg,
+        Some("worker poll panic triggered"),
+        "Unexpected panic payload type"
+    );
 }
 
 #[tokio::test]
@@ -238,7 +271,9 @@ impl Future for DelayedPanicFuture {
 #[tokio::test]
 async fn catch_unwind_future_catches_delayed_panic_after_pending() {
     let polled = Arc::new(AtomicUsize::new(0));
-    let fut = CatchUnwindFuture::new(DelayedPanicFuture { polled: polled.clone() });
+    let fut = CatchUnwindFuture::new(DelayedPanicFuture {
+        polled: polled.clone(),
+    });
     let res = fut.await;
     assert!(res.is_err(), "Expected delayed panic to be caught as Err");
     assert_eq!(polled.load(Ordering::SeqCst), 2);
@@ -247,7 +282,11 @@ async fn catch_unwind_future_catches_delayed_panic_after_pending() {
         .downcast_ref::<&str>()
         .copied()
         .or_else(|| err.downcast_ref::<String>().map(|s| s.as_str()));
-    assert_eq!(msg, Some("delayed worker panic after pending state"), "Unexpected panic payload type");
+    assert_eq!(
+        msg,
+        Some("delayed worker panic after pending state"),
+        "Unexpected panic payload type"
+    );
 }
 
 struct CustomPayloadPanicFuture;
@@ -264,7 +303,9 @@ async fn catch_unwind_future_catches_arbitrary_panic_payload() {
     let res = fut.await;
     assert!(res.is_err(), "Expected panic to be caught as Err");
     let err = res.err().unwrap();
-    let val = err.downcast_ref::<u64>().expect("Expected u64 panic payload");
+    let val = err
+        .downcast_ref::<u64>()
+        .expect("Expected u64 panic payload");
     assert_eq!(*val, 9999_u64);
 }
 
@@ -297,9 +338,19 @@ async fn catch_unwind_future_cancellation_select_drops_inner_safely() {
     };
     assert!(!resolved, "CatchUnwindFuture should not have resolved");
 
-    assert!(polled.load(Ordering::SeqCst), "Future should have been polled before cancellation");
-    assert!(dropped.load(Ordering::SeqCst), "Inner future must be dropped on cancellation");
-    assert_eq!(drop_count.load(Ordering::SeqCst), 1, "Inner future drop must occur exactly once");
+    assert!(
+        polled.load(Ordering::SeqCst),
+        "Future should have been polled before cancellation"
+    );
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "Inner future must be dropped on cancellation"
+    );
+    assert_eq!(
+        drop_count.load(Ordering::SeqCst),
+        1,
+        "Inner future drop must occur exactly once"
+    );
 }
 
 #[tokio::test]
@@ -314,9 +365,19 @@ async fn catch_unwind_future_cancellation_timeout_drops_inner_safely() {
 
     let timeout_res = tokio::time::timeout(std::time::Duration::from_millis(10), fut).await;
     assert!(timeout_res.is_err(), "Expected timeout cancellation");
-    assert!(polled.load(Ordering::SeqCst), "Future should have been polled before timeout");
-    assert!(dropped.load(Ordering::SeqCst), "Inner future must be dropped upon timeout cancellation");
-    assert_eq!(drop_count.load(Ordering::SeqCst), 1, "Drop count must be exactly once");
+    assert!(
+        polled.load(Ordering::SeqCst),
+        "Future should have been polled before timeout"
+    );
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "Inner future must be dropped upon timeout cancellation"
+    );
+    assert_eq!(
+        drop_count.load(Ordering::SeqCst),
+        1,
+        "Drop count must be exactly once"
+    );
 }
 
 struct PanickingWithDropFuture {
@@ -333,15 +394,20 @@ impl Future for PanickingWithDropFuture {
 #[tokio::test]
 async fn catch_unwind_future_drop_safety_after_panic() {
     let (tracker, dropped, drop_count) = DropTracker::new();
-    let fut = CatchUnwindFuture::new(PanickingWithDropFuture {
-        _tracker: tracker,
-    });
+    let fut = CatchUnwindFuture::new(PanickingWithDropFuture { _tracker: tracker });
 
     let res = fut.await;
     assert!(res.is_err(), "Expected panic to be caught as Err");
     // CatchUnwindFuture has been consumed and dropped by `fut.await`
-    assert!(dropped.load(Ordering::SeqCst), "Inner future must be dropped cleanly after panic");
-    assert_eq!(drop_count.load(Ordering::SeqCst), 1, "Drop destructor must be executed exactly once");
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "Inner future must be dropped cleanly after panic"
+    );
+    assert_eq!(
+        drop_count.load(Ordering::SeqCst),
+        1,
+        "Drop destructor must be executed exactly once"
+    );
 }
 
 #[tokio::test]
@@ -354,8 +420,15 @@ async fn catch_unwind_future_drop_safety_unpolled() {
 
     drop(fut);
 
-    assert!(dropped.load(Ordering::SeqCst), "Unpolled future must be dropped cleanly");
-    assert_eq!(drop_count.load(Ordering::SeqCst), 1, "Drop destructor must run exactly once");
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "Unpolled future must be dropped cleanly"
+    );
+    assert_eq!(
+        drop_count.load(Ordering::SeqCst),
+        1,
+        "Drop destructor must run exactly once"
+    );
 }
 
 struct CompletingWithDropFuture {
@@ -380,8 +453,15 @@ async fn catch_unwind_future_drop_safety_on_normal_completion() {
 
     let res = fut.await;
     assert_eq!(res.unwrap(), 100);
-    assert!(dropped.load(Ordering::SeqCst), "Inner future must be dropped on normal completion");
-    assert_eq!(drop_count.load(Ordering::SeqCst), 1, "Drop destructor must run exactly once");
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "Inner future must be dropped on normal completion"
+    );
+    assert_eq!(
+        drop_count.load(Ordering::SeqCst),
+        1,
+        "Drop destructor must run exactly once"
+    );
 }
 
 struct NonUnpinDropFuture {
@@ -413,7 +493,13 @@ async fn catch_unwind_future_drop_safety_non_unpin_pinned() {
         // pinned goes out of scope here and is dropped
     }
 
-    assert!(dropped.load(Ordering::SeqCst), "Pinned !Unpin inner future must be dropped");
-    assert_eq!(drop_count.load(Ordering::SeqCst), 1, "Drop count must be exactly 1");
+    assert!(
+        dropped.load(Ordering::SeqCst),
+        "Pinned !Unpin inner future must be dropped"
+    );
+    assert_eq!(
+        drop_count.load(Ordering::SeqCst),
+        1,
+        "Drop count must be exactly 1"
+    );
 }
-

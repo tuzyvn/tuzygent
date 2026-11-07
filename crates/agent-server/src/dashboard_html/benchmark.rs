@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use super::sharded::ShardedResilientDashboardService;
 use super::service::ResilientDashboardService;
+use super::sharded::ShardedResilientDashboardService;
 use super::types::{DashboardContext, DashboardFaultPolicy};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -155,7 +155,12 @@ impl DashboardBenchmarkHarness {
                     }
                     local_latencies.push(t0.elapsed().as_secs_f64() * 1_000_000.0);
                 }
-                (local_latencies, local_success, local_fallback, local_rejected)
+                (
+                    local_latencies,
+                    local_success,
+                    local_fallback,
+                    local_rejected,
+                )
             }));
         }
 
@@ -220,7 +225,9 @@ impl DashboardBenchmarkHarness {
                     let key = format!("dashboard_key_{req_idx}");
 
                     let t0 = Instant::now();
-                    let (html, status) = service_clone.render_dashboard_with_fallback(&key, &ctx).await;
+                    let (html, status) = service_clone
+                        .render_dashboard_with_fallback(&key, &ctx)
+                        .await;
                     if status.is_success() && !err_flag && !html.is_empty() {
                         local_success += 1;
                     } else if !status.is_success() || err_flag {
@@ -230,7 +237,12 @@ impl DashboardBenchmarkHarness {
                     }
                     local_latencies.push(t0.elapsed().as_secs_f64() * 1_000_000.0);
                 }
-                (local_latencies, local_success, local_fallback, local_rejected)
+                (
+                    local_latencies,
+                    local_success,
+                    local_fallback,
+                    local_rejected,
+                )
             }));
         }
 

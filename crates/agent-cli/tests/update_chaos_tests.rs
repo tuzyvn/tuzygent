@@ -1,5 +1,6 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -8,6 +9,42 @@ use agent_cli::update::{
     UpdateStatus,
 };
 use agent_cli::{is_retryable_cli_error, CliExecutionError, CliFault, CliFaultPolicy};
+
+#[test]
+fn update_check_outputs_installed_metadata_when_fetch_fails() {
+    let temp_dir = TemporaryDirectory::new(&std::env::temp_dir()).unwrap();
+    let fake_bin = temp_dir.path().join("bin");
+    fs::create_dir_all(&fake_bin).unwrap();
+    let fake_git = fake_bin.join("git");
+    fs::write(
+        &fake_git,
+        "#!/bin/sh\necho 'simulated git fetch failure' >&2\nexit 1\n",
+    )
+    .unwrap();
+    fs::set_permissions(&fake_git, fs::Permissions::from_mode(0o755)).unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
+        .args(["update", "--check"])
+        .env("PATH", &fake_bin)
+        .output()
+        .expect("agent-ctl should start");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(
+        output.status.success(),
+        "update --check should report unavailable remote metadata without failing the metadata check; stderr was: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(stdout.contains("Checking"), "stdout was: {stdout}");
+    assert!(
+        stdout.contains("Installed:"),
+        "update --check must report the installed commit even when fetching fails; stdout was: {stdout}"
+    );
+    assert!(
+        stdout.contains("Latest:"),
+        "update --check must report latest metadata even when fetching fails; stdout was: {stdout}"
+    );
+}
 
 /// TDD test case for TOPIC-20261105-1111c4 & TOPIC-20261105-aa4d82:
 /// Chaos Engineering and Fault Injection resilience in agent-cli::update.
@@ -144,7 +181,8 @@ fn test_update_panic_isolation_and_recovery() {
 }
 
 #[test]
-fn test_update_candidate_validation_failure_prevents_replace() -> Result<(), Box<dyn std::error::Error>> {
+fn test_update_candidate_validation_failure_prevents_replace(
+) -> Result<(), Box<dyn std::error::Error>> {
     let dir = TemporaryDirectory::new(&std::env::temp_dir())?;
     let destination = dir.path().join("installed_bin");
     let candidate = dir.path().join("candidate_bin");
@@ -170,7 +208,8 @@ fn test_update_candidate_validation_failure_prevents_replace() -> Result<(), Box
 }
 
 #[test]
-fn test_update_candidate_validation_success_atomic_replace() -> Result<(), Box<dyn std::error::Error>> {
+fn test_update_candidate_validation_success_atomic_replace(
+) -> Result<(), Box<dyn std::error::Error>> {
     let dir = TemporaryDirectory::new(&std::env::temp_dir())?;
     let destination = dir.path().join("installed_bin");
     let candidate = dir.path().join("candidate_bin");
@@ -202,9 +241,15 @@ fn test_update_temporary_directory_cleanup() -> Result<(), Box<dyn std::error::E
     {
         let temp_dir = TemporaryDirectory::new(&parent)?;
         path_copy = temp_dir.path().to_path_buf();
-        assert!(path_copy.exists(), "Staging directory must exist during lifetime");
+        assert!(
+            path_copy.exists(),
+            "Staging directory must exist during lifetime"
+        );
     }
-    assert!(!path_copy.exists(), "Staging directory must be cleaned up on drop");
+    assert!(
+        !path_copy.exists(),
+        "Staging directory must be cleaned up on drop"
+    );
     Ok(())
 }
 
@@ -234,21 +279,23 @@ fn test_update_status_and_formatting() {
 
 #[test]
 fn test_update_error_classification_and_exit_status() {
-    let status_err = anyhow::anyhow!("Command failed: exit status: 2. Installed binary was not changed.");
+    let status_err =
+        anyhow::anyhow!("Command failed: exit status: 2. Installed binary was not changed.");
     let converted: CliExecutionError = status_err.into();
     assert_eq!(
         converted,
         CliExecutionError::NonZeroExit {
             code: 2,
-            message: "Command failed: exit status: 2. Installed binary was not changed.".to_string(),
+            message: "Command failed: exit status: 2. Installed binary was not changed."
+                .to_string(),
         }
     );
     assert!(is_retryable_cli_error(&converted));
 }
 
 async fn execute_high_load_concurrency_benchmark() {
-    let mut updater = ResilientUpdater::with_policy(CliFaultPolicy::none(), 3)
-        .with_max_capacity(2_000);
+    let mut updater =
+        ResilientUpdater::with_policy(CliFaultPolicy::none(), 3).with_max_capacity(2_000);
 
     let stats: UpdateBenchmarkStats =
         UpdateBenchmarkHarness::run_benchmark(&mut updater, 10_000).await;
@@ -299,7 +346,12 @@ async fn execute_high_load_concurrency_benchmark() {
     ];
     let batch_res = updater.execute_batch_operations(&batch_items).await;
     assert_eq!(batch_res.len(), 4);
-    assert!(batch_res[0].is_ok() && batch_res[1].is_ok() && batch_res[2].is_err() && batch_res[3].is_ok());
+    assert!(
+        batch_res[0].is_ok()
+            && batch_res[1].is_ok()
+            && batch_res[2].is_err()
+            && batch_res[3].is_ok()
+    );
 
     // 4. Lock Contention Comparison: Single Shared Lock vs 16-Way Sharded Concurrency
     let single_lock_stats = UpdateBenchmarkHarness::run_single_lock_benchmark(10_000, 4).await;

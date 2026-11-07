@@ -63,7 +63,8 @@ fn test_dag_validation_edge_with_both_source_and_target_missing_returns_err_with
     );
 
     let result = std::panic::catch_unwind(|| validate_workflow(&wf));
-    let validation_res = result.expect("validate_workflow should not panic when both endpoints are missing");
+    let validation_res =
+        result.expect("validate_workflow should not panic when both endpoints are missing");
     assert!(
         validation_res.is_err(),
         "Expected Result::Err when both endpoints are missing"
@@ -98,7 +99,8 @@ fn test_dag_validation_empty_or_whitespace_node_id_returns_err_without_panic() {
     );
 
     let result_empty = std::panic::catch_unwind(|| validate_workflow(&empty_id_wf));
-    let validation_res_empty = result_empty.expect("validate_workflow should not panic on empty node id");
+    let validation_res_empty =
+        result_empty.expect("validate_workflow should not panic on empty node id");
     assert!(
         validation_res_empty.is_err(),
         "Expected Result::Err for empty node id"
@@ -118,7 +120,8 @@ fn test_dag_validation_empty_or_whitespace_node_id_returns_err_without_panic() {
     );
 
     let result_ws = std::panic::catch_unwind(|| validate_workflow(&whitespace_id_wf));
-    let validation_res_ws = result_ws.expect("validate_workflow should not panic on whitespace node id");
+    let validation_res_ws =
+        result_ws.expect("validate_workflow should not panic on whitespace node id");
     assert!(
         validation_res_ws.is_err(),
         "Expected Result::Err for whitespace-only node id"
@@ -137,7 +140,8 @@ fn test_dag_validation_edge_pointing_to_or_from_empty_node_id_returns_err_withou
     );
 
     let result = std::panic::catch_unwind(|| validate_workflow(&edge_to_empty_wf));
-    let validation_res = result.expect("validate_workflow should not panic on edge with empty target");
+    let validation_res =
+        result.expect("validate_workflow should not panic on edge with empty target");
     assert!(
         validation_res.is_err(),
         "Expected Result::Err when edge targets empty string ID"
@@ -153,7 +157,8 @@ fn test_dag_validation_edge_pointing_to_or_from_empty_node_id_returns_err_withou
     );
 
     let result = std::panic::catch_unwind(|| validate_workflow(&edge_from_empty_wf));
-    let validation_res = result.expect("validate_workflow should not panic on edge with empty source");
+    let validation_res =
+        result.expect("validate_workflow should not panic on edge with empty source");
     assert!(
         validation_res.is_err(),
         "Expected Result::Err when edge sources from empty string ID"
@@ -202,7 +207,6 @@ fn test_dag_validation_cycle_returns_err_without_panic() {
     let err_msg = validation_res.unwrap_err().to_string();
     assert!(err_msg.contains("Workflow contains a cycle"));
 }
-
 
 #[test]
 fn test_dag_validation_edge_cases_safe_error_handling() -> Result<(), Box<dyn std::error::Error>> {
@@ -299,4 +303,3 @@ fn test_dag_validation_edge_cases_safe_error_handling() -> Result<(), Box<dyn st
 
     Ok(())
 }
-

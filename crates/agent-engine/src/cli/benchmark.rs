@@ -1,8 +1,8 @@
+use async_trait::async_trait;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use async_trait::async_trait;
 
 use crate::cli::fault::CliFaultPolicy;
 use crate::cli::resilience::ResilientCliEngine;

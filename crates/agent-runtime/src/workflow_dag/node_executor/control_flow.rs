@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use chrono::Utc;
+use std::collections::HashMap;
 
 use super::types::NodeExecutionOutcome;
 use crate::workflow_dag::types::WorkflowNode;
@@ -58,9 +58,19 @@ fn parse_vote_value(val: &serde_json::Value) -> Option<bool> {
         serde_json::Value::Bool(b) => Some(*b),
         serde_json::Value::String(s) => {
             let norm = s.trim().to_lowercase();
-            if norm == "approve" || norm == "approved" || norm == "yes" || norm == "pass" || norm == "true" {
+            if norm == "approve"
+                || norm == "approved"
+                || norm == "yes"
+                || norm == "pass"
+                || norm == "true"
+            {
                 Some(true)
-            } else if norm == "reject" || norm == "rejected" || norm == "no" || norm == "fail" || norm == "false" {
+            } else if norm == "reject"
+                || norm == "rejected"
+                || norm == "no"
+                || norm == "fail"
+                || norm == "false"
+            {
                 Some(false)
             } else {
                 None

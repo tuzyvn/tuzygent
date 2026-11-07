@@ -202,9 +202,7 @@ impl ResilientIdentityManager {
                         } else {
                             let err = match fault {
                                 IdentityFault::SocketTimeout => IdentityError::SocketTimeout,
-                                IdentityFault::ConnectionReset => {
-                                    IdentityError::ConnectionReset
-                                }
+                                IdentityFault::ConnectionReset => IdentityError::ConnectionReset,
                                 IdentityFault::TransientIo => IdentityError::TransientIo(
                                     "Simulated transient I/O failure during identity resolution"
                                         .to_string(),

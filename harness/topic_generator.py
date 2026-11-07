@@ -6,10 +6,8 @@ Zero hardcoding:
   - Dynamically computes code complexity thresholds using distribution percentiles.
   - Dynamically inspects AST code smells: .unwrap(), .expect(), panic!(), unsafe blocks.
   - Dynamically aggregates recurring failure patterns from runtime harness lessons.
-  - Frontier Feature Brainstorming: Dynamically brainstorms next-generation architectural
-    features across 6 dimensions (Resilience, Multi-Agent Collaboration, Observability,
-    Security & Sandboxing, Developer Ergonomics, Adaptive Intelligence) based on existing
-    system capabilities when maintenance topics are exhausted.
+  - Source-grounded brainstorming: derives proposals from unfinished source markers,
+    untested public APIs, and serialized types missing test coverage.
 """
 
 import argparse
@@ -58,29 +56,6 @@ def get_all_production_rs_files(crates: List[Path]) -> List[Path]:
                 continue
             files.append(rs)
     return sorted(files)
-
-
-def extract_system_capabilities(crates: List[Path]) -> Dict[str, List[str]]:
-    """Dynamically discover real domain modules across workspace crates (deduplicated, excluding synthetic test/bench modules)."""
-    excluded_stems = {
-        "lib", "main", "mod", "tests", "test",
-        "benchmark", "fault", "resilience", "chaos", "sharded", "safe",
-    }
-    capabilities = {}
-    for crate in crates:
-        crate_name = crate.name
-        modules = set()
-        src_dir = crate / "src"
-        if src_dir.exists():
-            for item in src_dir.glob("*"):
-                if item.is_dir() and not item.name.startswith("."):
-                    if item.name not in excluded_stems and not item.name.endswith("_tests"):
-                        modules.add(item.name)
-                elif item.suffix == ".rs":
-                    if item.stem not in excluded_stems and not item.stem.endswith("_tests"):
-                        modules.add(item.stem)
-        capabilities[crate_name] = sorted(modules)
-    return capabilities
 
 
 def extract_ast_Gap_signals(crates: List[Path]) -> List[Dict]:
@@ -324,489 +299,110 @@ def is_topic_in_backlog(title: str, existing_content: str) -> bool:
 
 
 def brainstorm_feature_topics(crates: List[Path], existing_content: str) -> List[Dict]:
-    """
-    Dynamically brainstorm next-generation features based on current capability graph & AST gaps.
-    Categories:
-      1. Resilience & Fault Tolerance
-      2. Multi-Agent Collaboration
-      3. Observability & Telemetry
-      4. Security & Sandboxing
-      5. Developer Ergonomics & Tooling
-      6. Adaptive Intelligence
-    """
-    capabilities = extract_system_capabilities(crates)
-    ast_gap_topics = extract_ast_Gap_signals(crates)
-
-    feature_matrix = ast_gap_topics + [
-        # --- Wave 1 & Wave 2: Resilience & Fault Tolerance ---
-        {
-            "title": "Tích hợp cơ chế Exponential Backoff & Jitter cho Engine Execution Retry",
-            "priority": "P1",
-            "category": "Feature Expansion / Resilience & Fault Tolerance",
-            "rationale": (
-                "Hiện tại các LLM Engine khi gặp lỗi HTTP 429 (Rate Limit) hoặc 503 (Provider Unavailable) "
-                "dễ làm đứt gãy luồng OODA. Cần bổ sung thuật toán Full Jitter Exponential Backoff trong "
-                "`crates/agent-engine/` và `crates/agent-runtime/src/ooda/` để phục hồi mềm mại các sự cố tạm thời."
-            ),
-            "acceptance_criteria": (
-                "Cài đặt struct `BackoffPolicy` hỗ trợ cấu hình initial_interval, max_interval, multiplier và jitter; "
-                "tích hợp vào vòng lặp gọi Engine; viết test TDD kiểm chứng khoảng thời gian chờ giữa các lần retry."
-            ),
-            "metric_count": 95,
-        },
-        {
-            "title": "Triển khai Dead-Letter Queue & Poison-Task Isolation trong TaskService",
-            "priority": "P1",
-            "category": "Feature Expansion / Resilience & Fault Tolerance",
-            "rationale": (
-                "Khi một tác vụ liên tục gây lỗi không thể hồi phục hoặc làm treo worker, TaskService cần tự động "
-                "cô lập tác vụ đó vào Dead-Letter Queue thay vì để nó làm nghẽn toàn bộ hàng đợi của các tác vụ khác."
-            ),
-            "acceptance_criteria": (
-                "Mở rộng `TaskService` với trạng thái `Quarantined` hoặc Dead-Letter Queue; "
-                "bổ sung API tra cứu và giải phóng task bị cô lập; viết test TDD xác minh hàng đợi vẫn tiếp tục xử lý các task khác."
-            ),
-            "metric_count": 90,
-        },
-        {
-            "title": "Cơ chế In-flight Checkpointing & Resume State an toàn cho Long-Running Tasks",
-            "priority": "P1",
-            "category": "Feature Expansion / Resilience & Fault Tolerance",
-            "rationale": (
-                "Với các tác vụ dài hơi gồm nhiều subtask, nếu server hoặc daemon bị restart đột ngột, "
-                "task cần khả năng phục hồi chính xác từ subtask đã verified gần nhất thay vì chạy lại từ đầu."
-            ),
-            "acceptance_criteria": (
-                "Lưu checkpoint metadata vào `SqliteTaskStore` sau mỗi subtask hoàn tất; "
-                "bổ sung phương thức `resume_task_from_checkpoint`; viết test TDD mô phỏng ngắt tiến trình giữa chừng và khôi phục an toàn."
-            ),
-            "metric_count": 88,
-        },
-        {
-            "title": "Circuit Breaker Failover tự động chuyển đổi LLM Provider khi Engine chính gặp sự cố",
-            "priority": "P1",
-            "category": "Feature Expansion / Resilience & Fault Tolerance",
-            "rationale": (
-                "Hỗ trợ cấu hình Fallback Engine (ví dụ: Antigravity -> Claude -> Codex hoặc Mock) "
-                "khi primary engine bị cạn quota (HTTP 402/429) hoặc connection timeout liên tục."
-            ),
-            "acceptance_criteria": (
-                "Xây dựng `EngineFailoverCoordinator` quản lý danh sách engine ưu tiên; "
-                "tự động chuyển sang fallback provider khi primary ném `EngineError::QuotaExhausted` hoặc lỗi kết nối; có test TDD xác minh."
-            ),
-            "metric_count": 85,
-        },
-        {
-            "title": "Bộ lập lịch Cron Scheduler & Delayed Task Queue tích hợp sẵn trong TaskService",
-            "priority": "P1",
-            "category": "Feature Expansion / Resilience & Automation",
-            "rationale": (
-                "Cho phép đăng ký các tác vụ chạy định kỳ (cron expression hoặc interval) và tác vụ hẹn giờ (`run_after` timestamp) "
-                "trực tiếp trong `SqliteTaskStore` và `TaskService` mà không phụ thuộc vào crontab của hệ điều hành."
-            ),
-            "acceptance_criteria": (
-                "Bổ sung cấu trúc `ScheduleSpec` và bảng lưu lịch chạy trong `task_store`; hỗ trợ đánh thức task đúng hạn; "
-                "viết test TDD xác minh task hẹn giờ chỉ được dispatch khi đến thời điểm `run_after`."
-            ),
-            "metric_count": 91,
-        },
-
-        # --- Wave 1 & Wave 2: Multi-Agent Collaboration ---
-        {
-            "title": "Mở rộng InterAgentBus hỗ trợ Topic-Based Publish/Subscribe Channels",
-            "priority": "P1",
-            "category": "Feature Expansion / Multi-Agent Collaboration",
-            "rationale": (
-                "Hiện tại `InterAgentBus` phát broadcast toàn bộ thông điệp. Cần bổ sung phân luồng theo Topic "
-                "(Topic-based Pub/Sub) để các agent chuyên môn hóa (Security, QA, Developer) chỉ nhận sự kiện phù hợp."
-            ),
-            "acceptance_criteria": (
-                "Bổ sung `subscribe_topic(topic_pattern)` và `publish_topic(topic, event)` trong `InterAgentBus`; "
-                "hỗ trợ wildcard matching; viết test TDD kiểm thử gửi nhận thông điệp có lọc chủ đề đa luồng an toàn."
-            ),
-            "metric_count": 84,
-        },
-        {
-            "title": "Xây dựng Multi-Agent Consensus Voting Gate trong Workflow DAG",
-            "priority": "P2",
-            "category": "Feature Expansion / Multi-Agent Collaboration",
-            "rationale": (
-                "Thêm loại node thẩm định đồng thuận (Consensus Gate Node) trong đồ thị Workflow DAG đòi hỏi "
-                "tỷ lệ biểu quyết tán thành (Quorum Threshold, ví dụ >= 66%) từ các Agent Reviewer trước khi chuyển bước nhạy cảm."
-            ),
-            "acceptance_criteria": (
-                "Định nghĩa `WorkflowNode::ConsensusGate` với trường `required_votes` và danh sách reviewer; "
-                "cập nhật bộ thực thi DAG để thu thập votes; viết test TDD kiểm thử kịch bản đủ phiếu và không đủ phiếu."
-            ),
-            "metric_count": 80,
-        },
-        {
-            "title": "Giao thức phân quyền và Scoped Scratchpad Isolation cho Sub-Agent Delegation",
-            "priority": "P2",
-            "category": "Feature Expansion / Multi-Agent Collaboration",
-            "rationale": (
-                "Khi root agent phân rã nhiệm vụ cho sub-agent, cần cơ chế cô lập ngữ cảnh bộ nhớ tạm (Scoped Scratchpad), "
-                "tránh việc sub-agent ghi đè hoặc đọc trộm dữ liệu nhạy cảm của parent task."
-            ),
-            "acceptance_criteria": (
-                "Cài đặt `ScopedScratchpad` phân cấp với quyền ReadOnly/ReadWrite cục bộ cho sub-agent; "
-                "tự động dọn dẹp hoặc gộp kết quả khi sub-agent hoàn tất; có test TDD kiểm chứng tính cô lập."
-            ),
-            "metric_count": 78,
-        },
-        {
-            "title": "Chế độ Best-of-N Speculative Parallel Engine Tournament & Auto-Judge",
-            "priority": "P1",
-            "category": "Feature Expansion / Multi-Agent Collaboration",
-            "rationale": (
-                "Cho phép giao cùng một nhiệm vụ quan trọng cho N engine khác nhau (`antigravity`, `claude`, `codex`) chạy song song, "
-                "dùng `TaskVerifier` chấm điểm khách quan (test pass, thời gian, kích thước diff) để chọn ra kết quả tốt nhất."
-            ),
-            "acceptance_criteria": (
-                "Cài đặt `TournamentExecutor` trong `crates/agent-runtime/`; chạy song song các candidate engines và chọn kết quả có điểm verification cao nhất; "
-                "viết test TDD mô phỏng 3 engines trả kết quả khác nhau và xác minh bộ chọn hoạt động chính xác."
-            ),
-            "metric_count": 92,
-        },
-        {
-            "title": "Thực thi song song Fan-Out / Fan-In MapReduce Node trong Workflow DAG",
-            "priority": "P2",
-            "category": "Feature Expansion / Multi-Agent Collaboration",
-            "rationale": (
-                "Bổ sung khả năng chia nhỏ một tập dữ liệu đầu vào (Fan-Out / Map) cho nhiều Agent xử lý đồng thời có giới hạn concurrency, "
-                "sau đó tổng hợp kết quả tại node hội tụ (Fan-In / Reduce) trong `workflow_dag`."
-            ),
-            "acceptance_criteria": (
-                "Hỗ trợ thực thi song song các nhánh độc lập và gom kết quả đầu ra theo thứ tự xác định trong `WorkflowDagOrchestrator`; "
-                "viết test TDD kiểm chứng giới hạn concurrency và tính toàn vẹn dữ liệu gộp."
-            ),
-            "metric_count": 83,
-        },
-
-        # --- Wave 1 & Wave 2: Observability & Telemetry ---
-        {
-            "title": "Tích hợp Prometheus Metrics Exporter (/metrics) cho Agent Server & OODA Loop",
-            "priority": "P1",
-            "category": "Feature Expansion / Observability & Telemetry",
-            "rationale": (
-                "Cung cấp endpoint HTTP `/metrics` theo chuẩn Prometheus trong `agent-server` để giám sát "
-                "thời gian thực các chỉ số: tổng task, độ trễ OODA cycle, số lần remediation, tỷ lệ thành công của test."
-            ),
-            "acceptance_criteria": (
-                "Thêm endpoint `/metrics` trong Axum router; xuất bản các chỉ số `agent_tasks_total`, "
-                "`agent_ooda_duration_seconds`, `agent_remediations_total`; viết test HTTP integration kiểm chứng định dạng text/plain."
-            ),
-            "metric_count": 86,
-        },
-        {
-            "title": "Bổ sung Structured OpenTelemetry Tracing Spans cho OODA Lifecycle",
-            "priority": "P2",
-            "category": "Feature Expansion / Observability & Telemetry",
-            "rationale": (
-                "Gắn các tracing span có cấu trúc với task_id, subtask_id, và execution_phase cho từng bước "
-                "(Observe, Orient, Decide, Act, Remediate) giúp trực quan hóa timeline thực thi và định vị nút thắt cổ chai."
-            ),
-            "acceptance_criteria": (
-                "Tích hợp `tracing::info_span!` xuyên suốt các module trong `crates/agent-runtime/src/ooda/`; "
-                "viết test TDD kiểm tra các span metadata được kích hoạt đúng thứ tự."
-            ),
-            "metric_count": 76,
-        },
-        {
-            "title": "Xây dựng Immutable Audit Trail Ledger có mã băm toàn vẹn cho Guardrail Actions",
-            "priority": "P2",
-            "category": "Feature Expansion / Observability & Telemetry",
-            "rationale": (
-                "Mọi quyết định của Guardrail (chặn lệnh nguy hiểm, phê duyệt ngoại lệ, shell command) "
-                "cần được ghi nhận vào nhật ký kiểm toán bất biến có chuỗi băm (SHA256 hash chaining) chống giả mạo."
-            ),
-            "acceptance_criteria": (
-                "Cài đặt cấu trúc `AuditLedger` với `prev_hash` liên kết từng sự kiện; "
-                "cung cấp phương thức `verify_integrity()`; viết test TDD phát hiện can thiệp sửa đổi trái phép."
-            ),
-            "metric_count": 75,
-        },
-        {
-            "title": "Bộ đệm Replay sự kiện có Sequence Cursor cho WebSocket & SSE Reconnect",
-            "priority": "P1",
-            "category": "Feature Expansion / Observability & Streaming",
-            "rationale": (
-                "Khi client WebSocket (`/api/v1/ws`) bị rớt mạng tạm thời hoặc đọc chậm (`RecvError::Lagged`), "
-                "client cần có thể gửi `last_seq_id` để lấy bù các sự kiện bị nhỡ từ Ring Buffer hoặc TaskStore."
-            ),
-            "acceptance_criteria": (
-                "Gắn số thứ tự đơn điệu (`seq_id`) cho mọi sự kiện trên `InterAgentBus` và lưu ring-buffer có giới hạn; "
-                "hỗ trợ truy vấn `events_since(seq_id)`; viết test TDD mô phỏng client kết nối lại và nhận đủ sự kiện bị thiếu."
-            ),
-            "metric_count": 89,
-        },
-        {
-            "title": "Sổ cái thống kê Token Usage & Cost Budget Enforcement theo từng Task và Account",
-            "priority": "P2",
-            "category": "Feature Expansion / Observability & FinOps",
-            "rationale": (
-                "Theo dõi số lượng prompt/completion tokens, thời gian chạy và chi phí ước tính cho mỗi `task_id` và `account_id`, "
-                "tự động tạm dừng task nếu vượt hạn mức ngân sách (`max_budget_usd` / `max_tokens_per_task`)."
-            ),
-            "acceptance_criteria": (
-                "Cài đặt `UsageLedger` lưu trữ thống kê token/chi phí; kiểm tra hạn mức trước mỗi vòng lặp OODA; "
-                "viết test TDD xác minh task dừng an toàn khi vượt ngưỡng ngân sách cấu hình."
-            ),
-            "metric_count": 82,
-        },
-
-        # --- Wave 1 & Wave 2: Security & Sandboxing ---
-        {
-            "title": "Tự động che mờ dữ liệu nhạy cảm (Secret Redaction) trong Tool Output Stream",
-            "priority": "P1",
-            "category": "Feature Expansion / Security & Sandboxing",
-            "rationale": (
-                "Trong quá trình chạy lệnh hoặc engine streaming, output stdout/stderr có thể vô tình in ra "
-                "API keys, private tokens, passwords. Cần bộ lọc Real-Time Secret Redaction tự động che mờ thành [REDACTED]."
-            ),
-            "acceptance_criteria": (
-                "Xây dựng module `SecretRedactor` với các mẫu regex phổ biến (OpenAI, AWS, JWT, Bearer token); "
-                "tích hợp vào stream reader trong `crates/agent-engine/src/process/stream.rs`; viết test TDD xác minh các key bị che mờ."
-            ),
-            "metric_count": 89,
-        },
-        {
-            "title": "Cơ chế Ephemeral OverlayFS / Tmpfs Workspace Isolation cho Sandbox Drivers",
-            "priority": "P2",
-            "category": "Feature Expansion / Security & Sandboxing",
-            "rationale": (
-                "Khi chạy các lệnh không tin cậy hoặc bước kiểm thử trong Sandbox, cần tùy chọn gắn kết filesystem tạm thời "
-                "(Tmpfs / OverlayFS) để tự động xóa sạch các tệp rác sinh ra nếu bước thực thi bị thất bại hoặc rollback."
-            ),
-            "acceptance_criteria": (
-                "Thêm tùy chọn `ephemeral_overlay: bool` trong `SandboxSpec`; "
-                "cập nhật bubblewrap và docker driver để thiết lập read-only base kèm writable tmpfs upper; viết test kiểm chứng."
-            ),
-            "metric_count": 77,
-        },
-        {
-            "title": "Model Context Protocol (MCP) Tool Gateway & Guardrail Policy Interceptor",
-            "priority": "P1",
-            "category": "Feature Expansion / Security & Tooling",
-            "rationale": (
-                "Cho phép khai báo các MCP Server bên ngoài và kiểm duyệt mọi lệnh gọi MCP tool (`tools/call`) "
-                "thông qua `GuardrailPolicy` và `AuditLedger` trước khi cho phép Agent thực thi."
-            ),
-            "acceptance_criteria": (
-                "Xây dựng module `McpToolGateway` chuẩn hóa JSON-RPC request/response của MCP; "
-                "chặn các tool call vi phạm danh sách đen của `GuardrailPolicy`; viết test TDD xác minh chặn và ghi nhận audit."
-            ),
-            "metric_count": 90,
-        },
-        {
-            "title": "Kiểm soát Outbound Network Egress Policy & Domain Whitelist cho Sandbox",
-            "priority": "P2",
-            "category": "Feature Expansion / Security & Sandboxing",
-            "rationale": (
-                "Cấu hình chính sách mạng đầu ra (`NetworkEgressPolicy`: `Isolated`, `AllowList`, `Unrestricted`) trong `SandboxSpec` "
-                "để ngăn chặn mã thực thi trong sandbox rò rỉ dữ liệu ra các máy chủ lạ bên ngoài."
-            ),
-            "acceptance_criteria": (
-                "Thêm `NetworkEgressPolicy` vào `crates/agent-runtime/src/sandbox/config.rs`; "
-                "áp dụng cờ `--unshare-net` trong bubblewrap hoặc `--network none` trong Docker khi ở chế độ `Isolated`; viết test TDD kiểm chứng."
-            ),
-            "metric_count": 81,
-        },
-
-        # --- Wave 1 & Wave 2: Developer Ergonomics & Tooling ---
-        {
-            "title": "Bổ sung lệnh CLI 'agent-ctl inspect' tra cứu Task & Memory chuyên sâu",
-            "priority": "P2",
-            "category": "Feature Expansion / Developer Ergonomics",
-            "rationale": (
-                "Cung cấp lệnh CLI trực quan `agent-ctl inspect [task-id|memory|dag]` hiển thị bảng trạng thái, "
-                "các subtask đã thực hiện, timeline và dữ liệu memory mà không cần dùng sqlite3 thủ công."
-            ),
-            "acceptance_criteria": (
-                "Thêm subcommand `inspect` vào `crates/agent-cli/`; "
-                "hỗ trợ xuất ra định dạng bảng terminal màu hoặc JSON (`--format json`); viết test CLI argument parser."
-            ),
-            "metric_count": 74,
-        },
-        {
-            "title": "Chức năng xuất sơ đồ Workflow DAG sang định dạng Mermaid / Graphviz",
-            "priority": "P2",
-            "category": "Feature Expansion / Developer Ergonomics",
-            "rationale": (
-                "Giúp kỹ sư và tài liệu dự án dễ dàng trực quan hóa các đồ thị Workflow DAG phức tạp "
-                "bằng cách xuất cấu trúc DAG sang mã Mermaid (`graph TD ...`) hoặc DOT format."
-            ),
-            "acceptance_criteria": (
-                "Bổ sung phương thức `to_mermaid(&self) -> String` và `to_dot(&self) -> String` trên `WorkflowDag`; "
-                "viết test TDD kiểm chứng cú pháp Mermaid sinh ra hợp lệ và đầy đủ các node/edge."
-            ),
-            "metric_count": 72,
-        },
-        {
-            "title": "Cơ chế Dynamic Skill Hot-Reloading & Schema Validation trong AgentMemory",
-            "priority": "P2",
-            "category": "Feature Expansion / Developer Ergonomics",
-            "rationale": (
-                "Cho phép daemon và runner tự động phát hiện các skill mới được thêm vào thư mục `skills/` "
-                "và nạp lại vào bộ nhớ runtime mà không cần khởi động lại toàn bộ tiến trình."
-            ),
-            "acceptance_criteria": (
-                "Cài đặt phương thức `reload_skills(&mut self)` trong `crates/agent-memory/src/skills.rs`; "
-                "xác thực schema frontmatter; viết test TDD kiểm thử thêm skill mới khi runtime đang chạy."
-            ),
-            "metric_count": 70,
-        },
-        {
-            "title": "Webhook Trigger Hub có xác thực chữ ký HMAC-SHA256 trong Agent Server",
-            "priority": "P2",
-            "category": "Feature Expansion / Developer Ergonomics & Event-Driven Automation",
-            "rationale": (
-                "Cho phép GitHub Actions, GitLab hoặc Alertmanager bắn sự kiện trực tiếp vào `/api/v1/webhooks/trigger` "
-                "(kèm xác thực chữ ký HMAC-SHA256 và chống replay) để tự động khởi tạo Task sửa lỗi."
-            ),
-            "acceptance_criteria": (
-                "Xây dựng handler và bộ xác thực chữ ký HMAC-SHA256 cho webhook payload trong `agent-server`; "
-                "tự động chuyển đổi sự kiện hợp lệ thành Task trong hàng đợi; viết test TDD kiểm thử chữ ký đúng và sai."
-            ),
-            "metric_count": 79,
-        },
-
-        # --- Wave 1 & Wave 2: Adaptive Intelligence ---
-        {
-            "title": "Cơ chế Adaptive Token-Budget Windowing & Rolling Context Compaction cho OODA Loop",
-            "priority": "P1",
-            "category": "Feature Expansion / Adaptive Intelligence",
-            "rationale": (
-                "Khi working context tích lũy qua nhiều subtask vượt quá ngưỡng token an toàn của LLM, "
-                "cần thuật toán Rolling Context Compaction tự động tóm tắt các bước cũ và giữ lại đầy đủ kết quả then chốt gần nhất."
-            ),
-            "acceptance_criteria": (
-                "Cài đặt hàm `compact_working_context_with_budget(ctx: &str, max_tokens: usize) -> String`; "
-                "tích hợp vào `crates/agent-runtime/src/ooda/execution/runner/step/context.rs`; viết test TDD kiểm tra context được nén đúng ngưỡng."
-            ),
-            "metric_count": 87,
-        },
-        {
-            "title": "Định tuyến thông minh theo độ phức tạp nhiệm vụ (Complexity-Aware Model Router)",
-            "priority": "P1",
-            "category": "Feature Expansion / Adaptive Intelligence",
-            "rationale": (
-                "Tự động phân tích độ phức tạp của Subtask (Planning/Architecture vs Sửa lỗi nhỏ/Format/Test) "
-                "trong `crates/agent-engine/src/router.rs` để chọn Tier model tối ưu chi phí và tốc độ."
-            ),
-            "acceptance_criteria": (
-                "Nâng cấp `ModelRouter` với bộ ước lượng độ phức tạp (`TaskComplexity::Low | Medium | High`); "
-                "ánh xạ sang cấu hình engine phù hợp; viết test TDD xác minh phân loại và định tuyến chính xác."
-            ),
-            "metric_count": 86,
-        },
-        {
-            "title": "Hợp nhất tri thức liên dự án & Suy giảm độ tin cậy bài học cũ (Memory Consolidation & Decay)",
-            "priority": "P2",
-            "category": "Feature Expansion / Adaptive Intelligence",
-            "rationale": (
-                "Khi kho `DurableMemoryStore` lớn dần, các bài học trùng lặp cần được hợp nhất (deduplicate & merge) "
-                "và các bài học lâu không sử dụng hoặc thất bại liên tiếp cần được giảm trọng số ưu tiên."
-            ),
-            "acceptance_criteria": (
-                "Cài đặt phương thức `consolidate_and_decay_lessons()` trong `crates/agent-memory/src/durable/`; "
-                "gộp các bài học cùng lỗi và cập nhật điểm tin cậy; viết test TDD kiểm chứng."
-            ),
-            "metric_count": 78,
-        },
+    """Derive research ideas from concrete gaps found in the current Rust sources."""
+    production_files = get_all_production_rs_files(crates)
+    test_files = [
+        path for crate in crates for path in crate.rglob("*.rs")
+        if "tests" in path.parts or path.name.endswith(("_test.rs", "_tests.rs"))
+        or path.name in ("tests.rs", "test.rs")
     ]
 
-    # Filter out topics that already exist in RESEARCH_BACKLOG.md (whether pending, completed, or blocked)
-    candidate_topics = []
-    seen_titles = set()
-    for item in feature_matrix:
-        t = item["title"]
-        if t not in seen_titles and not is_topic_in_backlog(t, existing_content):
-            seen_titles.add(t)
-            candidate_topics.append(item)
+    # Inline unit tests are included after cfg(test); external test files are read whole.
+    test_sources = []
+    for path in test_files:
+        try:
+            test_sources.append(path.read_text(encoding="utf-8", errors="ignore"))
+        except OSError:
+            pass
+    for path in production_files:
+        try:
+            source = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        match = re.search(r"#\s*\[cfg\s*\(\s*test\s*\)\s*\]", source)
+        if match:
+            test_sources.append(source[match.start():])
+    test_corpus = "\n".join(test_sources)
+    test_symbols = set(re.findall(r"\b[A-Za-z_]\w*\b", test_corpus))
 
-    # Multi-Track Evolutionary Tier: Dynamically synthesize deep architectural tracks across ALL real modules
-    # (no longer restricted to `modules[:3]` or synthetic benchmark/fault modules).
-    evolution_tracks = [
-        (
-            "Kiểm chứng Bất biến Trạng thái & Property-Based Contract cho module {crate}::{mod}",
-            "Feature Expansion / State Invariant & Contract Verification",
-            "P2",
-            68,
-            (
-                "Xác định và kiểm tra các điều kiện bất biến (state invariants, idempotency, serialization roundtrip, "
-                "boundary contracts) cho `{crate}::{mod}` với đầu vào biên và trạng thái bất thường."
-            ),
-            (
-                "Viết bộ test kiểm chứng bất biến trạng thái và ranh giới dữ liệu cho `{crate}::{mod}`, "
-                "bảo đảm không xảy ra trạng thái không hợp lệ hoặc panic."
-            ),
-        ),
-        (
-            "Cơ chế Backpressure, Giới hạn Tài nguyên & Chống cạn kiệt bộ nhớ cho {crate}::{mod}",
-            "Feature Expansion / Resource Bounding & Backpressure",
-            "P2",
-            66,
-            (
-                "Bảo vệ `{crate}::{mod}` trước các đầu vào kích thước lớn hoặc tần suất gọi đột biến bằng cơ chế "
-                "bounded capacity, timeout tường minh và từ chối sớm có kiểm soát."
-            ),
-            (
-                "Bổ sung giới hạn kích thước/số lượng an toàn và viết test TDD chứng minh `{crate}::{mod}` "
-                "xử lý mượt mà khi vượt ngưỡng tài nguyên."
-            ),
-        ),
-        (
-            "Chaos Engineering & Fault Injection Test cho module {crate}::{mod}",
-            "Feature Expansion / Chaos Engineering",
-            "P2",
-            64,
-            (
-                "Mô phỏng lỗi ngắt quãng, socket timeout, hoặc I/O failure đột ngột trong module "
-                "`{crate}::{mod}` để kiểm tra tính bền vững và khả năng tự phục hồi mà không làm sập toàn bộ hệ thống."
-            ),
-            (
-                "Viết integration test mô phỏng kịch bản lỗi ngắt quãng và xác minh `{crate}::{mod}` phục hồi an toàn."
-            ),
-        ),
-        (
-            "Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho {crate}::{mod}",
-            "Feature Expansion / Performance & Scalability",
-            "P2",
-            60,
-            (
-                "Đo lường throughput và memory allocation khi `{crate}::{mod}` chịu tải đồng thời cao, "
-                "tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết."
-            ),
-            (
-                "Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao."
-            ),
-        ),
-    ]
+    # Capability-gap checks inspect actual routes, modules, and durable-memory code.
+    candidates: List[Dict] = extract_ast_Gap_signals(crates)
+    for path in production_files:
+        try:
+            source = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        relative = path.relative_to(ROOT_DIR).as_posix()
+        module = path.parent.name if path.name == "mod.rs" else path.stem
 
-    if len(candidate_topics) < 10:
-        for title_tpl, category, prio, score, rationale_tpl, criteria_tpl in evolution_tracks:
-            for crate_name, modules in capabilities.items():
-                for mod in modules:
-                    title = title_tpl.format(crate=crate_name, mod=mod)
-                    if title not in seen_titles and not is_topic_in_backlog(title, existing_content):
-                        seen_titles.add(title)
-                        candidate_topics.append({
-                            "title": title,
-                            "priority": prio,
-                            "category": category,
-                            "rationale": rationale_tpl.format(crate=crate_name, mod=mod),
-                            "acceptance_criteria": criteria_tpl.format(crate=crate_name, mod=mod),
-                            "metric_count": score,
-                        })
-                    if len(candidate_topics) >= 15:
-                        break
-                if len(candidate_topics) >= 15:
-                    break
-            if len(candidate_topics) >= 15:
-                break
+        # Unresolved work markers are direct evidence of unfinished implementation.
+        markers = [
+            (line_no, match.group(0).strip())
+            for line_no, line in enumerate(source.splitlines(), 1)
+            if (match := re.search(r"\b(?:TODO|FIXME|HACK|XXX)\b[^\n]*", line, re.IGNORECASE))
+        ]
+        if markers:
+            excerpts = "; ".join(f"L{line}: {text[:100]}" for line, text in markers[:5])
+            candidates.append({
+                "title": f"Giải quyết {len(markers)} điểm TODO/FIXME còn tồn tại trong {relative}",
+                "priority": "P1" if any("FIXME" in text.upper() for _, text in markers) else "P2",
+                "category": "Source Finding / Unfinished Implementation",
+                "rationale": f"Quét mã nguồn hiện tại tìm thấy các điểm chưa hoàn tất tại {relative}: {excerpts}.",
+                "acceptance_criteria": f"Xử lý từng marker trong {relative}, hoặc chuyển thành issue có chủ sở hữu và điều kiện hoàn tất; không để marker mất dấu sau khi sửa.",
+                "metric_count": len(markers),
+            })
 
-    return candidate_topics
+        # Find public functions whose names do not occur in any Rust test source.
+        public_functions = []
+        for match in re.finditer(r"\bpub(?:\([^)]*\))?\s+(?:async\s+)?fn\s+(\w+)", source):
+            name = match.group(1)
+            if name not in test_symbols:
+                line_no = source.count("\n", 0, match.start()) + 1
+                public_functions.append((name, line_no))
+        if public_functions:
+            names = ", ".join(f"`{name}` (L{line})" for name, line in public_functions[:8])
+            candidates.append({
+                "title": f"Bổ sung kiểm thử cho {len(public_functions)} API công khai chưa được nhắc tới trong test: {relative}",
+                "priority": "P1" if len(public_functions) >= 3 else "P2",
+                "category": "Source Finding / Public API Verification Gap",
+                "rationale": f"Các hàm công khai sau được khai báo trong `{relative}` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: {names}.",
+                "acceptance_criteria": f"Thêm kiểm thử hành vi cho các API được liệt kê tại `{relative}`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.",
+                "metric_count": len(public_functions),
+            })
+
+        # Serialized public types without a matching test reference are migration risks
+        # grounded in actual serde derives and the current test inventory.
+        serialized_types = []
+        for match in re.finditer(
+            r"(?:(?:#\s*\[[^\]]*\]\s*)*)#\s*\[derive\([^\]]*(?:Serialize|Deserialize)[^\]]*\)\]\s*"
+            r"(?:pub\s+)?(?:struct|enum)\s+(\w+)", source, re.DOTALL,
+        ):
+            type_name = match.group(1)
+            if type_name not in test_symbols:
+                line_no = source.count("\n", 0, match.start()) + 1
+                serialized_types.append((type_name, line_no))
+        if serialized_types:
+            names = ", ".join(f"`{name}` (L{line})" for name, line in serialized_types[:8])
+            candidates.append({
+                "title": f"Kiểm chứng tương thích serialization cho {len(serialized_types)} kiểu chưa có test: {relative}",
+                "priority": "P1",
+                "category": "Source Finding / Serialization Compatibility",
+                "rationale": f"Các kiểu có derive Serialize/Deserialize trong `{relative}` chưa được tham chiếu trong Rust test: {names}; thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.",
+                "acceptance_criteria": f"Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `{relative}`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.",
+                "metric_count": len(serialized_types),
+            })
+
+    # Keep only source-backed proposals that have not already been recorded.
+    unique: List[Dict] = []
+    seen = set()
+    for item in candidates:
+        title = item["title"]
+        if title not in seen and not is_topic_in_backlog(title, existing_content):
+            seen.add(title)
+            unique.append(item)
+    priority = {"P0": 0, "P1": 1, "P2": 2}
+    unique.sort(key=lambda item: (priority.get(item["priority"], 9), -item["metric_count"]))
+    return unique[:30]
 
 
 def discover_topics(force_brainstorm: bool = False) -> List[Dict]:
@@ -909,10 +505,10 @@ def main():
     topics = discover_topics(force_brainstorm=args.brainstorm)
 
     # Count breakdown
-    feature_count = sum(1 for t in topics if "Feature Expansion" in t["category"])
-    maint_count = len(topics) - feature_count
+    source_count = sum(1 for t in topics if "Source Finding" in t["category"] or "Feature Expansion" in t["category"])
+    maint_count = len(topics) - source_count
 
-    print(f"\n🔍 Phát hiện {len(topics)} đề tài khả dụng ({maint_count} bảo trì/AST, {feature_count} tính năng mới brainstorm):")
+    print(f"\n🔍 Phát hiện {len(topics)} đề tài khả dụng ({source_count} đề tài dựa trên code hiện tại, {maint_count} bảo trì/AST):")
     for i, t in enumerate(topics[:10], 1):
         print(f"  {i}. [{t['priority']}] ({t['category']}) {t['title']}")
 

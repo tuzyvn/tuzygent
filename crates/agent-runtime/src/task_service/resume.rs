@@ -24,8 +24,9 @@ impl TaskService {
         let cp_opt = self.store.get_task_checkpoint(id).await?;
         let cp = match cp_opt {
             Some(mut cp) => {
-                cp.verify_integrity_for_task(id)
-                    .map_err(|e| anyhow!("Checkpoint integrity verification failed for task {id}: {e}"))?;
+                cp.verify_integrity_for_task(id).map_err(|e| {
+                    anyhow!("Checkpoint integrity verification failed for task {id}: {e}")
+                })?;
                 cp.sanitize_for_resume();
                 cp
             }
@@ -44,7 +45,10 @@ impl TaskService {
         self.store.save_task(&task).await?;
 
         self.dispatch(task.id.clone(), engine);
-        info!("🔄 [TaskService] Task {} resumed from checkpoint and dispatched", id);
+        info!(
+            "🔄 [TaskService] Task {} resumed from checkpoint and dispatched",
+            id
+        );
         Ok(true)
     }
 

@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
@@ -207,7 +207,10 @@ impl ScopedScratchpad {
             None => {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    format!("Scoped scratchpad '{}' has no parent to merge into", self.scope_id),
+                    format!(
+                        "Scoped scratchpad '{}' has no parent to merge into",
+                        self.scope_id
+                    ),
                 ));
             }
         };

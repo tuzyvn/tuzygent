@@ -175,7 +175,8 @@ impl AutonomousOodaLoop {
         sub_agent_or_subtask_id: &str,
         access: agent_memory::ScopeAccess,
     ) -> agent_memory::ScopedScratchpad {
-        self.scratchpad.scoped_child(sub_agent_or_subtask_id, access)
+        self.scratchpad
+            .scoped_child(sub_agent_or_subtask_id, access)
     }
 
     /// Khởi tạo ScopedScratchpad cô lập hoàn toàn cho sub-agent, cấm đọc trộm bộ nhớ cha

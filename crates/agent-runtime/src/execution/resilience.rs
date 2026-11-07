@@ -6,8 +6,7 @@ use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-/// Resilient execution service with automatic retry, fault injection testing, panic isolation,
-/// bounded memory caching, and audit ledger recording
+/// Resilient execution service with retries, panic isolation, bounded caching, and audit recording.
 #[derive(Clone)]
 pub struct ResilientExecutionService {
     service: ExecutionService,
@@ -24,7 +23,11 @@ pub struct ResilientExecutionService {
 }
 
 impl ResilientExecutionService {
-    pub fn new(service: ExecutionService, policy: ExecutionFaultPolicy, max_retries: usize) -> Self {
+    pub fn new(
+        service: ExecutionService,
+        policy: ExecutionFaultPolicy,
+        max_retries: usize,
+    ) -> Self {
         Self {
             service,
             policy,
@@ -157,7 +160,9 @@ impl ResilientExecutionService {
                 * (std::mem::size_of::<String>() + std::mem::size_of::<EngineOutput>());
             let content: usize = cache
                 .iter()
-                .map(|(k, v)| k.len() + v.stdout_content.len() + std::mem::size_of::<EngineOutput>())
+                .map(|(k, v)| {
+                    k.len() + v.stdout_content.len() + std::mem::size_of::<EngineOutput>()
+                })
                 .sum();
             (overhead, content)
         } else {
@@ -191,7 +196,11 @@ impl ResilientExecutionService {
     ) -> Result<EngineOutput, EngineError> {
         // Red line policy violations are non-retryable and must fail immediately
         if !input.prompt_or_command.is_empty() {
-            if let Err(red_line_err) = self.service.guardrail().check_command_safety(&input.prompt_or_command) {
+            if let Err(red_line_err) = self
+                .service
+                .guardrail()
+                .check_command_safety(&input.prompt_or_command)
+            {
                 self.failed_count += 1;
                 return Err(EngineError::PolicyRejected(red_line_err));
             }
@@ -232,9 +241,7 @@ impl ResilientExecutionService {
             let srv = self.service.clone();
             let eng = engine.clone();
             let inp = input.clone();
-            let task_result = tokio::spawn(async move {
-                srv.execute(eng, &inp).await
-            }).await;
+            let task_result = tokio::spawn(async move { srv.execute(eng, &inp).await }).await;
 
             match task_result {
                 Ok(Ok(output)) => {
@@ -320,14 +327,10 @@ impl ResilientExecutionService {
             }
             Err(err) => {
                 let (event_type, severity) = match err {
-                    EngineError::PolicyRejected(_) => (
-                        AuditEventType::CommandBlocked,
-                        ActionSeverity::Destructive,
-                    ),
-                    _ => (
-                        AuditEventType::CommandException,
-                        ActionSeverity::HighImpact,
-                    ),
+                    EngineError::PolicyRejected(_) => {
+                        (AuditEventType::CommandBlocked, ActionSeverity::Destructive)
+                    }
+                    _ => (AuditEventType::CommandException, ActionSeverity::HighImpact),
                 };
                 let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     ledger.record_event(

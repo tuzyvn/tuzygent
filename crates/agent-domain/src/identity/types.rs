@@ -225,14 +225,28 @@ impl AgentPersonaProfile {
 
     pub fn estimated_size_bytes(&self) -> usize {
         let base = std::mem::size_of::<Self>();
-        let heap_id = self.identity.id.0.len() + self.identity.name.len() + self.identity.description.len();
-        let heap_role = self.role.role_code.len() + self.role.title.len() + self.role.primary_domain.len()
-            + self.role.capabilities.iter().map(|s| s.len()).sum::<usize>();
-        let heap_soul = self.soul.persona.len() + self.soul.tone_of_voice.len()
+        let heap_id =
+            self.identity.id.0.len() + self.identity.name.len() + self.identity.description.len();
+        let heap_role = self.role.role_code.len()
+            + self.role.title.len()
+            + self.role.primary_domain.len()
+            + self
+                .role
+                .capabilities
+                .iter()
+                .map(|s| s.len())
+                .sum::<usize>();
+        let heap_soul = self.soul.persona.len()
+            + self.soul.tone_of_voice.len()
             + self.soul.core_values.iter().map(|s| s.len()).sum::<usize>();
         let heap_mission = self.mission.high_level_objective.len()
             + self.mission.kpis.iter().map(|s| s.len()).sum::<usize>()
-            + self.mission.constraints.iter().map(|s| s.len()).sum::<usize>();
+            + self
+                .mission
+                .constraints
+                .iter()
+                .map(|s| s.len())
+                .sum::<usize>();
         base + heap_id + heap_role + heap_soul + heap_mission
     }
 }

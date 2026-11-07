@@ -1,5 +1,5 @@
-use super::KernelOperator;
 use super::types::{RigExecutionSummary, RigSeatAssignment};
+use super::KernelOperator;
 use crate::bus::InterAgentBus;
 use agent_domain::{AgentId, InterAgentEvent};
 use agent_engine::{ComputeEngine, EngineInput};
@@ -217,7 +217,8 @@ impl KernelOperator {
                         Ok(eng) => eng,
                         Err(error) => {
                             ch_assign.status = "Failed".into();
-                            ch_assign.output = Some(format!("Failed to resolve channel engine: {}", error));
+                            ch_assign.output =
+                                Some(format!("Failed to resolve channel engine: {}", error));
                             let fail_evt = InterAgentEvent::new(
                                 AgentId(ch_assign.seat_id.clone()),
                                 Some(AgentId(self.spec.operator.agent_id.clone())),

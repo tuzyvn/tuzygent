@@ -1,4 +1,6 @@
-use agent_domain::audit_ledger::{AuditEventType, AuditEntry, AuditIntegrityError, AuditLedger, GENESIS_HASH};
+use agent_domain::audit_ledger::{
+    AuditEntry, AuditEventType, AuditIntegrityError, AuditLedger, GENESIS_HASH,
+};
 use agent_domain::guardrail::{ActionSeverity, GuardrailPolicy};
 use chrono::Utc;
 
@@ -157,7 +159,10 @@ fn test_tamper_detection_broken_chain() {
         Err(AuditIntegrityError::InvalidPrevHash { sequence, .. }) => {
             assert_eq!(sequence, 2);
         }
-        other => panic!("Expected InvalidPrevHash error at sequence 2, got: {:?}", other),
+        other => panic!(
+            "Expected InvalidPrevHash error at sequence 2, got: {:?}",
+            other
+        ),
     }
 }
 
@@ -172,7 +177,11 @@ fn test_tamper_detection_invalid_sequence() {
 
     let tampered_ledger = AuditLedger::from_entries(tampered_entries);
     match tampered_ledger.verify_integrity() {
-        Err(AuditIntegrityError::InvalidSequence { index, expected, found }) => {
+        Err(AuditIntegrityError::InvalidSequence {
+            index,
+            expected,
+            found,
+        }) => {
             assert_eq!(index, 1);
             assert_eq!(expected, 1);
             assert_eq!(found, 99);
@@ -296,7 +305,11 @@ fn test_guardrail_action_lifecycle_allowed_blocked_exception_and_tamper_detectio
         tampered.remove(1); // Xoá bỏ lệnh vi phạm nguy hiểm ở index 1
         let tampered_ledger = AuditLedger::from_entries(tampered);
         match tampered_ledger.verify_integrity() {
-            Err(AuditIntegrityError::InvalidSequence { index, expected, found }) => {
+            Err(AuditIntegrityError::InvalidSequence {
+                index,
+                expected,
+                found,
+            }) => {
                 assert_eq!(index, 1);
                 assert_eq!(expected, 1);
                 assert_eq!(found, 2);
@@ -371,4 +384,3 @@ fn test_audit_ledger_record_event_and_clean_construction() {
     assert!(ledger.verify_integrity().is_ok());
     assert_eq!(ledger.len(), 2);
 }
-

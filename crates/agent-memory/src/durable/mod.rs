@@ -14,5 +14,5 @@ pub use fault::*;
 pub use policy::*;
 pub use ranking::*;
 pub use resilience::*;
-pub use storage::*;
 pub use storage as store;
+pub use storage::*;

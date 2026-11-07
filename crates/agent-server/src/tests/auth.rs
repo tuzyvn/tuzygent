@@ -4,25 +4,18 @@ use tower::ServiceExt;
 use super::common::app;
 
 #[tokio::test]
-async fn health_is_public_and_every_api_route_requires_auth() -> Result<(), Box<dyn std::error::Error>> {
+async fn health_is_public_and_every_api_route_requires_auth(
+) -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(
         app()?
-            .oneshot(
-                Request::builder()
-                    .uri("/health")
-                    .body(Body::empty())?
-            )
+            .oneshot(Request::builder().uri("/health").body(Body::empty())?)
             .await?
             .status(),
         StatusCode::OK
     );
     assert_eq!(
         app()?
-            .oneshot(
-                Request::builder()
-                    .uri("/dashboard")
-                    .body(Body::empty())?
-            )
+            .oneshot(Request::builder().uri("/dashboard").body(Body::empty())?)
             .await?
             .status(),
         StatusCode::OK
@@ -77,10 +70,7 @@ async fn token_and_origin_are_checked_independently() -> Result<(), Box<dyn std:
             request = request.header("origin", origin);
         }
         assert_eq!(
-            app()?
-                .oneshot(request.body(Body::empty())?)
-                .await?
-                .status(),
+            app()?.oneshot(request.body(Body::empty())?).await?.status(),
             expected
         );
     }
@@ -88,7 +78,8 @@ async fn token_and_origin_are_checked_independently() -> Result<(), Box<dyn std:
 }
 
 #[tokio::test]
-async fn browser_preflight_is_allowed_only_for_configured_origins() -> Result<(), Box<dyn std::error::Error>> {
+async fn browser_preflight_is_allowed_only_for_configured_origins(
+) -> Result<(), Box<dyn std::error::Error>> {
     for origin in ["https://dashboard.example", "https://evil.example"] {
         let request = Request::builder()
             .method("OPTIONS")
@@ -108,7 +99,12 @@ async fn browser_preflight_is_allowed_only_for_configured_origins() -> Result<()
             origin == "https://dashboard.example"
         );
         if origin == "https://dashboard.example" {
-            assert!(response.headers().get("access-control-allow-headers").unwrap().to_str()?.contains("idempotency-key"));
+            assert!(response
+                .headers()
+                .get("access-control-allow-headers")
+                .unwrap()
+                .to_str()?
+                .contains("idempotency-key"));
         }
     }
     Ok(())

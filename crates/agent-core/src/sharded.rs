@@ -28,7 +28,10 @@ impl ShardedCoreAgentRunner {
         Self { shards }
     }
 
-    pub fn with_shared_fault_policy(policy: Arc<CoreFaultPolicy>, capacity_per_shard: usize) -> Self {
+    pub fn with_shared_fault_policy(
+        policy: Arc<CoreFaultPolicy>,
+        capacity_per_shard: usize,
+    ) -> Self {
         let mut shards = Vec::with_capacity(SHARD_COUNT);
         for _ in 0..SHARD_COUNT {
             let agent = ResilientCoreAgent::new()

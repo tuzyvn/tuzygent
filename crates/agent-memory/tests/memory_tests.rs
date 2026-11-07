@@ -1,4 +1,6 @@
-use agent_domain::{AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel};
+use agent_domain::{
+    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel,
+};
 use agent_memory::{DurableMemoryStore, PersonaLoader, ScratchpadManager, SkillRegistry};
 use std::path::PathBuf;
 
@@ -10,13 +12,23 @@ static COUNTER: AtomicU64 = AtomicU64::new(1);
 async fn corrupt_structured_lessons_are_not_overwritten() {
     let dir = create_temp_dir("corrupt_structured");
     let path = dir.join("storage/harness_memory/structured_lessons.json");
-    tokio::fs::create_dir_all(path.parent().unwrap()).await.unwrap();
+    tokio::fs::create_dir_all(path.parent().unwrap())
+        .await
+        .unwrap();
     tokio::fs::write(&path, b"invalid json").await.unwrap();
     let lesson = agent_memory::durable::StructuredLesson {
-        id: "1".into(), timestamp: "now".into(), task_title: "test".into(),
-        trigger_error: None, remediation_applied: None, general_insight: "test".into(), success: true,
+        id: "1".into(),
+        timestamp: "now".into(),
+        task_title: "test".into(),
+        trigger_error: None,
+        remediation_applied: None,
+        general_insight: "test".into(),
+        success: true,
     };
-    assert!(DurableMemoryStore::new(&dir).save_structured_lesson(&lesson).await.is_err());
+    assert!(DurableMemoryStore::new(&dir)
+        .save_structured_lesson(&lesson)
+        .await
+        .is_err());
     assert_eq!(tokio::fs::read(&path).await.unwrap(), b"invalid json");
     let _ = tokio::fs::remove_dir_all(dir).await;
 }
@@ -29,14 +41,28 @@ async fn concurrent_structured_lesson_writers_preserve_updates() {
         let store = DurableMemoryStore::new(&dir);
         tasks.push(tokio::spawn(async move {
             let lesson = agent_memory::StructuredLesson {
-                id: i.to_string(), timestamp: "now".into(), task_title: "test".into(),
-                trigger_error: None, remediation_applied: None, general_insight: "test".into(), success: true,
+                id: i.to_string(),
+                timestamp: "now".into(),
+                task_title: "test".into(),
+                trigger_error: None,
+                remediation_applied: None,
+                general_insight: "test".into(),
+                success: true,
             };
             store.save_structured_lesson(&lesson).await.unwrap();
         }));
     }
-    for task in tasks { task.await.unwrap(); }
-    assert_eq!(DurableMemoryStore::new(&dir).load_structured_lessons().await.unwrap().len(), 32);
+    for task in tasks {
+        task.await.unwrap();
+    }
+    assert_eq!(
+        DurableMemoryStore::new(&dir)
+            .load_structured_lessons()
+            .await
+            .unwrap()
+            .len(),
+        32
+    );
     let _ = tokio::fs::remove_dir_all(dir).await;
 }
 
@@ -90,13 +116,23 @@ async fn test_durable_memory_multiline_lesson_block() {
     let temp_dir = create_temp_dir("multiline");
     let store = DurableMemoryStore::new(&temp_dir);
 
-    let multiline_lesson = "Optimization insight:\nLine 2: Use tokio::sync::mpsc\nLine 3: Benchmark shows 4x speedup";
+    let multiline_lesson =
+        "Optimization insight:\nLine 2: Use tokio::sync::mpsc\nLine 3: Benchmark shows 4x speedup";
     store.save_lesson(multiline_lesson).await.unwrap();
 
-    let ctx = store.load_relevant_context("tokio optimization").await.unwrap();
+    let ctx = store
+        .load_relevant_context("tokio optimization")
+        .await
+        .unwrap();
     assert!(ctx.contains("Optimization insight:"));
-    assert!(ctx.contains("Line 2: Use tokio::sync::mpsc"), "Multi-line lesson line 2 should not be lost");
-    assert!(ctx.contains("Line 3: Benchmark shows 4x speedup"), "Multi-line lesson line 3 should not be lost");
+    assert!(
+        ctx.contains("Line 2: Use tokio::sync::mpsc"),
+        "Multi-line lesson line 2 should not be lost"
+    );
+    assert!(
+        ctx.contains("Line 3: Benchmark shows 4x speedup"),
+        "Multi-line lesson line 3 should not be lost"
+    );
 
     let _ = tokio::fs::remove_dir_all(&temp_dir).await;
 }
@@ -145,7 +181,9 @@ description: Automated static analysis and code smell reviewer
 # Code Review Instructions
 Inspect code for safety and style.
 "#;
-    tokio::fs::write(skill_dir.join("SKILL.md"), skill_content).await.unwrap();
+    tokio::fs::write(skill_dir.join("SKILL.md"), skill_content)
+        .await
+        .unwrap();
 
     // 3. List skills
     let skills = registry.list_available_skills().await.unwrap();
@@ -191,30 +229,51 @@ async fn test_persona_markdown_roundtrip() {
         },
         mission: AgentMission {
             high_level_objective: "Audit zero day vulnerabilities".to_string(),
-            kpis: vec!["100% test pass rate".to_string(), "Zero red line violation".to_string()],
-            constraints: vec!["Never exfiltrate keys".to_string(), "Require approval for port scans".to_string()],
+            kpis: vec![
+                "100% test pass rate".to_string(),
+                "Zero red line violation".to_string(),
+            ],
+            constraints: vec![
+                "Never exfiltrate keys".to_string(),
+                "Require approval for port scans".to_string(),
+            ],
         },
     };
 
     // Export to dir
-    PersonaLoader::export_to_dir(&original, &persona_dir).await.unwrap();
+    PersonaLoader::export_to_dir(&original, &persona_dir)
+        .await
+        .unwrap();
 
     // Delete profile.json to force loading exclusively from IDENTITY.md, SOUL.md, MISSION.md
-    tokio::fs::remove_file(persona_dir.join("profile.json")).await.unwrap();
+    tokio::fs::remove_file(persona_dir.join("profile.json"))
+        .await
+        .unwrap();
 
     // Load from markdown
-    let loaded = PersonaLoader::load_from_markdown_files(&persona_dir).await.unwrap();
+    let loaded = PersonaLoader::load_from_markdown_files(&persona_dir)
+        .await
+        .unwrap();
 
     assert_eq!(loaded.identity.name, "Agent James");
     assert_eq!(loaded.identity.id.0, "secops-007");
     assert_eq!(loaded.identity.autonomy_level, AutonomyLevel::Supervised);
     assert_eq!(loaded.role.title, "Senior Security Specialist");
     assert_eq!(loaded.role.primary_domain, "Cybersecurity & Pentesting");
-    assert!(loaded.soul.persona.contains("Analytical, cautious, vigilant"));
+    assert!(loaded
+        .soul
+        .persona
+        .contains("Analytical, cautious, vigilant"));
     assert_eq!(loaded.soul.tone_of_voice, "Firm and professional");
     assert_eq!(loaded.soul.core_values, vec!["Integrity", "Zero Trust"]);
-    assert!(loaded.mission.high_level_objective.contains("Audit zero day vulnerabilities"));
-    assert_eq!(loaded.mission.constraints, vec!["Never exfiltrate keys", "Require approval for port scans"]);
+    assert!(loaded
+        .mission
+        .high_level_objective
+        .contains("Audit zero day vulnerabilities"));
+    assert_eq!(
+        loaded.mission.constraints,
+        vec!["Never exfiltrate keys", "Require approval for port scans"]
+    );
 
     let _ = tokio::fs::remove_dir_all(&temp_dir).await;
 }

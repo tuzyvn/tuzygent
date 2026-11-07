@@ -70,12 +70,14 @@ impl ResilientCoreAgent {
             Ok(guard) => guard,
             Err(p) => p.into_inner(),
         };
-        lock.iter().map(|item| {
-            std::mem::size_of::<CoreExecutionResult>()
-                + item.operation_id.len()
-                + item.name.len()
-                + item.output.len()
-        }).sum()
+        lock.iter()
+            .map(|item| {
+                std::mem::size_of::<CoreExecutionResult>()
+                    + item.operation_id.len()
+                    + item.name.len()
+                    + item.output.len()
+            })
+            .sum()
     }
 
     pub fn clear(&self) {
@@ -113,7 +115,10 @@ impl ResilientCoreAgent {
         let payload_owned = payload.to_string();
 
         let execution_outcome = SafeGuard::catch_unwind_result(move || {
-            format!("core-agent-output:[{}]-payload:{}", name_owned, payload_owned)
+            format!(
+                "core-agent-output:[{}]-payload:{}",
+                name_owned, payload_owned
+            )
         });
 
         match execution_outcome {

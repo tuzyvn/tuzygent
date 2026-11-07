@@ -20,8 +20,13 @@ async fn test_orchestrator_execute_workflow_boundary_cases_return_err_without_pa
             {"id": "e_bad", "source": "root", "target": "ghost_node"}
         ]),
     );
-    let res = orchestrator.execute_workflow(&wf_missing_target, None, "test").await;
-    assert!(res.is_err(), "execute_workflow must return Err for missing edge target");
+    let res = orchestrator
+        .execute_workflow(&wf_missing_target, None, "test")
+        .await;
+    assert!(
+        res.is_err(),
+        "execute_workflow must return Err for missing edge target"
+    );
 
     // Boundary case 2: Edge sources from non-existent node
     let wf_missing_source = test_workflow(
@@ -32,13 +37,23 @@ async fn test_orchestrator_execute_workflow_boundary_cases_return_err_without_pa
             {"id": "e_bad", "source": "ghost_node", "target": "root"}
         ]),
     );
-    let res = orchestrator.execute_workflow(&wf_missing_source, None, "test").await;
-    assert!(res.is_err(), "execute_workflow must return Err for missing edge source");
+    let res = orchestrator
+        .execute_workflow(&wf_missing_source, None, "test")
+        .await;
+    assert!(
+        res.is_err(),
+        "execute_workflow must return Err for missing edge source"
+    );
 
     // Boundary case 3: Empty nodes list
     let wf_empty_nodes = test_workflow(serde_json::json!([]), serde_json::json!([]));
-    let res = orchestrator.execute_workflow(&wf_empty_nodes, None, "test").await;
-    assert!(res.is_err(), "execute_workflow must return Err for empty nodes list");
+    let res = orchestrator
+        .execute_workflow(&wf_empty_nodes, None, "test")
+        .await;
+    assert!(
+        res.is_err(),
+        "execute_workflow must return Err for empty nodes list"
+    );
 
     // Boundary case 4: Node with empty ID
     let wf_empty_node_id = test_workflow(
@@ -47,8 +62,13 @@ async fn test_orchestrator_execute_workflow_boundary_cases_return_err_without_pa
         ]),
         serde_json::json!([]),
     );
-    let res = orchestrator.execute_workflow(&wf_empty_node_id, None, "test").await;
-    assert!(res.is_err(), "execute_workflow must return Err for empty node id");
+    let res = orchestrator
+        .execute_workflow(&wf_empty_node_id, None, "test")
+        .await;
+    assert!(
+        res.is_err(),
+        "execute_workflow must return Err for empty node id"
+    );
 
     let _ = std::fs::remove_dir_all(&tmp_dir);
     Ok(())
@@ -89,7 +109,9 @@ async fn test_orchestrator_boundary_errors_and_result_propagation(
     }
 
     // 2. Boundary: Loading non-existent catalog file fails safely
-    let catalog_err = orchestrator.load_workflow_from_catalog("missing-wf-id").await;
+    let catalog_err = orchestrator
+        .load_workflow_from_catalog("missing-wf-id")
+        .await;
     match catalog_err {
         Ok(_) => {
             let _ = std::fs::remove_dir_all(&tmp_dir);
@@ -145,10 +167,16 @@ async fn test_orchestrator_boundary_errors_and_result_propagation(
 }
 
 #[tokio::test]
-async fn test_orchestrator_executes_trigger_and_router_nodes_and_handles_unsupported_node() -> Result<(), Box<dyn std::error::Error>> {
-    let tmp_dir = std::env::temp_dir().join(format!("tuzygent-wf-dispatch-test-{}", uuid::Uuid::new_v4()));
+async fn test_orchestrator_executes_trigger_and_router_nodes_and_handles_unsupported_node(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let tmp_dir = std::env::temp_dir().join(format!(
+        "tuzygent-wf-dispatch-test-{}",
+        uuid::Uuid::new_v4()
+    ));
     std::fs::create_dir_all(&tmp_dir)?;
-    let dir_str = tmp_dir.to_str().ok_or("Failed to convert temp path to str")?;
+    let dir_str = tmp_dir
+        .to_str()
+        .ok_or("Failed to convert temp path to str")?;
     let orchestrator = WorkflowOrchestrator::new(dir_str, dir_str);
 
     // 1. Valid execution with triggerNode and routerNode
@@ -162,12 +190,17 @@ async fn test_orchestrator_executes_trigger_and_router_nodes_and_handles_unsuppo
         ]),
     );
 
-    let report = orchestrator.execute_workflow(&wf_valid, Some(serde_json::json!({"req_id": 42})), "tester").await?;
+    let report = orchestrator
+        .execute_workflow(&wf_valid, Some(serde_json::json!({"req_id": 42})), "tester")
+        .await?;
     assert_eq!(report.status, "Completed");
     assert_eq!(report.node_results["t1"].status, "completed");
     assert_eq!(report.node_results["t1"].output["type"], "webhook");
     assert_eq!(report.node_results["r1"].status, "completed");
-    assert_eq!(report.node_results["r1"].output["route_selected"], "branch-a");
+    assert_eq!(
+        report.node_results["r1"].output["route_selected"],
+        "branch-a"
+    );
     assert_eq!(report.node_results["r1"].output["condition"], "score > 80");
 
     // 2. Unsupported node type fails safely and skips dependents
@@ -181,13 +214,17 @@ async fn test_orchestrator_executes_trigger_and_router_nodes_and_handles_unsuppo
         ]),
     );
 
-    let report_unsupported = orchestrator.execute_workflow(&wf_unsupported, None, "tester").await?;
+    let report_unsupported = orchestrator
+        .execute_workflow(&wf_unsupported, None, "tester")
+        .await?;
     assert_eq!(report_unsupported.status, "Failed");
     assert_eq!(report_unsupported.node_results["u1"].status, "failed");
-    assert!(report_unsupported.node_results["u1"].error.as_deref().is_some_and(|err| err.contains("Unsupported node type")));
+    assert!(report_unsupported.node_results["u1"]
+        .error
+        .as_deref()
+        .is_some_and(|err| err.contains("Unsupported node type")));
     assert_eq!(report_unsupported.node_results["t2"].status, "skipped");
 
     let _ = std::fs::remove_dir_all(&tmp_dir);
     Ok(())
 }
-

@@ -9,7 +9,11 @@ pub const GENESIS_HASH: &str = "000000000000000000000000000000000000000000000000
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum AuditIntegrityError {
     #[error("Invalid sequence number at index {index}: expected {expected}, found {found}")]
-    InvalidSequence { index: usize, expected: u64, found: u64 },
+    InvalidSequence {
+        index: usize,
+        expected: u64,
+        found: u64,
+    },
 
     #[error("Previous hash mismatch at sequence {sequence}: expected {expected}, found {found}")]
     InvalidPrevHash {
@@ -178,14 +182,7 @@ impl AuditEntry {
         let action_str = action.into();
         let event_type = AuditEventType::from(action_str.as_str());
         Self::new_with_actor(
-            sequence,
-            timestamp,
-            event_type,
-            action_str,
-            severity,
-            details,
-            None,
-            prev_hash,
+            sequence, timestamp, event_type, action_str, severity, details, None, prev_hash,
         )
     }
 
@@ -204,12 +201,7 @@ impl AuditEntry {
         let details = details.into();
         let prev_hash = prev_hash.into();
         let hash = Self::compute_hash(
-            sequence,
-            &timestamp,
-            &action,
-            &severity,
-            &details,
-            &prev_hash,
+            sequence, &timestamp, &action, &severity, &details, &prev_hash,
         );
         Self {
             sequence,
@@ -347,14 +339,7 @@ impl AuditLedger {
         let prev_hash = self.last_hash().to_string();
         let timestamp = Utc::now();
         let entry = AuditEntry::new_with_actor(
-            sequence,
-            timestamp,
-            event_type,
-            action,
-            severity,
-            details,
-            actor,
-            prev_hash,
+            sequence, timestamp, event_type, action, severity, details, actor, prev_hash,
         );
         self.entries.push(entry);
         self.entries.last().expect("entry just pushed")

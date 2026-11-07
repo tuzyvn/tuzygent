@@ -88,9 +88,16 @@ pub async fn run_task_handler(
     let ooda = if let Some(path) = &payload.persona_path {
         match PersonaLoader::load_from_dir(path).await {
             Ok(profile) => ooda.with_persona(profile),
-            Err(error) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error":error.to_string()}))),
+            Err(error) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({"error":error.to_string()})),
+                )
+            }
         }
-    } else { ooda };
+    } else {
+        ooda
+    };
 
     match ooda.run_goal(&mut task).await {
         Ok(final_status) => (
@@ -124,10 +131,13 @@ pub async fn submit_task_handler(
     let engine_name = payload.engine.as_deref().unwrap_or(&config.defaults.engine);
     let engine = match agent_engine::configured_engine(&config, engine_name, None) {
         Ok(engine) => engine,
-        Err(error) => return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": error.to_string()})),
-        ).into_response(),
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": error.to_string()})),
+            )
+                .into_response()
+        }
     };
     let priority = match payload.priority.as_deref().unwrap_or("normal") {
         "low" => Priority::Low,
@@ -139,14 +149,33 @@ pub async fn submit_task_handler(
     let key = match headers.get("idempotency-key") {
         None => None,
         Some(value) => match value.to_str() {
-            Ok(key) if !key.is_empty() && key.len() <= 128 && key.bytes().all(|b| b.is_ascii_graphic()) => Some(key),
-            _ => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Invalid Idempotency-Key"}))).into_response(),
+            Ok(key)
+                if !key.is_empty()
+                    && key.len() <= 128
+                    && key.bytes().all(|b| b.is_ascii_graphic()) =>
+            {
+                Some(key)
+            }
+            _ => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({"error": "Invalid Idempotency-Key"})),
+                )
+                    .into_response()
+            }
         },
     };
     let submission = if let Some(key) = key {
-        state.task_service.submit_task_idempotent(&payload.title, &payload.goal, priority, engine_name, key).await
+        state
+            .task_service
+            .submit_task_idempotent(&payload.title, &payload.goal, priority, engine_name, key)
+            .await
     } else {
-        state.task_service.submit_task_with_engine(&payload.title, &payload.goal, priority, engine_name).await.map(agent_runtime::IdempotentSubmission::Created)
+        state
+            .task_service
+            .submit_task_with_engine(&payload.title, &payload.goal, priority, engine_name)
+            .await
+            .map(agent_runtime::IdempotentSubmission::Created)
     };
     match submission {
         Ok(agent_runtime::IdempotentSubmission::Conflict) => (StatusCode::CONFLICT, Json(serde_json::json!({"error": "Idempotency-Key was already used for a different request"}))).into_response(),
@@ -196,7 +225,13 @@ pub async fn get_task_handler(
         Ok(Some((task, result))) => {
             let review_revision = match state.task_service.review_revision(&task) {
                 Ok(revision) => revision,
-                Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": err.to_string() }))).into_response(),
+                Err(err) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({ "error": err.to_string() })),
+                    )
+                        .into_response()
+                }
             };
             (
                 StatusCode::OK,
@@ -205,10 +240,19 @@ pub async fn get_task_handler(
                     "result": result,
                     "review_revision": review_revision,
                 })),
-            ).into_response()
+            )
+                .into_response()
         }
-        Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Task not found" }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.to_string() }))).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "Task not found" })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e.to_string() })),
+        )
+            .into_response(),
     }
 }
 
@@ -217,10 +261,27 @@ pub async fn review_task_handler(
     Path(id): Path<String>,
     Json(payload): Json<ReviewTaskReq>,
 ) -> impl IntoResponse {
-    match state.task_service.review_task(&TaskId(id), &payload.revision, &payload.reviewer, payload.approved).await {
+    match state
+        .task_service
+        .review_task(
+            &TaskId(id),
+            &payload.revision,
+            &payload.reviewer,
+            payload.approved,
+        )
+        .await
+    {
         Ok(true) => (StatusCode::OK, Json(serde_json::json!({"reviewed": true}))).into_response(),
-        Ok(false) => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Task not found"}))).into_response(),
-        Err(err) => (StatusCode::CONFLICT, Json(serde_json::json!({"error": err.to_string()}))).into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "Task not found"})),
+        )
+            .into_response(),
+        Err(err) => (
+            StatusCode::CONFLICT,
+            Json(serde_json::json!({"error": err.to_string()})),
+        )
+            .into_response(),
     }
 }
 
@@ -230,9 +291,21 @@ pub async fn cancel_task_handler(
 ) -> impl IntoResponse {
     let task_id = TaskId(id);
     match state.task_service.cancel_task(&task_id).await {
-        Ok(true) => (StatusCode::OK, Json(serde_json::json!({ "canceled": true }))).into_response(),
-        Ok(false) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Task not found" }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.to_string() }))).into_response(),
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "canceled": true })),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "Task not found" })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e.to_string() })),
+        )
+            .into_response(),
     }
 }
 
@@ -245,12 +318,26 @@ pub async fn approve_task_handler(
     let config = EnginesConfig::load_hierarchical(Some(ws_path));
     let engine = match agent_engine::configured_engine(&config, &config.defaults.engine, None) {
         Ok(e) => e,
-        Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": err.to_string() }))).into_response(),
+        Err(err) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": err.to_string() })),
+            )
+                .into_response()
+        }
     };
 
     match state.task_service.approve_task(&task_id, engine).await {
         Ok(true) => (StatusCode::OK, Json(serde_json::json!({ "resumed": true }))).into_response(),
-        Ok(false) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Task not found" }))).into_response(),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": e.to_string() }))).into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "Task not found" })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": e.to_string() })),
+        )
+            .into_response(),
     }
 }

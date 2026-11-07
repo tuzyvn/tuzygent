@@ -51,14 +51,8 @@ pub fn parse_remediation_json(
             .and_then(|v| v.as_str())
             .unwrap_or("Error resolved");
 
-        let mut rem = SubTask::new_remediation(
-            id,
-            title,
-            cmd,
-            &failed_subtask.id,
-            error_context,
-            retry_num,
-        );
+        let mut rem =
+            SubTask::new_remediation(id, title, cmd, &failed_subtask.id, error_context, retry_num);
         rem.expected_verification = ver.to_string();
         return Some(rem);
     }

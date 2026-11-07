@@ -15,7 +15,10 @@ pub enum SubtaskVerificationOutcome {
         error: String,
         verif_results: Vec<VerificationResult>,
     },
-    NeedsReview { reason: String, verif_results: Vec<VerificationResult> },
+    NeedsReview {
+        reason: String,
+        verif_results: Vec<VerificationResult>,
+    },
 }
 
 /// Thực thi quy trình kiểm tra TaskVerifier đối với subtask vừa hoàn tất lệnh exit code 0
@@ -24,7 +27,14 @@ pub async fn execute_subtask_verification(
     active_workdir: &Path,
     all_verifications: &mut Vec<VerificationResult>,
 ) -> SubtaskVerificationOutcome {
-    execute_with_verifier(subtask, active_workdir, all_verifications, TaskVerifier::new(active_workdir), false).await
+    execute_with_verifier(
+        subtask,
+        active_workdir,
+        all_verifications,
+        TaskVerifier::new(active_workdir),
+        false,
+    )
+    .await
 }
 
 async fn execute_with_verifier(
@@ -47,13 +57,26 @@ async fn execute_with_verifier(
     let (verified_ok, verif_results) = verifier.verify_all(&specs).await;
     all_verifications.extend(verif_results.clone());
 
-    let failed_automatic = verif_results.iter().any(|r| !r.passed && !matches!(r.spec, agent_domain::VerificationSpec::Custom { .. }));
-    if !failed_automatic && (specs.is_empty() || verif_results.iter().any(|r| matches!(r.spec, agent_domain::VerificationSpec::Custom { .. }))) {
+    let failed_automatic = verif_results
+        .iter()
+        .any(|r| !r.passed && !matches!(r.spec, agent_domain::VerificationSpec::Custom { .. }));
+    if !failed_automatic
+        && (specs.is_empty()
+            || verif_results
+                .iter()
+                .any(|r| matches!(r.spec, agent_domain::VerificationSpec::Custom { .. })))
+    {
         if auto_approve {
-            info!("✅ [OODA] Auto-approving custom/unspecified verification for subtask {}", subtask.id);
+            info!(
+                "✅ [OODA] Auto-approving custom/unspecified verification for subtask {}",
+                subtask.id
+            );
             SubtaskVerificationOutcome::Passed { verif_results }
         } else {
-            SubtaskVerificationOutcome::NeedsReview { reason: "Manual verification required".into(), verif_results }
+            SubtaskVerificationOutcome::NeedsReview {
+                reason: "Manual verification required".into(),
+                verif_results,
+            }
         }
     } else if verified_ok {
         SubtaskVerificationOutcome::Passed { verif_results }
@@ -149,8 +172,19 @@ impl SubtaskExecutor {
         active_workdir: &Path,
         all_verifications: &mut Vec<VerificationResult>,
     ) -> SubtaskVerificationOutcome {
-        let verifier = TaskVerifier::with_policy(active_workdir, self.sandbox_config.clone().unwrap_or_default(), self.guardrail.clone());
-        execute_with_verifier(subtask, active_workdir, all_verifications, verifier, self.auto_approve).await
+        let verifier = TaskVerifier::with_policy(
+            active_workdir,
+            self.sandbox_config.clone().unwrap_or_default(),
+            self.guardrail.clone(),
+        );
+        execute_with_verifier(
+            subtask,
+            active_workdir,
+            all_verifications,
+            verifier,
+            self.auto_approve,
+        )
+        .await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -185,7 +219,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_subtask_verification_passed() -> Result<(), Box<dyn std::error::Error>> {
-        let temp_dir = std::env::temp_dir().join(format!("test_verif_pass_{}", uuid::Uuid::new_v4()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("test_verif_pass_{}", uuid::Uuid::new_v4()));
         let _ = std::fs::create_dir_all(&temp_dir);
         let test_file = temp_dir.join("hello.txt");
         std::fs::write(&test_file, "content")?;
@@ -210,7 +245,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_execute_subtask_verification_failed() {
-        let temp_dir = std::env::temp_dir().join(format!("test_verif_fail_{}", uuid::Uuid::new_v4()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("test_verif_fail_{}", uuid::Uuid::new_v4()));
         let _ = std::fs::create_dir_all(&temp_dir);
 
         let mut st = SubTask::new("1", "Check missing", "echo ok", "file: missing.txt");
@@ -224,7 +260,11 @@ mod tests {
 
         assert_eq!(st.status, TaskStatus::SelfChecking);
         assert!(matches!(outcome, SubtaskVerificationOutcome::Failed { .. }));
-        if let SubtaskVerificationOutcome::Failed { error, verif_results } = outcome {
+        if let SubtaskVerificationOutcome::Failed {
+            error,
+            verif_results,
+        } = outcome
+        {
             assert!(error.contains("Verification failed"));
             assert_eq!(verif_results.len(), 1);
             assert!(!verif_results[0].passed);

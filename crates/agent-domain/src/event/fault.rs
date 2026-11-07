@@ -46,9 +46,9 @@ impl EventFault {
                 "Packet payload checksum failure or corrupted JSON".to_string(),
             ),
             Self::Dropped => EventError::Dropped,
-            Self::Duplicate => {
-                EventError::InvalidStructure("Unexpected duplicate fault converted to error".to_string())
-            }
+            Self::Duplicate => EventError::InvalidStructure(
+                "Unexpected duplicate fault converted to error".to_string(),
+            ),
         }
     }
 }

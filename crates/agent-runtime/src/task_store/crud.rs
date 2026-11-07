@@ -80,8 +80,8 @@ pub fn get_task(conn: &Mutex<Connection>, id: &TaskId) -> Result<Option<Task>> {
 
 pub fn list_tasks(conn: &Mutex<Connection>, limit: usize, offset: usize) -> Result<Vec<Task>> {
     let conn = acquire_conn(conn);
-    let mut stmt = conn
-        .prepare("SELECT raw_json FROM tasks ORDER BY created_at DESC LIMIT ?1 OFFSET ?2")?;
+    let mut stmt =
+        conn.prepare("SELECT raw_json FROM tasks ORDER BY created_at DESC LIMIT ?1 OFFSET ?2")?;
     let rows = stmt.query_map(params![limit as i64, offset as i64], |row| {
         row.get::<_, String>(0)
     })?;
@@ -107,9 +107,10 @@ pub fn list_tasks_by_status(
     )?;
     let exact_pat = format!("\"{}\"", status_filter);
     let like_pat = format!("%{}%", status_filter);
-    let rows = stmt.query_map(params![exact_pat, like_pat, limit as i64, offset as i64], |row| {
-        row.get::<_, String>(0)
-    })?;
+    let rows = stmt.query_map(
+        params![exact_pat, like_pat, limit as i64, offset as i64],
+        |row| row.get::<_, String>(0),
+    )?;
 
     let mut tasks = Vec::new();
     for raw in rows.flatten() {
@@ -143,11 +144,20 @@ pub fn delete_task(conn: &Mutex<Connection>, id: &TaskId) -> Result<bool> {
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let deleted = tx.execute("DELETE FROM tasks WHERE id = ?1", params![id.0])?;
     if deleted > 0 {
-        let _ = tx.execute("DELETE FROM subtask_checkpoints WHERE task_id = ?1", params![id.0]);
+        let _ = tx.execute(
+            "DELETE FROM subtask_checkpoints WHERE task_id = ?1",
+            params![id.0],
+        );
         let _ = tx.execute("DELETE FROM task_results WHERE task_id = ?1", params![id.0]);
-        let _ = tx.execute("DELETE FROM task_idempotency WHERE task_id = ?1", params![id.0]);
+        let _ = tx.execute(
+            "DELETE FROM task_idempotency WHERE task_id = ?1",
+            params![id.0],
+        );
         let _ = tx.execute("DELETE FROM task_reviews WHERE task_id = ?1", params![id.0]);
-        let _ = tx.execute("DELETE FROM task_schedules WHERE task_id = ?1 OR schedule_id = ?1", params![id.0]);
+        let _ = tx.execute(
+            "DELETE FROM task_schedules WHERE task_id = ?1 OR schedule_id = ?1",
+            params![id.0],
+        );
         tx.commit()?;
         Ok(true)
     } else {
@@ -170,11 +180,20 @@ pub fn prune_finished_tasks(conn: &Mutex<Connection>, older_than_rfc3339: &str) 
     }
     let mut pruned_count = 0;
     for id in &ids {
-        let _ = tx.execute("DELETE FROM subtask_checkpoints WHERE task_id = ?1", params![id]);
+        let _ = tx.execute(
+            "DELETE FROM subtask_checkpoints WHERE task_id = ?1",
+            params![id],
+        );
         let _ = tx.execute("DELETE FROM task_results WHERE task_id = ?1", params![id]);
-        let _ = tx.execute("DELETE FROM task_idempotency WHERE task_id = ?1", params![id]);
+        let _ = tx.execute(
+            "DELETE FROM task_idempotency WHERE task_id = ?1",
+            params![id],
+        );
         let _ = tx.execute("DELETE FROM task_reviews WHERE task_id = ?1", params![id]);
-        if tx.execute("DELETE FROM tasks WHERE id = ?1", params![id]).is_ok() {
+        if tx
+            .execute("DELETE FROM tasks WHERE id = ?1", params![id])
+            .is_ok()
+        {
             pruned_count += 1;
         }
     }
@@ -293,49 +312,12 @@ pub fn get_checkpoint_metadata(
         }
         let json_str: String = row.get(1)?;
         let subtasks: Vec<SubTask> = serde_json::from_str(&json_str)?;
-        Ok(Some(agent_domain::CheckpointMetadata::new(task_id.clone(), &subtasks)))
+        Ok(Some(agent_domain::CheckpointMetadata::new(
+            task_id.clone(),
+            &subtasks,
+        )))
     } else {
         Ok(None)
     }
 }
 
-pub fn save_result(conn: &Mutex<Connection>, result: &TaskResult) -> Result<()> {
-    let conn = acquire_conn(conn);
-    let raw_json = serde_json::to_string(result)?;
-    let status_json = serde_json::to_string(&result.status)?;
-    let now = chrono::Utc::now().to_rfc3339();
-
-    conn.execute(
-        "INSERT INTO task_results (task_id, status, summary, duration_ms, raw_json, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-         ON CONFLICT(task_id) DO UPDATE SET
-             status = excluded.status,
-             summary = excluded.summary,
-             duration_ms = excluded.duration_ms,
-             raw_json = excluded.raw_json",
-        params![
-            result.task_id.0,
-            status_json,
-            result.summary,
-            i64::try_from(result.duration_ms).unwrap_or(i64::MAX),
-            raw_json,
-            now
-        ],
-    )?;
-
-    Ok(())
-}
-
-pub fn get_result(conn: &Mutex<Connection>, task_id: &TaskId) -> Result<Option<TaskResult>> {
-    let conn = acquire_conn(conn);
-    let mut stmt = conn.prepare("SELECT raw_json FROM task_results WHERE task_id = ?1")?;
-    let mut rows = stmt.query(params![task_id.0])?;
-
-    if let Some(row) = rows.next()? {
-        let raw: String = row.get(0)?;
-        let res = serde_json::from_str(&raw)?;
-        Ok(Some(res))
-    } else {
-        Ok(None)
-    }
-}

@@ -52,24 +52,22 @@ mod tests {
         let mut config = EnginesConfig::default();
         config.defaults.timeout_seconds = 17;
         config.defaults.sandbox_image = "private/engines:v1".into();
-        config
-            .merge_toml(
-                r#"
+        config.merge_toml(
+            r#"
             [engines.probe]
             kind = "generic"
             binary_path = "echo"
         "#,
-            )?;
+        )?;
         assert_eq!(config.defaults.timeout_seconds, 17);
         assert_eq!(config.defaults.sandbox_image, "private/engines:v1");
-        config
-            .merge_toml(
-                r#"
+        config.merge_toml(
+            r#"
             [security]
             allowed_env_vars = []
             mount_credentials = []
         "#,
-            )?;
+        )?;
         assert!(config.security.allowed_env_vars.is_empty());
         assert!(config.security.mount_credentials.is_empty());
         Ok(())

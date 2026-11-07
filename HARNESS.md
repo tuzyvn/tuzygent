@@ -136,16 +136,10 @@ agent-ctl update --check
    - Thay vì dùng con số cố định như 400 hay 500 dòng, hệ thống tính toán phân vị 90% độ dài các file của toàn bộ dự án. Những file vượt ngưỡng P90 sẽ tự động được xếp vào danh mục cần tái cấu trúc (**P2**).
 4. **Trích xuất lỗi tái diễn từ Runtime**:
    - Đọc trực tiếp từ `storage/harness_memory/harness_lessons.json`. Những lỗi có `success_count >= 2` được tự động gom thành bài toán kiến trúc cần triệt tiêu tận gốc.
-5. **Frontier Feature Brainstorming Engine (Tự động chuyển sang Brainstorm khi hết đề tài)**:
-   - Khi toàn bộ đề tài bảo trì/refactor mã nguồn (unwrap, panic, P90, lessons) đã hoàn tất và backlog cạn kiệt, hệ thống sẽ **tự động chuyển sang chế độ Brainstorming**.
-   - Dựa trên lược đồ năng lực hiện có (`extract_system_capabilities`), hệ thống chủ động đề xuất các đề tài mở rộng tính năng mới theo 6 chiều kiến trúc:
-     - *Resilience & Fault Tolerance* (Exponential Backoff, Dead-Letter Queue, Task Checkpointing, Circuit Breaker).
-     - *Multi-Agent Collaboration* (Topic-based Pub/Sub trên `InterAgentBus`, Consensus Voting Gate trong DAG, Scoped Scratchpad).
-     - *Observability & Telemetry* (Prometheus `/metrics` Exporter, Structured OpenTelemetry Spans, Cryptographic Audit Ledger).
-     - *Security & Sandboxing* (Real-Time Secret Redaction, Ephemeral Tmpfs Overlay, Outbound Egress Policy).
-     - *Developer Ergonomics* (`agent-ctl inspect`, Xuất DAG Mermaid/Graphviz, Dynamic Skill Hot-Reloading).
-     - *Adaptive Intelligence* (Adaptive Token Windowing & Context Compaction).
-   - Khi các đề tài nền tảng hoàn thành, hệ thống tiếp tục tự động tổng hợp các đề tài *Chaos Engineering*, *Concurrency Stress Test* và *Performance Benchmark* đa tầng, đảm bảo vòng lặp nghiên cứu hoạt động vô tận không bao giờ cạn kiệt.
+5. **Brainstorm dựa trên mã nguồn hiện tại**:
+   - Khi hết đề tài bảo trì mới hoặc chạy `--brainstorm`, generator quét các marker TODO/FIXME, API công khai chưa được nhắc tới trong Rust tests, và kiểu `Serialize`/`Deserialize` chưa có test.
+   - Mỗi đề tài nêu file, symbol hoặc dòng nguồn làm căn cứ; generator không tạo đề tài chỉ từ tên module hay danh sách mẫu cố định.
+   - Kết quả chỉ được thêm vào backlog nếu chưa có đề tài cùng tiêu đề.
 
 ---
 

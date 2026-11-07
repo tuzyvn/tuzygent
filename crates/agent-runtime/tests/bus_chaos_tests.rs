@@ -43,7 +43,11 @@ async fn test_intermittent_socket_timeout_recovery() {
     let event = create_sample_event("supervisor", Some("worker-1"), "task.dispatch");
     let result = bus.publish_resilient(event.clone());
 
-    assert!(result.is_ok(), "Expected success after retry recovery: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Expected success after retry recovery: {:?}",
+        result.err()
+    );
     assert!(bus.recovered_count() > 0);
     assert_eq!(bus.published_count(), 1);
 
@@ -68,7 +72,10 @@ async fn test_intermittent_connection_reset_recovery() {
     assert!(bus.recovered_count() > 0);
     assert_eq!(bus.published_count(), 1);
 
-    let received = rx.recv().await.expect("Subscriber should receive heartbeat");
+    let received = rx
+        .recv()
+        .await
+        .expect("Subscriber should receive heartbeat");
     assert_eq!(received.id, event.id);
 }
 
@@ -114,7 +121,10 @@ async fn test_intermittent_channel_full_recovery() {
     let event = create_sample_event("producer", Some("consumer"), "buffer.test");
     let result = bus.publish_resilient(event.clone());
 
-    assert!(result.is_ok(), "Expected recovery from intermittent channel capacity overflow");
+    assert!(
+        result.is_ok(),
+        "Expected recovery from intermittent channel capacity overflow"
+    );
     assert!(bus.recovered_count() > 0);
     assert_eq!(bus.published_count(), 1);
 
@@ -140,23 +150,28 @@ async fn test_broadcast_buffer_overflow_and_subscriber_lagged_recovery() {
     // Subscriber should detect buffer capacity overflow (Lagged error)
     match rx.recv().await {
         Err(tokio::sync::broadcast::error::RecvError::Lagged(missed)) => {
-            assert!(missed > 0, "Subscriber must detect missed messages due to buffer overflow");
+            assert!(
+                missed > 0,
+                "Subscriber must detect missed messages due to buffer overflow"
+            );
         }
-        other => panic!("Expected RecvError::Lagged due to buffer overflow, got {:?}", other),
+        other => panic!(
+            "Expected RecvError::Lagged due to buffer overflow, got {:?}",
+            other
+        ),
     }
 
     // Subsequent recv should recover and receive remaining recent messages
-    let recovered_msg = rx.recv().await.expect("Subscriber should recover after lagging");
+    let recovered_msg = rx
+        .recv()
+        .await
+        .expect("Subscriber should recover after lagging");
     assert!(recovered_msg.event_type.starts_with("overflow.msg."));
 }
 
 #[tokio::test]
 async fn test_dropped_subscribers_and_recovery() {
-    let mut bus = ResilientInterAgentBus::new(
-        16,
-        BusFaultPolicy::none(),
-        3,
-    );
+    let mut bus = ResilientInterAgentBus::new(16, BusFaultPolicy::none(), 3);
 
     // Initial subscriber
     let rx1 = bus.subscribe();
@@ -173,7 +188,11 @@ async fn test_dropped_subscribers_and_recovery() {
     // Publishing to dropped subscribers should succeed gracefully with 0 recipients
     let event2 = create_sample_event("source-1", None, "event.orphaned");
     let res2 = bus.publish_resilient(event2);
-    assert_eq!(res2.unwrap(), 0, "Must safely deliver with 0 active recipients when subscribers drop");
+    assert_eq!(
+        res2.unwrap(),
+        0,
+        "Must safely deliver with 0 active recipients when subscribers drop"
+    );
 
     // Reconnection / recovery: new subscriber attaches
     let mut rx2 = bus.subscribe();
@@ -183,17 +202,16 @@ async fn test_dropped_subscribers_and_recovery() {
     let res3 = bus.publish_resilient(event3.clone());
     assert_eq!(res3.unwrap(), 1);
 
-    let received = rx2.recv().await.expect("New subscriber must receive post-recovery event");
+    let received = rx2
+        .recv()
+        .await
+        .expect("New subscriber must receive post-recovery event");
     assert_eq!(received.id, event3.id);
 }
 
 #[tokio::test]
 async fn test_partial_subscriber_drop_resilience() {
-    let mut bus = ResilientInterAgentBus::new(
-        16,
-        BusFaultPolicy::none(),
-        3,
-    );
+    let mut bus = ResilientInterAgentBus::new(16, BusFaultPolicy::none(), 3);
 
     let rx1 = bus.subscribe();
     let mut rx2 = bus.subscribe();
@@ -210,17 +228,17 @@ async fn test_partial_subscriber_drop_resilience() {
     let res = bus.publish_resilient(event.clone());
     assert_eq!(res.unwrap(), 1);
 
-    let received = rx2.recv().await.expect("Surviving subscriber must receive event");
+    let received = rx2
+        .recv()
+        .await
+        .expect("Surviving subscriber must receive event");
     assert_eq!(received.id, event.id);
 }
 
 #[tokio::test]
 async fn test_max_retries_exceeded_on_persistent_timeout() {
-    let mut bus = ResilientInterAgentBus::new(
-        64,
-        BusFaultPolicy::always(BusFault::SocketTimeout),
-        3,
-    );
+    let mut bus =
+        ResilientInterAgentBus::new(64, BusFaultPolicy::always(BusFault::SocketTimeout), 3);
 
     let event = create_sample_event("agent-a", Some("agent-b"), "data.sync");
     let result = bus.publish_resilient(event);
@@ -233,11 +251,8 @@ async fn test_max_retries_exceeded_on_persistent_timeout() {
 
 #[tokio::test]
 async fn test_corrupted_event_rejection() {
-    let mut bus = ResilientInterAgentBus::new(
-        64,
-        BusFaultPolicy::always(BusFault::CorruptedEvent),
-        3,
-    );
+    let mut bus =
+        ResilientInterAgentBus::new(64, BusFaultPolicy::always(BusFault::CorruptedEvent), 3);
 
     let event = create_sample_event("attacker", None, "malformed.packet");
     let result = bus.publish_resilient(event);
@@ -265,18 +280,18 @@ async fn test_bus_audit_ledger_chaos_integration() {
     assert!(res.is_ok());
 
     // 2. Rejected publish under corrupted event fault
-    let mut corrupt_bus = ResilientInterAgentBus::new(
-        64,
-        BusFaultPolicy::always(BusFault::CorruptedEvent),
-        2,
-    );
+    let mut corrupt_bus =
+        ResilientInterAgentBus::new(64, BusFaultPolicy::always(BusFault::CorruptedEvent), 2);
     let bad_event = create_sample_event("unknown", None, "bad.signal");
     let err_res = corrupt_bus.publish_and_record(&mut ledger, bad_event);
     assert!(err_res.is_err());
 
     // 3. Verify ledger integrity and recorded entries
     assert_eq!(ledger.len(), 2);
-    assert!(ledger.verify_integrity().is_ok(), "Audit ledger hash chain must remain valid");
+    assert!(
+        ledger.verify_integrity().is_ok(),
+        "Audit ledger hash chain must remain valid"
+    );
 
     let entries = ledger.entries();
     assert_eq!(entries[0].event_type, AuditEventType::CommandAllowed);
@@ -299,7 +314,12 @@ async fn test_high_volume_bus_chaos_resilience() {
     for i in 0..count {
         let event = create_sample_event("stress-tester", None, &format!("batch.msg.{}", i));
         let res = bus.publish_resilient(event);
-        assert!(res.is_ok(), "Message {} must be safely delivered: {:?}", i, res.err());
+        assert!(
+            res.is_ok(),
+            "Message {} must be safely delivered: {:?}",
+            i,
+            res.err()
+        );
     }
 
     assert_eq!(bus.published_count(), count);
@@ -325,11 +345,17 @@ async fn test_topic_ff99fb_31d780_bus_chaos_resilience() {
     let event = create_sample_event("coordinator", Some("executor"), "mission.execute");
     let res = resilient_bus.publish_resilient(event.clone());
 
-    assert!(res.is_ok(), "Must survive intermittent fault injection without failing mission");
+    assert!(
+        res.is_ok(),
+        "Must survive intermittent fault injection without failing mission"
+    );
     assert_eq!(resilient_bus.published_count(), 1);
     assert!(resilient_bus.recovered_count() > 0);
 
-    let msg = rx.recv().await.expect("Subscriber on base bus must receive the dispatched event");
+    let msg = rx
+        .recv()
+        .await
+        .expect("Subscriber on base bus must receive the dispatched event");
     assert_eq!(msg.id, event.id);
 }
 
@@ -408,7 +434,10 @@ async fn test_resilient_subscriber_auto_catchup_on_overflow() {
         .recv_resilient()
         .await
         .expect("Should safely catch up to fresh event without panicking");
-    assert!(resilient_rx.total_lagged() > 0, "Must track lagged message count");
+    assert!(
+        resilient_rx.total_lagged() > 0,
+        "Must track lagged message count"
+    );
     assert!(caught_event.event_type.starts_with("overflow.event."));
 }
 
@@ -436,7 +465,10 @@ async fn test_bus_manual_reconstitution_recovery() {
     let res_reconstituted = bus.safe_publish(event.clone());
     assert!(res_reconstituted.is_ok());
 
-    let received = new_rx.recv().await.expect("Must receive on reconstituted bus");
+    let received = new_rx
+        .recv()
+        .await
+        .expect("Must receive on reconstituted bus");
     assert_eq!(received.id, event.id);
 }
 
@@ -458,7 +490,11 @@ async fn test_resilient_bus_auto_reconstitution_on_channel_closed() {
     // Publish with auto-reconstitution enabled: recovers automatically!
     let event2 = create_sample_event("agent-1", None, "after.reconstitution");
     let res2 = bus.publish_resilient(event2.clone());
-    assert!(res2.is_ok(), "Must auto-reconstitute closed bus and succeed: {:?}", res2.err());
+    assert!(
+        res2.is_ok(),
+        "Must auto-reconstitute closed bus and succeed: {:?}",
+        res2.err()
+    );
     assert!(bus.reconstituted_count() > 0);
     assert!(!bus.bus().is_closed());
 }
@@ -466,11 +502,8 @@ async fn test_resilient_bus_auto_reconstitution_on_channel_closed() {
 #[tokio::test]
 async fn test_bus_fault_panic_resilience_and_protection() {
     // Intermittent panic fault: should be caught, recovered via retry without crashing thread
-    let mut bus = ResilientInterAgentBus::new(
-        64,
-        BusFaultPolicy::intermittent(BusFault::Panic, 2),
-        3,
-    );
+    let mut bus =
+        ResilientInterAgentBus::new(64, BusFaultPolicy::intermittent(BusFault::Panic, 2), 3);
     let mut rx = bus.subscribe();
 
     let event = create_sample_event("tester", None, "panic.resilience");
@@ -487,11 +520,7 @@ async fn test_bus_fault_panic_resilience_and_protection() {
 #[tokio::test]
 async fn test_publish_and_record_panic_safety() {
     let mut ledger = AuditLedger::new();
-    let mut bus = ResilientInterAgentBus::new(
-        64,
-        BusFaultPolicy::always(BusFault::Panic),
-        2,
-    );
+    let mut bus = ResilientInterAgentBus::new(64, BusFaultPolicy::always(BusFault::Panic), 2);
 
     let event = create_sample_event("agent", None, "persistent.panic");
     let res = bus.publish_and_record(&mut ledger, event);
@@ -503,5 +532,8 @@ async fn test_publish_and_record_panic_safety() {
 
     // Audit ledger records the failure without panicking
     assert_eq!(ledger.len(), 1);
-    assert_eq!(ledger.entries()[0].event_type, AuditEventType::CommandException);
+    assert_eq!(
+        ledger.entries()[0].event_type,
+        AuditEventType::CommandException
+    );
 }

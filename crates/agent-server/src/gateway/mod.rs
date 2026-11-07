@@ -26,8 +26,8 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use agent_runtime::{AgentSupervisor, InterAgentBus};
     use agent_engine::AccountEngineKind;
+    use agent_runtime::{AgentSupervisor, InterAgentBus};
     use axum::extract::State;
     use axum::Json;
 
@@ -36,15 +36,12 @@ mod tests {
     fn create_test_state() -> Result<AppState, Box<dyn std::error::Error>> {
         let bus = InterAgentBus::new(16);
         let supervisor = Arc::new(AgentSupervisor::new(bus.clone()));
-        let temp_dir = std::env::temp_dir().join(format!("gateway_test_{}", uuid::Uuid::new_v4().simple()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("gateway_test_{}", uuid::Uuid::new_v4().simple()));
         let vault = Arc::new(agent_engine::AccountVault::new_with_dir(temp_dir));
         let task_store = Arc::new(agent_runtime::SqliteTaskStore::memory()?);
         let task_service = Arc::new(agent_runtime::TaskService::new(
-            task_store,
-            "/tmp",
-            2,
-            None,
-            None,
+            task_store, "/tmp", 2, None, None,
         ));
 
         Ok(AppState {
@@ -62,7 +59,10 @@ mod tests {
         let state = create_test_state()?;
 
         let mut env = HashMap::new();
-        env.insert("SECRET_API_KEY".to_string(), "sk-super-secret-12345".to_string());
+        env.insert(
+            "SECRET_API_KEY".to_string(),
+            "sk-super-secret-12345".to_string(),
+        );
         env.insert("ANTHROPIC_AUTH".to_string(), "token-999".to_string());
 
         let req = AddAccountReq {
@@ -78,8 +78,12 @@ mod tests {
         let safe_profile = add_res.map_err(|(code, msg)| format!("{code}: {msg}"))?.0;
         assert_eq!(safe_profile.id, "safe-acc-01");
         assert_eq!(safe_profile.name, "Sanitized Test Account");
-        assert!(safe_profile.extra_env_keys.contains(&"SECRET_API_KEY".to_string()));
-        assert!(safe_profile.extra_env_keys.contains(&"ANTHROPIC_AUTH".to_string()));
+        assert!(safe_profile
+            .extra_env_keys
+            .contains(&"SECRET_API_KEY".to_string()));
+        assert!(safe_profile
+            .extra_env_keys
+            .contains(&"ANTHROPIC_AUTH".to_string()));
 
         // Serialized representation must not leak the raw secret value
         let serialized = serde_json::to_string(&safe_profile)?;
@@ -149,7 +153,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_gateway_safe_error_handling_no_panics() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_gateway_safe_error_handling_no_panics() -> Result<(), Box<dyn std::error::Error>>
+    {
         // Verify that invalid model spec returns descriptive error result instead of panicking
         let err_res = parse_model_spec("non_existent_model_xyz");
         assert!(err_res.is_err());
@@ -161,7 +166,8 @@ mod tests {
         let remove_res = remove_account_handler(
             State(state),
             axum::extract::Path(("antigravity".to_string(), "non-existent-acc-id".to_string())),
-        ).await;
+        )
+        .await;
         assert!(remove_res.is_err());
         let (status, reason) = remove_res.err().ok_or("expected error status and reason")?;
         assert_eq!(status, axum::http::StatusCode::NOT_FOUND);

@@ -22,7 +22,9 @@ fn unique_temp_dir(prefix: &str) -> PathBuf {
 #[tokio::test]
 async fn test_topic_7fe3cf_workspace_benchmark_and_concurrency_isolation() {
     println!("\n================================================================================");
-    println!("[Reproduction & Concurrency Test] Executing TOPIC-20261105-7fe3cf Workspace Benchmark...");
+    println!(
+        "[Reproduction & Concurrency Test] Executing TOPIC-20261105-7fe3cf Workspace Benchmark..."
+    );
     println!("================================================================================");
 
     let base_dir = unique_temp_dir("ws_concurrency_base");
@@ -42,13 +44,19 @@ async fn test_topic_7fe3cf_workspace_benchmark_and_concurrency_isolation() {
     println!("  Total requests      : {}", stats.total_requests);
     println!("  Successful ops      : {}", stats.successful_operations);
     println!("  Rejected ops        : {}", stats.rejected_count);
-    println!("  Throughput          : {:.2} ops/sec", stats.throughput_ops_per_sec);
+    println!(
+        "  Throughput          : {:.2} ops/sec",
+        stats.throughput_ops_per_sec
+    );
     println!("  P50 Latency         : {:.2} µs", stats.p50_latency_us);
     println!("  P90 Latency         : {:.2} µs", stats.p90_latency_us);
     println!("  P99 Latency         : {:.2} µs", stats.p99_latency_us);
     println!("  Max Latency         : {:.2} µs", stats.max_latency_us);
     println!("  Duration            : {:?}", stats.total_duration);
-    println!("  Memory Allocated    : {} bytes", stats.memory_allocated_bytes);
+    println!(
+        "  Memory Allocated    : {} bytes",
+        stats.memory_allocated_bytes
+    );
 
     assert_eq!(stats.total_requests, 10_000);
     assert_eq!(stats.successful_operations, 9_000);
@@ -71,7 +79,10 @@ async fn test_topic_7fe3cf_workspace_benchmark_and_concurrency_isolation() {
     let _ = WorkspaceBenchmarkHarness::run_benchmark(&mut resilient, 5_000).await;
     let mem_after = resilient.memory_usage_bytes();
     println!("\n[2. Bounded Memory Check]");
-    println!("  Memory before: {} bytes | Memory after 5k extra ops: {} bytes", mem_before, mem_after);
+    println!(
+        "  Memory before: {} bytes | Memory after 5k extra ops: {} bytes",
+        mem_before, mem_after
+    );
     assert!(
         mem_after <= mem_before + 4096,
         "Memory usage must be strictly bounded under high load (before: {}, after: {})",
@@ -81,10 +92,8 @@ async fn test_topic_7fe3cf_workspace_benchmark_and_concurrency_isolation() {
 
     // 3. Lock Contention Comparison: Single Shared Lock vs 16-Way Sharded Concurrency
     println!("\n[3. Lock Contention Comparison (10,000 requests across 4 workers)]");
-    let single_lock_stats =
-        WorkspaceBenchmarkHarness::run_single_lock_benchmark(10_000, 4).await;
-    let sharded_stats =
-        WorkspaceBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
+    let single_lock_stats = WorkspaceBenchmarkHarness::run_single_lock_benchmark(10_000, 4).await;
+    let sharded_stats = WorkspaceBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
 
     println!(
         "  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
@@ -142,8 +151,14 @@ async fn test_topic_7fe3cf_workspace_benchmark_and_concurrency_isolation() {
         }
     }
 
-    println!("  Total concurrent operations executed: {}", workers * ops_per_worker);
-    println!("  Total succeeded operations          : {}", total_succeeded);
+    println!(
+        "  Total concurrent operations executed: {}",
+        workers * ops_per_worker
+    );
+    println!(
+        "  Total succeeded operations          : {}",
+        total_succeeded
+    );
     assert_eq!(
         total_succeeded,
         workers * ops_per_worker,
@@ -151,7 +166,10 @@ async fn test_topic_7fe3cf_workspace_benchmark_and_concurrency_isolation() {
     );
 
     let guard = shared_mgr.lock().await;
-    println!("  Self-healing recoveries recorded    : {}", guard.recovery_count());
+    println!(
+        "  Self-healing recoveries recorded    : {}",
+        guard.recovery_count()
+    );
     assert!(
         guard.recovery_count() > 0,
         "Recovery count must register resolved GitIndexLock race conditions"

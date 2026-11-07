@@ -77,12 +77,7 @@ fn test_max_retries_exceeded_on_persistent_timeout() {
 #[test]
 fn test_connection_reset_recovery() {
     let agent_a = AgentId::new("agent-alpha");
-    let event = InterAgentEvent::new(
-        agent_a,
-        None,
-        "io.sync",
-        serde_json::json!({ "chunk": 42 }),
-    );
+    let event = InterAgentEvent::new(agent_a, None, "io.sync", serde_json::json!({ "chunk": 42 }));
 
     // Inject connection reset intermittent with max retries 3
     let policy = EventFaultPolicy::intermittent(EventFault::ConnectionReset, 2);
@@ -257,7 +252,8 @@ fn test_recurrent_failure_mitigation() {
     // Scenario 1: Recurrent transient socket timeouts with eventual recovery
     {
         // Fail on 1st injection, succeed on retry (max_injections = 2, max_retries = 3)
-        let policy = EventFaultPolicy::intermittent(EventFault::SocketTimeout, 1).with_max_injections(2);
+        let policy =
+            EventFaultPolicy::intermittent(EventFault::SocketTimeout, 1).with_max_injections(2);
         let mut processor = ResilientEventProcessor::new(policy, 3);
 
         let event = InterAgentEvent::new(
@@ -268,7 +264,10 @@ fn test_recurrent_failure_mitigation() {
         );
 
         let result = processor.process_event(event.clone());
-        assert!(result.is_ok(), "Expected recovery from recurrent socket timeouts");
+        assert!(
+            result.is_ok(),
+            "Expected recovery from recurrent socket timeouts"
+        );
         let processed_event = result.unwrap();
         assert!(processed_event.is_some());
         assert_eq!(processed_event.unwrap().id, event.id);
@@ -278,7 +277,8 @@ fn test_recurrent_failure_mitigation() {
 
     // Scenario 2: Recurrent connection resets with resilient retry
     {
-        let policy = EventFaultPolicy::intermittent(EventFault::ConnectionReset, 1).with_max_injections(1);
+        let policy =
+            EventFaultPolicy::intermittent(EventFault::ConnectionReset, 1).with_max_injections(1);
         let mut processor = ResilientEventProcessor::new(policy, 3);
 
         let event = InterAgentEvent::new(
@@ -289,7 +289,10 @@ fn test_recurrent_failure_mitigation() {
         );
 
         let result = processor.process_event(event);
-        assert!(result.is_ok(), "Processor must mitigate recurrent connection reset");
+        assert!(
+            result.is_ok(),
+            "Processor must mitigate recurrent connection reset"
+        );
         assert_eq!(processor.processed_count(), 1);
         assert_eq!(processor.recovered_count(), 1);
     }
@@ -307,16 +310,24 @@ fn test_recurrent_failure_mitigation() {
         );
 
         // First delivery: processes successfully
-        let res1 = processor.process_event(event.clone()).expect("First delivery must succeed");
+        let res1 = processor
+            .process_event(event.clone())
+            .expect("First delivery must succeed");
         assert!(res1.is_some());
         assert_eq!(processor.processed_count(), 1);
 
         // Recurrent duplicate deliveries: safely suppressed by deduplication
         for _ in 0..5 {
-            let res_dup = processor.process_event(event.clone()).expect("Duplicate must be safely handled");
+            let res_dup = processor
+                .process_event(event.clone())
+                .expect("Duplicate must be safely handled");
             assert!(res_dup.is_none(), "Duplicate event must be ignored");
         }
-        assert_eq!(processor.processed_count(), 1, "Only initial event should increment processed count");
+        assert_eq!(
+            processor.processed_count(),
+            1,
+            "Only initial event should increment processed count"
+        );
     }
 
     // Scenario 4: Persistent failure exceeding max retries is cleanly reported without panic
@@ -430,10 +441,8 @@ fn test_event_audit_ledger_chaos_integration() {
     assert_eq!(res_dup.unwrap(), None);
 
     // 3. Corrupted payload rejection under audit ledger
-    let mut fail_processor = ResilientEventProcessor::new(
-        EventFaultPolicy::always(EventFault::CorruptedPayload),
-        2,
-    );
+    let mut fail_processor =
+        ResilientEventProcessor::new(EventFaultPolicy::always(EventFault::CorruptedPayload), 2);
     let event2 = InterAgentEvent::new(
         agent_a.clone(),
         Some(agent_b.clone()),
@@ -441,14 +450,15 @@ fn test_event_audit_ledger_chaos_integration() {
         serde_json::json!({ "invalid": true }),
     );
     let res_corrupted = fail_processor.process_and_record(&mut ledger, event2);
-    assert!(matches!(res_corrupted, Err(EventError::CorruptedPayload(_))));
+    assert!(matches!(
+        res_corrupted,
+        Err(EventError::CorruptedPayload(_))
+    ));
     assert_eq!(fail_processor.rejected_count(), 1);
 
     // 4. Persistent failure exceeding retries under audit ledger
-    let mut timeout_processor = ResilientEventProcessor::new(
-        EventFaultPolicy::always(EventFault::SocketTimeout),
-        2,
-    );
+    let mut timeout_processor =
+        ResilientEventProcessor::new(EventFaultPolicy::always(EventFault::SocketTimeout), 2);
     let event3 = InterAgentEvent::new(
         agent_a,
         Some(agent_b),
@@ -461,20 +471,38 @@ fn test_event_audit_ledger_chaos_integration() {
     // Verify cryptographic audit ledger integrity
     assert!(ledger.verify_integrity().is_ok());
     assert_eq!(ledger.len(), 4);
-    assert_eq!(ledger.entries()[0].action, AuditEventType::CommandAllowed.as_str());
+    assert_eq!(
+        ledger.entries()[0].action,
+        AuditEventType::CommandAllowed.as_str()
+    );
     assert_eq!(ledger.entries()[0].severity, ActionSeverity::Routine);
-    assert_eq!(ledger.entries()[1].action, AuditEventType::CommandAllowed.as_str());
+    assert_eq!(
+        ledger.entries()[1].action,
+        AuditEventType::CommandAllowed.as_str()
+    );
     assert_eq!(ledger.entries()[1].severity, ActionSeverity::Routine);
-    assert_eq!(ledger.entries()[2].action, AuditEventType::CommandException.as_str());
+    assert_eq!(
+        ledger.entries()[2].action,
+        AuditEventType::CommandException.as_str()
+    );
     assert_eq!(ledger.entries()[2].severity, ActionSeverity::HighImpact);
-    assert_eq!(ledger.entries()[3].action, AuditEventType::CommandException.as_str());
+    assert_eq!(
+        ledger.entries()[3].action,
+        AuditEventType::CommandException.as_str()
+    );
     assert_eq!(ledger.entries()[3].severity, ActionSeverity::HighImpact);
 }
 
 #[test]
 fn test_event_fault_to_error_conversion() {
-    assert_eq!(EventFault::SocketTimeout.to_error(), EventError::SocketTimeout);
-    assert_eq!(EventFault::ConnectionReset.to_error(), EventError::ConnectionReset);
+    assert_eq!(
+        EventFault::SocketTimeout.to_error(),
+        EventError::SocketTimeout
+    );
+    assert_eq!(
+        EventFault::ConnectionReset.to_error(),
+        EventError::ConnectionReset
+    );
     assert!(matches!(
         EventFault::TransientIo.to_error(),
         EventError::TransientIo(_)
@@ -532,8 +560,8 @@ fn test_topic_52d2a0_243a67_event_benchmark_and_resilience() {
     }
 
     // 2. High-load benchmark: 10,000 requests measuring P99 latency and proving bounded memory allocation
-    let mut processor = ResilientEventProcessor::new(EventFaultPolicy::none(), 3)
-        .with_max_capacity(10_000);
+    let mut processor =
+        ResilientEventProcessor::new(EventFaultPolicy::none(), 3).with_max_capacity(10_000);
 
     let stats: EventBenchmarkStats = EventBenchmarkHarness::run_benchmark(&mut processor, 10_000);
     assert_eq!(stats.total_requests, 10_000);
@@ -561,7 +589,8 @@ fn test_topic_52d2a0_243a67_event_benchmark_and_resilience() {
     assert!(
         mem_after <= mem_before + 1024,
         "Memory usage must be strictly bounded under high load (before: {}, after: {})",
-        mem_before, mem_after
+        mem_before,
+        mem_after
     );
 
     // 3. Batch processing optimization test
@@ -577,7 +606,9 @@ fn test_topic_52d2a0_243a67_event_benchmark_and_resilience() {
         })
         .collect();
 
-    let batch_res = processor.process_batch(batch_events).expect("batch process succeeds");
+    let batch_res = processor
+        .process_batch(batch_events)
+        .expect("batch process succeeds");
     assert_eq!(batch_res.len(), 100);
 
     // 4. Concurrent benchmark test (10,000 requests across 4 threads)
@@ -595,6 +626,3 @@ fn test_topic_52d2a0_243a67_event_benchmark_and_resilience() {
         concurrent_stats.p99_latency_us
     );
 }
-
-
-

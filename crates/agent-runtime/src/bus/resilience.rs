@@ -138,7 +138,9 @@ impl ResilientInterAgentBus {
     pub fn publish_resilient(&mut self, event: InterAgentEvent) -> Result<usize, BusError> {
         if event.id.is_empty() {
             self.rejected_count += 1;
-            return Err(BusError::CorruptedEvent("Event ID cannot be empty".to_string()));
+            return Err(BusError::CorruptedEvent(
+                "Event ID cannot be empty".to_string(),
+            ));
         }
 
         let mut attempt = 0;
@@ -222,11 +224,16 @@ impl ResilientInterAgentBus {
         }
     }
 
-    pub fn publish_resilient_batch(&mut self, events: Vec<InterAgentEvent>) -> Result<usize, BusError> {
+    pub fn publish_resilient_batch(
+        &mut self,
+        events: Vec<InterAgentEvent>,
+    ) -> Result<usize, BusError> {
         for event in &events {
             if event.id.is_empty() {
                 self.rejected_count += 1;
-                return Err(BusError::CorruptedEvent("Event ID cannot be empty".to_string()));
+                return Err(BusError::CorruptedEvent(
+                    "Event ID cannot be empty".to_string(),
+                ));
             }
         }
 

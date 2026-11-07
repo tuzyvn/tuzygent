@@ -128,7 +128,8 @@ impl ResilientPersonaLoader {
     pub fn memory_usage_bytes(&self) -> usize {
         let set_mem = self.seen_personas.capacity() * (std::mem::size_of::<String>() + 40);
         let queue_mem = self.persona_queue.capacity() * (std::mem::size_of::<String>() + 40);
-        let profile_mem = self.cached_profiles.capacity() * std::mem::size_of::<AgentPersonaProfile>();
+        let profile_mem =
+            self.cached_profiles.capacity() * std::mem::size_of::<AgentPersonaProfile>();
         std::mem::size_of::<Self>() + set_mem + queue_mem + profile_mem
     }
 
@@ -144,7 +145,9 @@ impl ResilientPersonaLoader {
         if !self.has_persona(name) {
             return None;
         }
-        self.cached_profiles.iter().find(|p| p.identity.name == name)
+        self.cached_profiles
+            .iter()
+            .find(|p| p.identity.name == name)
     }
 
     pub fn record_profile_cached(&mut self, profile: &AgentPersonaProfile) {
@@ -170,7 +173,9 @@ impl ResilientPersonaLoader {
     ) -> Result<(), PersonaError> {
         if profile.identity.name.trim().is_empty() {
             self.rejected_count += 1;
-            return Err(PersonaError::InvalidIdentity("Persona name cannot be empty".to_string()));
+            return Err(PersonaError::InvalidIdentity(
+                "Persona name cannot be empty".to_string(),
+            ));
         }
 
         let mut attempt = 0;
@@ -196,7 +201,10 @@ impl ResilientPersonaLoader {
         results
     }
 
-    pub(crate) fn check_fault_injection(&mut self, attempt: usize) -> Result<Option<()>, PersonaError> {
+    pub(crate) fn check_fault_injection(
+        &mut self,
+        attempt: usize,
+    ) -> Result<Option<()>, PersonaError> {
         if let Some(fault) = self.policy.should_inject() {
             match fault {
                 PersonaFault::SocketTimeout
@@ -241,7 +249,9 @@ impl ResilientPersonaLoader {
                 Ok(profile) => {
                     if profile.identity.name.trim().is_empty() {
                         self.rejected_count += 1;
-                        return Err(PersonaError::InvalidIdentity("Persona name is empty".to_string()));
+                        return Err(PersonaError::InvalidIdentity(
+                            "Persona name is empty".to_string(),
+                        ));
                     }
                     self.loaded_count += 1;
                     self.record_profile_cached(&profile);
@@ -284,7 +294,9 @@ impl ResilientPersonaLoader {
                 Ok(profile) => {
                     if profile.identity.name.trim().is_empty() {
                         self.rejected_count += 1;
-                        return Err(PersonaError::InvalidIdentity("Persona name is empty".to_string()));
+                        return Err(PersonaError::InvalidIdentity(
+                            "Persona name is empty".to_string(),
+                        ));
                     }
                     self.loaded_count += 1;
                     self.record_profile_cached(&profile);
@@ -313,7 +325,9 @@ impl ResilientPersonaLoader {
     ) -> Result<(), PersonaError> {
         if profile.identity.name.trim().is_empty() {
             self.rejected_count += 1;
-            return Err(PersonaError::InvalidIdentity("Persona name cannot be empty".to_string()));
+            return Err(PersonaError::InvalidIdentity(
+                "Persona name cannot be empty".to_string(),
+            ));
         }
 
         let dir = dir_path.as_ref();

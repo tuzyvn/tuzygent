@@ -4,7 +4,8 @@ use tower::ServiceExt;
 use super::common::app;
 
 #[tokio::test]
-async fn authenticated_gateway_lists_models_and_manages_accounts() -> Result<(), Box<dyn std::error::Error>> {
+async fn authenticated_gateway_lists_models_and_manages_accounts(
+) -> Result<(), Box<dyn std::error::Error>> {
     let app = app()?;
     // 1. GET /v1/models
     let response = app

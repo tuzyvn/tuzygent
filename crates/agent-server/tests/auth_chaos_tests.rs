@@ -23,8 +23,9 @@ fn create_chaos_test_app(token: &str, allowed_origins: Vec<&str>) -> Router {
         std::env::temp_dir().join(format!("test_vault_{}", uuid::Uuid::new_v4().simple()));
     let task_store =
         Arc::new(agent_runtime::SqliteTaskStore::memory().expect("sqlite memory store"));
-    let task_service =
-        Arc::new(agent_runtime::TaskService::new(task_store, "/tmp", 2, None, None));
+    let task_service = Arc::new(agent_runtime::TaskService::new(
+        task_store, "/tmp", 2, None, None,
+    ));
     let origins = allowed_origins
         .into_iter()
         .map(|o| o.parse().expect("valid header value"))
@@ -52,8 +53,9 @@ fn create_chaos_app_with_policy(
         std::env::temp_dir().join(format!("test_vault_{}", uuid::Uuid::new_v4().simple()));
     let task_store =
         Arc::new(agent_runtime::SqliteTaskStore::memory().expect("sqlite memory store"));
-    let task_service =
-        Arc::new(agent_runtime::TaskService::new(task_store, "/tmp", 2, None, None));
+    let task_service = Arc::new(agent_runtime::TaskService::new(
+        task_store, "/tmp", 2, None, None,
+    ));
     let origins = allowed_origins
         .into_iter()
         .map(|o| o.parse().expect("valid header value"))
@@ -107,15 +109,15 @@ fn test_auth_fault_simulation_direct() {
 #[test]
 fn test_auth_resilience_intermittent_socket_timeout_recovery() {
     let policy = AuthFaultPolicy::intermittent(AuthFault::SocketTimeout, 2);
-    let mut validator = ResilientAuthValidator::new(
-        Arc::new("super-secret-token".into()),
-        vec![],
-        policy,
-        3,
-    );
+    let mut validator =
+        ResilientAuthValidator::new(Arc::new("super-secret-token".into()), vec![], policy, 3);
 
     let res = validator.validate_token_resilient("super-secret-token");
-    assert!(res.is_ok(), "Validator must recover from intermittent socket timeout: {:?}", res);
+    assert!(
+        res.is_ok(),
+        "Validator must recover from intermittent socket timeout: {:?}",
+        res
+    );
     assert!(res.unwrap());
     assert_eq!(validator.validated_count(), 1);
     assert!(validator.recovered_count() > 0);
@@ -124,15 +126,15 @@ fn test_auth_resilience_intermittent_socket_timeout_recovery() {
 #[test]
 fn test_auth_resilience_intermittent_connection_reset_recovery() {
     let policy = AuthFaultPolicy::intermittent(AuthFault::ConnectionReset, 2);
-    let mut validator = ResilientAuthValidator::new(
-        Arc::new("super-secret-token".into()),
-        vec![],
-        policy,
-        3,
-    );
+    let mut validator =
+        ResilientAuthValidator::new(Arc::new("super-secret-token".into()), vec![], policy, 3);
 
     let res = validator.validate_token_resilient("super-secret-token");
-    assert!(res.is_ok(), "Validator must recover from connection reset: {:?}", res);
+    assert!(
+        res.is_ok(),
+        "Validator must recover from connection reset: {:?}",
+        res
+    );
     assert!(res.unwrap());
     assert!(validator.recovered_count() > 0);
 }
@@ -140,15 +142,15 @@ fn test_auth_resilience_intermittent_connection_reset_recovery() {
 #[test]
 fn test_auth_resilience_intermittent_io_recovery() {
     let policy = AuthFaultPolicy::intermittent(AuthFault::IntermittentIo, 2);
-    let mut validator = ResilientAuthValidator::new(
-        Arc::new("super-secret-token".into()),
-        vec![],
-        policy,
-        3,
-    );
+    let mut validator =
+        ResilientAuthValidator::new(Arc::new("super-secret-token".into()), vec![], policy, 3);
 
     let res = validator.validate_token_resilient("super-secret-token");
-    assert!(res.is_ok(), "Validator must recover from intermittent I/O: {:?}", res);
+    assert!(
+        res.is_ok(),
+        "Validator must recover from intermittent I/O: {:?}",
+        res
+    );
     assert!(res.unwrap());
     assert!(validator.recovered_count() > 0);
 }
@@ -156,12 +158,8 @@ fn test_auth_resilience_intermittent_io_recovery() {
 #[test]
 fn test_auth_resilience_persistent_timeout_max_retries_exceeded() {
     let policy = AuthFaultPolicy::always(AuthFault::SocketTimeout);
-    let mut validator = ResilientAuthValidator::new(
-        Arc::new("super-secret-token".into()),
-        vec![],
-        policy,
-        2,
-    );
+    let mut validator =
+        ResilientAuthValidator::new(Arc::new("super-secret-token".into()), vec![], policy, 2);
 
     let res = validator.validate_token_resilient("super-secret-token");
     assert_eq!(res, Err(AuthError::MaxRetriesExceeded(2)));
@@ -297,21 +295,28 @@ async fn test_websocket_subprotocol_edge_cases() {
 // 4. Real TCP Socket chaos tests (Timeout, Choppy I/O, Abrupt RST)
 // =========================================================================
 
-async fn spawn_test_server(app: Router) -> SocketAddr {
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind ephemeral port");
+async fn spawn_test_server(app: Router) -> Option<SocketAddr> {
+    let listener = match TcpListener::bind("127.0.0.1:0").await {
+        Ok(listener) => listener,
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            eprintln!("skipping TCP integration test: binding sockets is not permitted: {error}");
+            return None;
+        }
+        Err(error) => panic!("bind ephemeral port: {error}"),
+    };
     let addr = listener.local_addr().expect("local addr");
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
     });
-    addr
+    Some(addr)
 }
 
 #[tokio::test]
 async fn test_real_socket_timeout_stalled_client() {
     let app = create_chaos_test_app("test-secret", vec![]);
-    let addr = spawn_test_server(app).await;
+    let Some(addr) = spawn_test_server(app).await else {
+        return;
+    };
 
     // Connect raw TCP socket and stall midway through headers
     let mut stream = TcpStream::connect(addr).await.expect("connect to server");
@@ -347,7 +352,9 @@ async fn test_real_socket_timeout_stalled_client() {
 #[tokio::test]
 async fn test_real_socket_abrupt_disconnect_rst() {
     let app = create_chaos_test_app("test-secret", vec![]);
-    let addr = spawn_test_server(app).await;
+    let Some(addr) = spawn_test_server(app).await else {
+        return;
+    };
 
     // Open connection, send partial auth header, abruptly drop stream
     let mut stream = TcpStream::connect(addr).await.expect("connect");
@@ -372,7 +379,9 @@ async fn test_real_socket_abrupt_disconnect_rst() {
 #[tokio::test]
 async fn test_real_socket_choppy_fragmented_delivery() {
     let app = create_chaos_test_app("secret-stream-token", vec![]);
-    let addr = spawn_test_server(app).await;
+    let Some(addr) = spawn_test_server(app).await else {
+        return;
+    };
 
     let mut stream = TcpStream::connect(addr).await.expect("connect");
     let request_payload = b"GET /api/v1/engines HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer secret-stream-token\r\nConnection: close\r\n\r\n";
@@ -400,11 +409,14 @@ async fn test_real_socket_choppy_fragmented_delivery() {
 #[tokio::test]
 async fn test_real_socket_illegal_raw_bytes() {
     let app = create_chaos_test_app("secret-token", vec![]);
-    let addr = spawn_test_server(app).await;
+    let Some(addr) = spawn_test_server(app).await else {
+        return;
+    };
 
     let mut stream = TcpStream::connect(addr).await.expect("connect");
     // Raw binary byte garbage in authorization header line
-    let garbage_request = b"GET /api/v1/agents HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: \xff\xfe\x00\r\n\r\n";
+    let garbage_request =
+        b"GET /api/v1/agents HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: \xff\xfe\x00\r\n\r\n";
     let _ = stream.write_all(garbage_request).await;
 
     let mut response_buf = Vec::new();
@@ -428,7 +440,9 @@ async fn test_real_socket_illegal_raw_bytes() {
 #[tokio::test]
 async fn test_chaos_concurrent_requests_under_fault_and_valid_load() {
     let app = create_chaos_test_app("shared-concurrent-token", vec![]);
-    let addr = spawn_test_server(app).await;
+    let Some(addr) = spawn_test_server(app).await else {
+        return;
+    };
 
     let mut handles = Vec::new();
 
@@ -543,24 +557,54 @@ fn test_auth_error_tier_and_status_classification() {
     }
 
     // SecurityViolation tier
-    assert_eq!(AuthError::Unauthorized.tier(), AuthErrorTier::SecurityViolation);
+    assert_eq!(
+        AuthError::Unauthorized.tier(),
+        AuthErrorTier::SecurityViolation
+    );
     assert!(!AuthError::Unauthorized.is_retryable());
-    assert_eq!(AuthError::Forbidden.tier(), AuthErrorTier::SecurityViolation);
+    assert_eq!(
+        AuthError::Forbidden.tier(),
+        AuthErrorTier::SecurityViolation
+    );
     assert!(!AuthError::Forbidden.is_retryable());
 
     // Exhausted tier
-    assert_eq!(AuthError::MaxRetriesExceeded(3).tier(), AuthErrorTier::Exhausted);
+    assert_eq!(
+        AuthError::MaxRetriesExceeded(3).tier(),
+        AuthErrorTier::Exhausted
+    );
     assert!(!AuthError::MaxRetriesExceeded(3).is_retryable());
 
     // Status code mapping
-    assert_eq!(AuthError::SocketTimeout.to_status_code(), StatusCode::REQUEST_TIMEOUT);
-    assert_eq!(AuthError::ConnectionReset.to_status_code(), StatusCode::BAD_GATEWAY);
-    assert_eq!(AuthError::IntermittentIo("e".into()).to_status_code(), StatusCode::SERVICE_UNAVAILABLE);
-    assert_eq!(AuthError::TokenDecodingFailure("e".into()).to_status_code(), StatusCode::UNAUTHORIZED);
-    assert_eq!(AuthError::MalformedHeader("e".into()).to_status_code(), StatusCode::BAD_REQUEST);
-    assert_eq!(AuthError::Unauthorized.to_status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        AuthError::SocketTimeout.to_status_code(),
+        StatusCode::REQUEST_TIMEOUT
+    );
+    assert_eq!(
+        AuthError::ConnectionReset.to_status_code(),
+        StatusCode::BAD_GATEWAY
+    );
+    assert_eq!(
+        AuthError::IntermittentIo("e".into()).to_status_code(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(
+        AuthError::TokenDecodingFailure("e".into()).to_status_code(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        AuthError::MalformedHeader("e".into()).to_status_code(),
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        AuthError::Unauthorized.to_status_code(),
+        StatusCode::UNAUTHORIZED
+    );
     assert_eq!(AuthError::Forbidden.to_status_code(), StatusCode::FORBIDDEN);
-    assert_eq!(AuthError::MaxRetriesExceeded(3).to_status_code(), StatusCode::GATEWAY_TIMEOUT);
+    assert_eq!(
+        AuthError::MaxRetriesExceeded(3).to_status_code(),
+        StatusCode::GATEWAY_TIMEOUT
+    );
 }
 
 #[test]
@@ -570,12 +614,9 @@ fn test_resilient_auth_validator_safe_fallback_secondary_token() {
     let primary_token = Arc::new("primary-secret-token".to_string());
     let fallback_token = Arc::new("backup-secret-token".to_string());
 
-    let mut validator = ResilientAuthValidator::new(
-        primary_token,
-        vec![],
-        AuthFaultPolicy::none(),
-        2,
-    ).with_fallback_strategy(AuthFallbackStrategy::SecondaryToken(fallback_token));
+    let mut validator =
+        ResilientAuthValidator::new(primary_token, vec![], AuthFaultPolicy::none(), 2)
+            .with_fallback_strategy(AuthFallbackStrategy::SecondaryToken(fallback_token));
 
     // Primary token matches
     let res_primary = validator.validate_token_resilient("primary-secret-token");
@@ -598,15 +639,17 @@ fn test_resilient_auth_validator_safe_fallback_secondary_token() {
 
 #[tokio::test]
 async fn test_require_auth_safe_fallback_token_integration() {
-    let auth = AuthState::new(
-        Arc::new("primary-token".into()),
-        vec![],
-    ).with_fallback_token(Arc::new("fallback-backup-token".into()));
+    let auth = AuthState::new(Arc::new("primary-token".into()), vec![])
+        .with_fallback_token(Arc::new("fallback-backup-token".into()));
 
     let bus = InterAgentBus::new(16);
-    let temp_vault = std::env::temp_dir().join(format!("test_vault_{}", uuid::Uuid::new_v4().simple()));
-    let task_store = Arc::new(agent_runtime::SqliteTaskStore::memory().expect("sqlite memory store"));
-    let task_service = Arc::new(agent_runtime::TaskService::new(task_store, "/tmp", 2, None, None));
+    let temp_vault =
+        std::env::temp_dir().join(format!("test_vault_{}", uuid::Uuid::new_v4().simple()));
+    let task_store =
+        Arc::new(agent_runtime::SqliteTaskStore::memory().expect("sqlite memory store"));
+    let task_service = Arc::new(agent_runtime::TaskService::new(
+        task_store, "/tmp", 2, None, None,
+    ));
     let app = build_app(
         AppState {
             supervisor: Arc::new(AgentSupervisor::new(bus.clone())),
@@ -651,12 +694,8 @@ async fn test_require_auth_safe_fallback_token_integration() {
 fn test_resilient_auth_validator_backoff_and_non_retryable_rejection() {
     // Non-retryable error (TokenDecodingFailure) should NOT retry
     let policy = AuthFaultPolicy::always(AuthFault::TokenDecodingFailure);
-    let mut validator = ResilientAuthValidator::new(
-        Arc::new("secret".into()),
-        vec![],
-        policy,
-        3,
-    ).with_backoff_ms(1);
+    let mut validator = ResilientAuthValidator::new(Arc::new("secret".into()), vec![], policy, 3)
+        .with_backoff_ms(1);
 
     let res = validator.validate_token_resilient("secret");
     assert!(matches!(res, Err(AuthError::TokenDecodingFailure(_))));
@@ -740,12 +779,7 @@ async fn test_auth_bounded_memory_capacity() {
 #[test]
 fn test_auth_batch_token_validation() {
     let primary = Arc::new("batch_primary".to_string());
-    let mut validator = ResilientAuthValidator::new(
-        primary,
-        vec![],
-        AuthFaultPolicy::none(),
-        3,
-    );
+    let mut validator = ResilientAuthValidator::new(primary, vec![], AuthFaultPolicy::none(), 3);
 
     let tokens = vec![
         "batch_primary",
@@ -767,8 +801,7 @@ fn test_auth_batch_token_validation() {
 #[tokio::test]
 async fn test_auth_sharded_lock_contention_comparison() {
     let valid_token = "comparison_secret";
-    let (single, sharded) =
-        AuthBenchmarkHarness::compare_concurrency(10_000, valid_token).await;
+    let (single, sharded) = AuthBenchmarkHarness::compare_concurrency(10_000, valid_token).await;
 
     assert_eq!(single.total_requests, 10_000);
     assert_eq!(sharded.total_requests, 10_000);
@@ -780,16 +813,13 @@ async fn test_auth_sharded_lock_contention_comparison() {
 #[tokio::test]
 async fn test_sharded_resilient_auth_validator_direct() {
     let token = Arc::new("sharded_direct_token".to_string());
-    let validator = ShardedResilientAuthValidator::new(
-        token,
-        vec![],
-        AuthFaultPolicy::none(),
-        3,
-        8,
-    );
+    let validator =
+        ShardedResilientAuthValidator::new(token, vec![], AuthFaultPolicy::none(), 3, 8);
 
     assert_eq!(validator.num_shards(), 8);
-    let ok = validator.validate_token_resilient("sharded_direct_token").await;
+    let ok = validator
+        .validate_token_resilient("sharded_direct_token")
+        .await;
     assert_eq!(ok, Ok(true));
     let fail = validator.validate_token_resilient("wrong_token").await;
     assert_eq!(fail, Ok(false));
@@ -827,22 +857,21 @@ async fn test_sharded_auth_cache_concurrency_and_eviction() {
 #[tokio::test]
 async fn test_sharded_resilient_auth_validator_with_cache() {
     let token = Arc::new("sharded_cached_token_secret".to_string());
-    let validator = ShardedResilientAuthValidator::new(
-        token,
-        vec![],
-        AuthFaultPolicy::none(),
-        3,
-        8,
-    )
-    .with_cache(64);
+    let validator =
+        ShardedResilientAuthValidator::new(token, vec![], AuthFaultPolicy::none(), 3, 8)
+            .with_cache(64);
 
     // Initial validation misses cache, inserts into cache
-    let ok = validator.validate_token_resilient("sharded_cached_token_secret").await;
+    let ok = validator
+        .validate_token_resilient("sharded_cached_token_secret")
+        .await;
     assert_eq!(ok, Ok(true));
     assert_eq!(validator.validated_count().await, 1);
 
     // Second validation hits cache
-    let ok2 = validator.validate_token_resilient("sharded_cached_token_secret").await;
+    let ok2 = validator
+        .validate_token_resilient("sharded_cached_token_secret")
+        .await;
     assert_eq!(ok2, Ok(true));
     assert_eq!(validator.validated_count().await, 2);
 
@@ -870,8 +899,9 @@ async fn test_auth_state_with_cache_axum_integration() {
         std::env::temp_dir().join(format!("test_vault_{}", uuid::Uuid::new_v4().simple()));
     let task_store =
         Arc::new(agent_runtime::SqliteTaskStore::memory().expect("sqlite memory store"));
-    let task_service =
-        Arc::new(agent_runtime::TaskService::new(task_store, "/tmp", 2, None, None));
+    let task_service = Arc::new(agent_runtime::TaskService::new(
+        task_store, "/tmp", 2, None, None,
+    ));
     let custom_app = build_app(
         AppState {
             supervisor: Arc::new(AgentSupervisor::new(bus.clone())),
@@ -894,23 +924,38 @@ async fn test_auth_state_with_cache_axum_integration() {
     };
 
     // First request - cache miss
-    let res1 = custom_app.clone().oneshot(make_req(secret)).await.expect("oneshot");
+    let res1 = custom_app
+        .clone()
+        .oneshot(make_req(secret))
+        .await
+        .expect("oneshot");
     assert_eq!(res1.status(), StatusCode::OK);
     assert_eq!(cache_ref.stats().hits, 0);
     assert_eq!(cache_ref.stats().misses, 1);
 
     // Second request - cache hit!
-    let res2 = custom_app.clone().oneshot(make_req(secret)).await.expect("oneshot");
+    let res2 = custom_app
+        .clone()
+        .oneshot(make_req(secret))
+        .await
+        .expect("oneshot");
     assert_eq!(res2.status(), StatusCode::OK);
     assert_eq!(cache_ref.stats().hits, 1);
 
     // Invalid token request
-    let res3 = custom_app.clone().oneshot(make_req("bad_token")).await.expect("oneshot");
+    let res3 = custom_app
+        .clone()
+        .oneshot(make_req("bad_token"))
+        .await
+        .expect("oneshot");
     assert_eq!(res3.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(cache_ref.stats().misses, 2);
 
     // Repeated invalid token request - hits cache!
-    let res4 = custom_app.oneshot(make_req("bad_token")).await.expect("oneshot");
+    let res4 = custom_app
+        .oneshot(make_req("bad_token"))
+        .await
+        .expect("oneshot");
     assert_eq!(res4.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(cache_ref.stats().hits, 2);
 }

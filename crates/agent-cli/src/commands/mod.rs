@@ -30,9 +30,7 @@ pub async fn run_command(cli: Cli) -> anyhow::Result<()> {
         Commands::Replay(args) => replay::handle(args).await?,
         Commands::Fork(args) => replay::handle_fork(args).await?,
         Commands::Update { check } => crate::update::run(check)?,
-        Commands::Create { id, name, autonomy } => {
-            agent::create(id, name, autonomy).await?
-        }
+        Commands::Create { id, name, autonomy } => agent::create(id, name, autonomy).await?,
         Commands::List => agent::list().await?,
         Commands::Run {
             agent_id,
@@ -67,9 +65,7 @@ pub async fn run_command(cli: Cli) -> anyhow::Result<()> {
         }
         Commands::ComedyShow { engine } => demo::comedy_show(engine).await?,
         Commands::PersonaInspect { path } => persona::inspect(path).await?,
-        Commands::InitSamplePersonas { output_dir } => {
-            persona::init_samples(output_dir).await?
-        }
+        Commands::InitSamplePersonas { output_dir } => persona::init_samples(output_dir).await?,
         Commands::Rig { action } => rig::handle(action).await?,
         Commands::Auth { action } => auth::handle(action).await?,
     }

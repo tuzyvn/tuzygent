@@ -1,27 +1,23 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use async_trait::async_trait;
-
-use agent_domain::{ActionSeverity, AuditEventType, AuditLedger};
-use crate::cli::fault::{is_retryable_engine_error, CliFault, CliFaultPolicy};
-use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+use crate::cli::fault::CliFaultPolicy;
+use crate::traits::EngineOutput;
 
 /// Wrapper tự phục hồi cho ComputeEngine CLI với cơ chế retry có kiểm soát, bounded memory cache và injection fault testing
 #[derive(Clone)]
 pub struct ResilientCliEngine<E> {
-    inner: E,
-    fault_policy: Arc<Mutex<CliFaultPolicy>>,
-    max_retries: usize,
-    retry_delay_ms: u64,
-    resolved_count: Arc<AtomicUsize>,
-    recovered_count: Arc<AtomicUsize>,
-    rejected_count: Arc<AtomicUsize>,
-    response_cache: Arc<Mutex<HashMap<String, EngineOutput>>>,
-    cache_queue: Arc<Mutex<VecDeque<String>>>,
-    max_capacity: Option<usize>,
-    backoff_policy: Option<crate::backoff::BackoffPolicy>,
+    pub(super) inner: E,
+    pub(super) fault_policy: Arc<Mutex<CliFaultPolicy>>,
+    pub(super) max_retries: usize,
+    pub(super) retry_delay_ms: u64,
+    pub(super) resolved_count: Arc<AtomicUsize>,
+    pub(super) recovered_count: Arc<AtomicUsize>,
+    pub(super) rejected_count: Arc<AtomicUsize>,
+    pub(super) response_cache: Arc<Mutex<HashMap<String, EngineOutput>>>,
+    pub(super) cache_queue: Arc<Mutex<VecDeque<String>>>,
+    pub(super) max_capacity: Option<usize>,
+    pub(super) backoff_policy: Option<crate::backoff::BackoffPolicy>,
 }
 
 pub type ResilientCliManager<E> = ResilientCliEngine<E>;
@@ -43,14 +39,23 @@ impl<E> ResilientCliEngine<E> {
         }
     }
 
-    pub fn with_engine(inner: E) -> Self { Self::new(inner, CliFaultPolicy::none(), 3) }
-    pub fn with_fault_policy(inner: E, fault_policy: CliFaultPolicy) -> Self { Self::new(inner, fault_policy, 3) }
-    pub fn with_retry_delay_ms(mut self, delay_ms: u64) -> Self { self.retry_delay_ms = delay_ms; self }
+    pub fn with_engine(inner: E) -> Self {
+        Self::new(inner, CliFaultPolicy::none(), 3)
+    }
+    pub fn with_fault_policy(inner: E, fault_policy: CliFaultPolicy) -> Self {
+        Self::new(inner, fault_policy, 3)
+    }
+    pub fn with_retry_delay_ms(mut self, delay_ms: u64) -> Self {
+        self.retry_delay_ms = delay_ms;
+        self
+    }
     pub fn with_backoff_policy(mut self, policy: crate::backoff::BackoffPolicy) -> Self {
         self.backoff_policy = Some(policy);
         self
     }
-    pub fn backoff_policy(&self) -> Option<&crate::backoff::BackoffPolicy> { self.backoff_policy.as_ref() }
+    pub fn backoff_policy(&self) -> Option<&crate::backoff::BackoffPolicy> {
+        self.backoff_policy.as_ref()
+    }
 
     pub fn with_capacity(self, capacity: usize) -> Self {
         if let Ok(mut cache) = self.response_cache.lock() {
@@ -115,7 +120,9 @@ impl<E> ResilientCliEngine<E> {
                 * (std::mem::size_of::<String>() + std::mem::size_of::<EngineOutput>());
             let content: usize = cache
                 .iter()
-                .map(|(k, v)| k.len() + v.stdout_content.len() + std::mem::size_of::<EngineOutput>())
+                .map(|(k, v)| {
+                    k.len() + v.stdout_content.len() + std::mem::size_of::<EngineOutput>()
+                })
                 .sum();
             (overhead, content)
         } else {
@@ -168,175 +175,3 @@ impl<E> ResilientCliEngine<E> {
         self.response_cache.lock().ok()?.get(key).cloned()
     }
 }
-
-impl<E: ComputeEngine> ResilientCliEngine<E> {
-    async fn execute_with_optional_ledger(
-        &self,
-        input: &EngineInput,
-        mut ledger: Option<&mut AuditLedger>,
-    ) -> Result<EngineOutput, EngineError> {
-        let mut attempt = 0;
-        loop {
-            attempt += 1;
-
-            let fault = {
-                let mut policy = self.fault_policy.lock().map_err(|e| {
-                    EngineError::ProcessFailed(format!("Fault policy lock poisoned: {}", e))
-                })?;
-                policy.should_inject()
-            };
-
-            if let Some(fault) = fault {
-                match fault {
-            CliFault::SocketTimeout
-            | CliFault::ProcessTimeout
-            | CliFault::BrokenPipe
-            | CliFault::TransientIo
-            | CliFault::ProcessFailed => {
-                if attempt <= self.max_retries {
-                    self.recovered_count.fetch_add(1, Ordering::SeqCst);
-                    if let Some(ref mut l) = ledger {
-                        l.record_event(
-                            AuditEventType::CommandAllowed,
-                            ActionSeverity::Routine,
-                            format!(
-                                "CLI transient fault {:?} intercepted, retrying attempt {}/{} for engine '{}'",
-                                fault, attempt, self.max_retries, self.engine_kind()
-                            ),
-                        );
-                    }
-                    if let Some(ref policy) = self.backoff_policy {
-                        policy.sleep_for_attempt(attempt as u32).await;
-                    } else if self.retry_delay_ms > 0 {
-                        tokio::time::sleep(Duration::from_millis(self.retry_delay_ms)).await;
-                    }
-                    continue;
-                } else {
-                    self.rejected_count.fetch_add(1, Ordering::SeqCst);
-                    let err = fault.to_engine_error();
-                    if let Some(ref mut l) = ledger {
-                        l.record_event(
-                            AuditEventType::CommandException,
-                            ActionSeverity::HighImpact,
-                            format!("CLI max retries exceeded for engine '{}': {}", self.engine_kind(), err),
-                        );
-                    }
-                    return Err(err);
-                }
-            }
-            CliFault::CorruptedOutput | CliFault::CliNotFound => {
-                self.rejected_count.fetch_add(1, Ordering::SeqCst);
-                let err = fault.to_engine_error();
-                if let Some(ref mut l) = ledger {
-                    l.record_event(
-                        AuditEventType::CommandException,
-                        ActionSeverity::HighImpact,
-                        format!("Fatal CLI fault {:?} rejected for engine '{}': {}", fault, self.engine_kind(), err),
-                    );
-                }
-                return Err(err);
-            }
-                }
-            }
-
-            match self.inner.execute(input).await {
-                Ok(output) => {
-                    self.resolved_count.fetch_add(1, Ordering::SeqCst);
-                    self.cache_response(&input.prompt_or_command, &output);
-                    if let Some(ref mut l) = ledger {
-                        l.record_event(
-                            AuditEventType::CommandAllowed,
-                            ActionSeverity::Routine,
-                            format!(
-                                "CLI execution succeeded with engine '{}'",
-                                self.engine_kind()
-                            ),
-                        );
-                    }
-                    return Ok(output);
-                }
-                Err(err) => {
-                    if is_retryable_engine_error(&err) && attempt <= self.max_retries {
-                        self.recovered_count.fetch_add(1, Ordering::SeqCst);
-                        if let Some(ref mut l) = ledger {
-                            l.record_event(
-                                AuditEventType::CommandAllowed,
-                                ActionSeverity::Routine,
-                                format!(
-                                    "CLI error {:?} intercepted, retrying attempt {}/{} for engine '{}'",
-                                    err, attempt, self.max_retries, self.engine_kind()
-                                ),
-                            );
-                        }
-                        if let Some(ref policy) = self.backoff_policy {
-                            policy.sleep_for_attempt(attempt as u32).await;
-                        } else if self.retry_delay_ms > 0 {
-                            tokio::time::sleep(Duration::from_millis(self.retry_delay_ms)).await;
-                        }
-                        continue;
-                    } else {
-                        self.rejected_count.fetch_add(1, Ordering::SeqCst);
-                        if let Some(ref mut l) = ledger {
-                            l.record_event(
-                                AuditEventType::CommandException,
-                                ActionSeverity::HighImpact,
-                                format!(
-                                    "CLI execution failed for engine '{}': {}",
-                                    self.engine_kind(),
-                                    err
-                                ),
-                            );
-                        }
-                        return Err(err);
-                    }
-                }
-            }
-        }
-    }
-
-    pub async fn execute_batch(
-        &self,
-        inputs: &[EngineInput],
-    ) -> Vec<Result<EngineOutput, EngineError>> {
-        let mut results = Vec::with_capacity(inputs.len());
-        for input in inputs {
-            results.push(self.execute(input).await);
-        }
-        results
-    }
-
-    pub async fn execute_and_record(
-        &self,
-        ledger: &mut AuditLedger,
-        input: &EngineInput,
-    ) -> Result<EngineOutput, EngineError> {
-        self.execute_with_optional_ledger(input, Some(ledger)).await
-    }
-}
-
-#[async_trait]
-impl<E: ComputeEngine> ComputeEngine for ResilientCliEngine<E> {
-    async fn execute(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
-        self.execute_with_optional_ledger(input, None).await
-    }
-
-    fn engine_kind(&self) -> EngineKind {
-        self.inner.engine_kind()
-    }
-}
-
-pub trait ResilientCliWrapper: ComputeEngine + Sized {
-    fn with_resilience(self, max_retries: usize) -> ResilientCliEngine<Self> {
-        ResilientCliEngine::new(self, CliFaultPolicy::none(), max_retries)
-    }
-
-    fn with_chaos(
-        self,
-        fault_policy: CliFaultPolicy,
-        max_retries: usize,
-    ) -> ResilientCliEngine<Self> {
-        ResilientCliEngine::new(self, fault_policy, max_retries)
-    }
-}
-
-impl<T: ComputeEngine + Sized> ResilientCliWrapper for T {}

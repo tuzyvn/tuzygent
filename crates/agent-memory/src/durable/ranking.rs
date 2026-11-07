@@ -198,7 +198,9 @@ impl<'a> Bm25CorpusStats<'a> {
                 let df = if tokenized_corpus.len() > 1 {
                     tokenized_corpus
                         .iter()
-                        .filter(|c_doc| c_doc.iter().any(|dt| tokens_match(dt.as_str(), q.as_str())))
+                        .filter(|c_doc| {
+                            c_doc.iter().any(|dt| tokens_match(dt.as_str(), q.as_str()))
+                        })
                         .count()
                         .max(1)
                 } else {
@@ -226,7 +228,8 @@ impl<'a> Bm25CorpusStats<'a> {
                 .filter(|dt| tokens_match(dt.as_str(), q.as_str()))
                 .count() as f64;
             if tf > 0.0 {
-                score += compute_bm25_term_score(tf, doc_tokens.len(), self.avg_doc_len, idf, params);
+                score +=
+                    compute_bm25_term_score(tf, doc_tokens.len(), self.avg_doc_len, idf, params);
             }
         }
         score
@@ -251,10 +254,7 @@ pub fn compute_recency_weight(timestamp_rfc3339: &str, now: DateTime<Utc>) -> f6
     match DateTime::parse_from_rfc3339(timestamp_rfc3339.trim()) {
         Ok(parsed) => {
             let parsed_utc = parsed.with_timezone(&Utc);
-            let age_secs = now
-                .signed_duration_since(parsed_utc)
-                .num_seconds()
-                .max(0) as f64;
+            let age_secs = now.signed_duration_since(parsed_utc).num_seconds().max(0) as f64;
             let age_days = age_secs / 86_400.0;
             // Suy giảm mượt theo hàm hyperbolic với ngưỡng sàn lịch sử 0.55 để bài học cũ giàu từ khóa hiếm vẫn giữ giá trị
             0.55 + 0.45 / (1.0 + 0.02 * age_days)
@@ -281,7 +281,11 @@ fn score_lesson_with_stats(
     let matched_query_count = stats
         .query_tokens
         .iter()
-        .filter(|q| doc_tokens.iter().any(|dt| tokens_match(dt.as_str(), q.as_str())))
+        .filter(|q| {
+            doc_tokens
+                .iter()
+                .any(|dt| tokens_match(dt.as_str(), q.as_str()))
+        })
         .count();
 
     if matched_query_count == 0 {
@@ -302,7 +306,11 @@ fn score_lesson_with_stats(
         .is_some_and(|r| !r.trim().is_empty() && !r.trim().eq_ignore_ascii_case("none"));
 
     let confidence_weight = if lesson.success {
-        if has_remediation { 1.25 } else { 1.15 }
+        if has_remediation {
+            1.25
+        } else {
+            1.15
+        }
     } else if has_remediation {
         0.65
     } else {
@@ -353,11 +361,7 @@ pub fn score_lesson_hybrid(
 
 /// Hàm xếp hạng bài học `score_lesson_relevance(query, lesson, now)` kết hợp BM25 term weighting,
 /// semantic coverage, confidence score và recency time-decay.
-pub fn score_lesson_relevance(
-    query: &str,
-    lesson: &StructuredLesson,
-    now: DateTime<Utc>,
-) -> f64 {
+pub fn score_lesson_relevance(query: &str, lesson: &StructuredLesson, now: DateTime<Utc>) -> f64 {
     score_lesson_hybrid(query, lesson, &[], now).final_score
 }
 
@@ -448,7 +452,11 @@ pub fn rank_lesson_blocks(
         let (ts_opt, body) = strip_learned_prefix(block);
         let matched_count = query_tokens
             .iter()
-            .filter(|q| doc_tokens.iter().any(|dt| tokens_match(dt.as_str(), q.as_str())))
+            .filter(|q| {
+                doc_tokens
+                    .iter()
+                    .any(|dt| tokens_match(dt.as_str(), q.as_str()))
+            })
             .count();
         if matched_count == 0 {
             continue;

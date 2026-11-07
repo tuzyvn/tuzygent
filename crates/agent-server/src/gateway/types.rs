@@ -32,7 +32,11 @@ pub fn parse_model_spec(model_str: &str) -> Result<(AccountEngineKind, Option<St
     if lower.starts_with("antigravity") || lower.starts_with("agy") || lower.starts_with("gemini") {
         let specific_model = model_str.split_once('/').map(|(_, m)| m.to_string());
         Ok((AccountEngineKind::Antigravity, specific_model))
-    } else if lower.starts_with("codex") || lower.starts_with("gpt") || lower.starts_with("o1") || lower.starts_with("o3") {
+    } else if lower.starts_with("codex")
+        || lower.starts_with("gpt")
+        || lower.starts_with("o1")
+        || lower.starts_with("o3")
+    {
         let specific_model = model_str.split_once('/').map(|(_, m)| m.to_string());
         Ok((AccountEngineKind::Codex, specific_model))
     } else if lower.starts_with("claude") {

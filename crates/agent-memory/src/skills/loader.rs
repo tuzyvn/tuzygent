@@ -5,7 +5,9 @@ use crate::skills::frontmatter::{parse_frontmatter, validate_frontmatter};
 use crate::skills::types::SkillMetadata;
 
 /// Quét thư mục skills để phát hiện tất cả file kỹ năng
-pub async fn scan_available_skills(skills_dir: &Path) -> Result<Vec<SkillMetadata>, std::io::Error> {
+pub async fn scan_available_skills(
+    skills_dir: &Path,
+) -> Result<Vec<SkillMetadata>, std::io::Error> {
     let mut skills = Vec::new();
     if !skills_dir.exists() {
         return Ok(skills);

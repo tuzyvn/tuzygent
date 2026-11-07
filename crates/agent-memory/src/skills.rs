@@ -3,11 +3,12 @@ pub mod loader;
 pub mod registry;
 pub mod types;
 
-pub use frontmatter::{parse_frontmatter, validate_frontmatter, validate_skill_file, FRONTMATTER_RE};
+pub use frontmatter::{
+    parse_frontmatter, validate_frontmatter, validate_skill_file, FRONTMATTER_RE,
+};
 pub use loader::{scan_and_validate_skills, scan_available_skills};
 pub use registry::SkillRegistry;
 pub use types::{SkillFrontmatter, SkillMetadata, SkillValidationError};
-
 
 #[cfg(test)]
 mod tests {

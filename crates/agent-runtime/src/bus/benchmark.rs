@@ -113,10 +113,7 @@ impl BusBenchmarkHarness {
         )
     }
 
-    pub fn run_single_lock_benchmark(
-        num_requests: usize,
-        concurrency: usize,
-    ) -> BusBenchmarkStats {
+    pub fn run_single_lock_benchmark(num_requests: usize, concurrency: usize) -> BusBenchmarkStats {
         let shared_bus = Arc::new(Mutex::new(
             ResilientInterAgentBus::new(num_requests + 64, BusFaultPolicy::none(), 3)
                 .with_max_capacity(num_requests + 64),
@@ -180,10 +177,7 @@ impl BusBenchmarkHarness {
         )
     }
 
-    pub fn run_concurrent_benchmark(
-        num_requests: usize,
-        concurrency: usize,
-    ) -> BusBenchmarkStats {
+    pub fn run_concurrent_benchmark(num_requests: usize, concurrency: usize) -> BusBenchmarkStats {
         const NUM_SHARDS: usize = 16;
         let per_shard_cap = (num_requests / NUM_SHARDS) + 64;
         let shards: Arc<Vec<Mutex<ResilientInterAgentBus>>> = Arc::new(
@@ -248,7 +242,11 @@ impl BusBenchmarkHarness {
 
         let mem_usage: usize = shards
             .iter()
-            .map(|s| s.lock().unwrap_or_else(|p| p.into_inner()).memory_usage_bytes())
+            .map(|s| {
+                s.lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .memory_usage_bytes()
+            })
             .sum();
 
         Self::compute_stats(

@@ -1,6 +1,8 @@
+mod benchmark;
 pub mod fault;
 pub mod resilience;
 
+pub use benchmark::*;
 pub use fault::*;
 pub use resilience::*;
 

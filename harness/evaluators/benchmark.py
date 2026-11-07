@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -15,13 +16,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from memory_bridge import record_lesson
 
 
-def run_command(cmd, cwd=".", timeout=300):
+def run_command(cmd, cwd=".", timeout=300, env=None):
     start = time.time()
     try:
         proc = subprocess.run(
             cmd,
             shell=True,
             cwd=cwd,
+            env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -155,6 +157,15 @@ def run_scenarios():
     if not scenarios_dir.exists():
         return results
 
+    build_code, build_out, build_err, _ = run_command(
+        "cargo build -p agent-cli --bin agent-ctl"
+    )
+    if build_code != 0:
+        print("✗ Could not build workspace agent-ctl before CLI scenarios:")
+        print(build_err or build_out)
+        return results
+    workspace_agent_ctl = (Path("target/debug/agent-ctl")).resolve()
+
     for file in sorted(scenarios_dir.glob("*.json")):
         print(f"▶ Evaluating Scenario: {file.stem}...")
         try:
@@ -171,7 +182,23 @@ def run_scenarios():
             chk_id = check.get("id")
             if chk_type == "cli_command":
                 cmd = check.get("command")
-                code, out, err, _ = run_command(cmd)
+                if cmd.startswith("agent-ctl "):
+                    cmd = f"{workspace_agent_ctl}{cmd[len('agent-ctl') :]}"
+                command_env = os.environ.copy()
+                fake_bin = None
+                if check.get("fake_git") == "fetch_failure":
+                    fake_bin = Path(tempfile.mkdtemp(prefix="agent-ctl-fake-git-"))
+                    fake_git = fake_bin / "git"
+                    fake_git.write_text(
+                        "#!/bin/sh\necho 'simulated git fetch failure' >&2\nexit 1\n",
+                        encoding="utf-8",
+                    )
+                    fake_git.chmod(0o755)
+                    command_env["PATH"] = str(fake_bin)
+                code, out, err, _ = run_command(cmd, env=command_env)
+                if fake_bin is not None:
+                    (fake_bin / "git").unlink(missing_ok=True)
+                    fake_bin.rmdir()
                 full_out = out + "\n" + err
                 must_contain = check.get("must_contain", [])
                 match = (code == 0) and all(m in full_out for m in must_contain)

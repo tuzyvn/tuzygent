@@ -13,7 +13,9 @@ pub fn save_schedule(conn: &Mutex<Connection>, record: &TaskScheduleRecord) -> R
     let task_id_str = record.task_id.as_ref().map(|id| id.0.clone());
     let last_run_str = record.last_run_at.map(|dt| dt.to_rfc3339());
     let last_spawned_str = record.last_spawned_task_id.as_ref().map(|id| id.0.clone());
-    let max_runs_i64 = record.max_runs.map(|m| i64::try_from(m).unwrap_or(i64::MAX));
+    let max_runs_i64 = record
+        .max_runs
+        .map(|m| i64::try_from(m).unwrap_or(i64::MAX));
     let run_count_i64 = i64::try_from(record.run_count).unwrap_or(i64::MAX);
 
     conn.execute(
@@ -59,7 +61,10 @@ pub fn save_schedule(conn: &Mutex<Connection>, record: &TaskScheduleRecord) -> R
     Ok(())
 }
 
-pub fn get_schedule(conn: &Mutex<Connection>, schedule_id: &str) -> Result<Option<TaskScheduleRecord>> {
+pub fn get_schedule(
+    conn: &Mutex<Connection>,
+    schedule_id: &str,
+) -> Result<Option<TaskScheduleRecord>> {
     let conn = acquire_conn(conn);
     let raw: Option<String> = conn
         .query_row(
@@ -247,7 +252,11 @@ pub fn trigger_due_cron_schedules(
             ],
         )?;
 
-        let trigger_ref = if now > sched.next_run_at { now } else { sched.next_run_at };
+        let trigger_ref = if now > sched.next_run_at {
+            now
+        } else {
+            sched.next_run_at
+        };
         sched.advance_after_trigger(trigger_ref, spawned_task.id.clone())?;
         let sched_raw = serde_json::to_string(&sched)?;
         tx.execute(

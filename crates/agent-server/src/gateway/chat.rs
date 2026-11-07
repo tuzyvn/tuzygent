@@ -1,6 +1,6 @@
 use std::convert::Infallible;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -88,7 +88,10 @@ pub async fn chat_completions_handler(
                 }]
             });
             if let Ok(mut tx_guard) = tx_mutex.lock() {
-                if tx_guard.try_send(Ok(Event::default().data(chunk_data.to_string()))).is_err() {
+                if tx_guard
+                    .try_send(Ok(Event::default().data(chunk_data.to_string())))
+                    .is_err()
+                {
                     callback_overflow.store(true, Ordering::SeqCst);
                 }
             } else {
@@ -106,24 +109,30 @@ pub async fn chat_completions_handler(
 
         tokio::spawn(async move {
             let outcome = {
-            let run = execution.execute(engine, &input);
-            tokio::pin!(run);
-            loop {
-                tokio::select! {
-                    result = &mut run => break Some(result),
-                    _ = tokio::time::sleep(std::time::Duration::from_millis(25)) => {
-                        if tx.is_closed() { break None; }
-                        if overflow.load(Ordering::SeqCst) {
-                            break Some(Err(agent_engine::EngineError::ProcessFailed("Stream buffer exhausted; output is incomplete".into())));
+                let run = execution.execute(engine, &input);
+                tokio::pin!(run);
+                loop {
+                    tokio::select! {
+                        result = &mut run => break Some(result),
+                        _ = tokio::time::sleep(std::time::Duration::from_millis(25)) => {
+                            if tx.is_closed() { break None; }
+                            if overflow.load(Ordering::SeqCst) {
+                                break Some(Err(agent_engine::EngineError::ProcessFailed("Stream buffer exhausted; output is incomplete".into())));
+                            }
                         }
                     }
                 }
-            }
             };
-            let Some(outcome) = outcome else { return; };
+            let Some(outcome) = outcome else {
+                return;
+            };
             let outcome = if overflow.load(Ordering::SeqCst) {
-                Err(agent_engine::EngineError::ProcessFailed("Stream buffer exhausted; output is incomplete".into()))
-            } else { outcome };
+                Err(agent_engine::EngineError::ProcessFailed(
+                    "Stream buffer exhausted; output is incomplete".into(),
+                ))
+            } else {
+                outcome
+            };
             match outcome {
                 Ok(output) if output.exit_code == 0 => {
                     let stop_chunk = serde_json::json!({
@@ -137,7 +146,9 @@ pub async fn chat_completions_handler(
                             "finish_reason": "stop"
                         }]
                     });
-                    let _ = tx.send(Ok(Event::default().data(stop_chunk.to_string()))).await;
+                    let _ = tx
+                        .send(Ok(Event::default().data(stop_chunk.to_string())))
+                        .await;
                     let _ = tx.send(Ok(Event::default().data("[DONE]"))).await;
                 }
                 result => {
@@ -152,7 +163,9 @@ pub async fn chat_completions_handler(
                         "model": &model_name,
                         "error": { "message": message }
                     });
-                    let _ = tx.send(Ok(Event::default().data(err_chunk.to_string()))).await;
+                    let _ = tx
+                        .send(Ok(Event::default().data(err_chunk.to_string())))
+                        .await;
                     let _ = tx.send(Ok(Event::default().data("[DONE]"))).await;
                 }
             }

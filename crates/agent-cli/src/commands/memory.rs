@@ -1,6 +1,6 @@
-use std::path::PathBuf;
 use agent_memory::MemoryService;
 use clap::{Args, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Args, Debug, Clone)]
 pub struct MemoryArgs {
@@ -80,4 +80,3 @@ pub async fn handle(args: MemoryArgs) -> anyhow::Result<()> {
     }
     Ok(())
 }
-

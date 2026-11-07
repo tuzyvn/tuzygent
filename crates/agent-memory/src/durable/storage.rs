@@ -48,15 +48,15 @@ pub struct DurableMemoryStore {
 /// - Loại bỏ các stop words thông dụng trong tiếng Anh và tiếng Việt.
 pub fn extract_query_tokens(query: &str) -> Vec<String> {
     const STOP_WORDS: &[&str] = &[
-        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
-        "by", "from", "as", "is", "are", "was", "were", "be", "been", "being", "have", "has",
-        "had", "do", "does", "did", "can", "could", "should", "would", "this", "that", "these",
-        "those", "into", "then", "them", "their", "there", "what", "which", "who", "when",
-        "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other",
-        "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very",
+        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by",
+        "from", "as", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+        "do", "does", "did", "can", "could", "should", "would", "this", "that", "these", "those",
+        "into", "then", "them", "their", "there", "what", "which", "who", "when", "where", "why",
+        "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no",
+        "nor", "not", "only", "own", "same", "so", "than", "too", "very",
         // Từ dừng phổ biến tiếng Việt
-        "và", "hoặc", "nhưng", "trong", "trên", "tại", "cho", "của", "với", "bởi",
-        "từ", "là", "được", "có", "này", "đó", "các", "những", "một", "thì", "mà", "nếu",
+        "và", "hoặc", "nhưng", "trong", "trên", "tại", "cho", "của", "với", "bởi", "từ", "là",
+        "được", "có", "này", "đó", "các", "những", "một", "thì", "mà", "nếu",
     ];
 
     query
@@ -113,7 +113,10 @@ pub fn parse_lesson_blocks(content: &str) -> Vec<String> {
 impl DurableMemoryStore {
     pub fn new<P: AsRef<Path>>(workspace_dir: P) -> Self {
         let base = workspace_dir.as_ref().join("memory");
-        let storage_dir = workspace_dir.as_ref().join("storage").join("harness_memory");
+        let storage_dir = workspace_dir
+            .as_ref()
+            .join("storage")
+            .join("harness_memory");
         let structured_lessons = storage_dir.join("structured_lessons.json");
         let legacy_lessons = storage_dir.join("lessons.json");
         Self {
@@ -221,11 +224,16 @@ impl DurableMemoryStore {
                 Err(err) => {
                     // Backup corrupt file to prevent total loss
                     let ts = chrono::Utc::now().timestamp();
-                    let corrupt_backup = self.lessons_json_file.with_extension(format!("corrupt.{}.json", ts));
+                    let corrupt_backup = self
+                        .lessons_json_file
+                        .with_extension(format!("corrupt.{}.json", ts));
                     let _ = fs::copy(&self.lessons_json_file, &corrupt_backup).await;
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
-                        format!("Failed to parse structured lessons (backup saved to {:?}): {}", corrupt_backup, err),
+                        format!(
+                            "Failed to parse structured lessons (backup saved to {:?}): {}",
+                            corrupt_backup, err
+                        ),
                     ));
                 }
             }
@@ -234,7 +242,8 @@ impl DurableMemoryStore {
         // Migration check: If new file does not exist, check legacy lessons.json
         if self.legacy_lessons_file.exists() {
             if let Ok(content) = fs::read_to_string(&self.legacy_lessons_file).await {
-                if let Ok(legacy_lessons) = serde_json::from_str::<Vec<StructuredLesson>>(&content) {
+                if let Ok(legacy_lessons) = serde_json::from_str::<Vec<StructuredLesson>>(&content)
+                {
                     return Ok(legacy_lessons);
                 }
             }
@@ -274,7 +283,9 @@ impl DurableMemoryStore {
         let json_data = serde_json::to_string_pretty(&lessons)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-        let temp_file = self.lessons_json_file.with_extension(format!("tmp.{}", uuid::Uuid::new_v4().simple()));
+        let temp_file = self
+            .lessons_json_file
+            .with_extension(format!("tmp.{}", uuid::Uuid::new_v4().simple()));
         fs::write(&temp_file, &json_data).await?;
         fs::rename(&temp_file, &self.lessons_json_file).await?;
 
@@ -320,7 +331,10 @@ impl DurableMemoryStore {
             .await?;
 
         if need_header {
-            file.write_all(b"# USER DIRECTIVES\n\nStable user preferences and operational directives:\n").await?;
+            file.write_all(
+                b"# USER DIRECTIVES\n\nStable user preferences and operational directives:\n",
+            )
+            .await?;
         }
 
         file.write_all(entry.as_bytes()).await?;

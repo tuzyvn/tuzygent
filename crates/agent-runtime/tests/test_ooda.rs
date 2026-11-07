@@ -222,7 +222,8 @@ async fn test_structured_lesson_persistence() {
 /// Kiểm chứng luồng hoàn thành thành công và cập nhật context tuần tự qua các subtask.
 /// ST-1 hoàn thành -> ghi vào working_context -> ST-2 nhận context ST-1 -> hoàn thành -> ST-3 nhận cả 2.
 #[tokio::test]
-async fn test_subtask_queue_successful_flow_and_context_updates() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_subtask_queue_successful_flow_and_context_updates(
+) -> Result<(), Box<dyn std::error::Error>> {
     let env = TestEnv::new("test_queue_success_flow");
     let workdir = env.path();
 
@@ -230,10 +231,10 @@ async fn test_subtask_queue_successful_flow_and_context_updates() -> Result<(), 
     let observed_clone = observed_contexts.clone();
 
     let engine = Arc::new(CallbackMockEngine::new(move |input, _| {
-        observed_clone
-            .lock()
-            .unwrap()
-            .push((input.prompt_or_command.clone(), input.system_context.clone()));
+        observed_clone.lock().unwrap().push((
+            input.prompt_or_command.clone(),
+            input.system_context.clone(),
+        ));
 
         let stdout = match input.prompt_or_command.as_str() {
             "init-db" => "Database schema initialized on port 5432".to_string(),
@@ -253,10 +254,29 @@ async fn test_subtask_queue_successful_flow_and_context_updates() -> Result<(), 
 
     let (executor, scratchpad, _durable) = setup_test_executor(engine, None, workdir);
 
-    let mut task = Task::new("Setup Service", "Prepare database and initial seed", Priority::Normal);
-    task.subtasks.push(SubTask::new("ST-1", "Init Database", "init-db", "file: verified_fixture"));
-    task.subtasks.push(SubTask::new("ST-2", "Run Migrations", "run-migrations", "file: verified_fixture"));
-    task.subtasks.push(SubTask::new("ST-3", "Seed Records", "seed-records", "file: verified_fixture"));
+    let mut task = Task::new(
+        "Setup Service",
+        "Prepare database and initial seed",
+        Priority::Normal,
+    );
+    task.subtasks.push(SubTask::new(
+        "ST-1",
+        "Init Database",
+        "init-db",
+        "file: verified_fixture",
+    ));
+    task.subtasks.push(SubTask::new(
+        "ST-2",
+        "Run Migrations",
+        "run-migrations",
+        "file: verified_fixture",
+    ));
+    task.subtasks.push(SubTask::new(
+        "ST-3",
+        "Seed Records",
+        "seed-records",
+        "file: verified_fixture",
+    ));
 
     let mut all_verifications: Vec<VerificationResult> = Vec::new();
     let mut working_context = String::new();
@@ -309,14 +329,22 @@ async fn test_subtask_queue_successful_flow_and_context_updates() -> Result<(), 
 
         // ST-2 nhận được kết quả của ST-1 trong system context
         assert_eq!(contexts[1].0, "run-migrations");
-        assert!(contexts[1].1.contains("# Previous step results (reference data)"));
-        assert!(contexts[1].1.contains("ST-1: Database schema initialized on port 5432"));
+        assert!(contexts[1]
+            .1
+            .contains("# Previous step results (reference data)"));
+        assert!(contexts[1]
+            .1
+            .contains("ST-1: Database schema initialized on port 5432"));
         assert!(!contexts[1].1.contains("ST-2:"));
 
         // ST-3 nhận được cả ST-1 lẫn ST-2 trong system context
         assert_eq!(contexts[2].0, "seed-records");
-        assert!(contexts[2].1.contains("ST-1: Database schema initialized on port 5432"));
-        assert!(contexts[2].1.contains("ST-2: Applied 3 pending SQL migrations successfully"));
+        assert!(contexts[2]
+            .1
+            .contains("ST-1: Database schema initialized on port 5432"));
+        assert!(contexts[2]
+            .1
+            .contains("ST-2: Applied 3 pending SQL migrations successfully"));
     }
 
     // 5. Kiểm chứng verifications và scratchpad logs
@@ -335,7 +363,8 @@ async fn test_subtask_queue_successful_flow_and_context_updates() -> Result<(), 
 /// ST-2 thất bại -> Hệ thống gọi prompt AI sinh remediation subtask -> Chèn trước ST-2 ->
 /// Chạy remediation -> Cập nhật working_context -> Chạy lại ST-2 (retry 1) thành công.
 #[tokio::test]
-async fn test_subtask_queue_backtracking_and_remediation() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_subtask_queue_backtracking_and_remediation() -> Result<(), Box<dyn std::error::Error>>
+{
     let env = TestEnv::new("test_queue_backtracking_remediation");
     let workdir = env.path();
 
@@ -343,7 +372,10 @@ async fn test_subtask_queue_backtracking_and_remediation() -> Result<(), Box<dyn
     let retry_clone = retry_attempts.clone();
 
     let engine = Arc::new(CallbackMockEngine::new(move |input, _| {
-        if input.prompt_or_command.contains("Autonomous AI Problem Solver") {
+        if input
+            .prompt_or_command
+            .contains("Autonomous AI Problem Solver")
+        {
             // Hệ thống tự động sinh remediation JSON
             let rem_json = serde_json::json!({
                 "id": "ST-BUILD-FIX-1",
@@ -372,7 +404,8 @@ async fn test_subtask_queue_backtracking_and_remediation() -> Result<(), Box<dyn
             if attempt == 0 {
                 // Lần đầu: Thất bại do thiếu openssl
                 Ok(EngineOutput {
-                    stdout_content: "error: failed to run custom build command for openssl-sys".to_string(),
+                    stdout_content: "error: failed to run custom build command for openssl-sys"
+                        .to_string(),
                     exit_code: 101,
                     execution_duration_ms: 30,
                     engine_used: EngineKind::Mock,
@@ -380,7 +413,9 @@ async fn test_subtask_queue_backtracking_and_remediation() -> Result<(), Box<dyn
                 })
             } else {
                 // Lần 2 (sau remediation): Kiểm tra context nhận được remediation output, sau đó thành công
-                assert!(input.system_context.contains("ST-BUILD-FIX-1: libssl-dev installed successfully"));
+                assert!(input
+                    .system_context
+                    .contains("ST-BUILD-FIX-1: libssl-dev installed successfully"));
                 Ok(EngineOutput {
                     stdout_content: "Finished release [optimized] target(s) in 1.45s".to_string(),
                     exit_code: 0,
@@ -403,8 +438,18 @@ async fn test_subtask_queue_backtracking_and_remediation() -> Result<(), Box<dyn
     let (executor, _scratchpad, durable) = setup_test_executor(engine, None, workdir);
 
     let mut task = Task::new("Build Service", "Compile release binaries", Priority::High);
-    task.subtasks.push(SubTask::new("ST-PRE", "Prepare workspace", "git status", "file: verified_fixture"));
-    task.subtasks.push(SubTask::new("ST-BUILD", "Build Binary", "cargo build --release", "file: verified_fixture"));
+    task.subtasks.push(SubTask::new(
+        "ST-PRE",
+        "Prepare workspace",
+        "git status",
+        "file: verified_fixture",
+    ));
+    task.subtasks.push(SubTask::new(
+        "ST-BUILD",
+        "Build Binary",
+        "cargo build --release",
+        "file: verified_fixture",
+    ));
 
     let mut all_verifications = Vec::new();
     let mut working_context = String::new();
@@ -465,14 +510,18 @@ async fn test_subtask_queue_backtracking_and_remediation() -> Result<(), Box<dyn
 /// Subtask chạy exit code 0 nhưng file artifact chưa tồn tại -> Verification thất bại ->
 /// Sinh remediation subtask tạo file -> Retry lại subtask ban đầu -> Verification vượt qua -> Hoàn thành.
 #[tokio::test]
-async fn test_subtask_queue_verification_failure_backtracking() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_subtask_queue_verification_failure_backtracking(
+) -> Result<(), Box<dyn std::error::Error>> {
     let env = TestEnv::new("test_queue_verification_backtracking");
     let workdir = env.path();
     let expected_file = workdir.join("build_output.json");
     let expected_file_clone = expected_file.clone();
 
     let engine = Arc::new(CallbackMockEngine::new(move |input, _| {
-        if input.prompt_or_command.contains("Autonomous AI Problem Solver") {
+        if input
+            .prompt_or_command
+            .contains("Autonomous AI Problem Solver")
+        {
             let rem_json = serde_json::json!({
                 "id": "ST-GEN-FIX-1",
                 "title": "Create build output json",
@@ -488,8 +537,11 @@ async fn test_subtask_queue_verification_failure_backtracking() -> Result<(), Bo
             })
         } else if input.prompt_or_command == "generate-build-output-json" {
             // Remediation tạo ra file đúng yêu cầu
-            std::fs::write(&expected_file_clone, r#"{"status": "ok", "version": "1.0.0"}"#)
-                .expect("Failed to write expected file in remediation");
+            std::fs::write(
+                &expected_file_clone,
+                r#"{"status": "ok", "version": "1.0.0"}"#,
+            )
+            .expect("Failed to write expected file in remediation");
             Ok(EngineOutput {
                 stdout_content: "Created build_output.json successfully".to_string(),
                 exit_code: 0,
@@ -511,8 +563,17 @@ async fn test_subtask_queue_verification_failure_backtracking() -> Result<(), Bo
 
     let (executor, _scratchpad, durable) = setup_test_executor(engine, None, workdir);
 
-    let mut task = Task::new("Artifact Generation", "Ensure build_output.json is created", Priority::Normal);
-    let mut st = SubTask::new("ST-GEN", "Generate artifact", "run-generator", "file: build_output.json");
+    let mut task = Task::new(
+        "Artifact Generation",
+        "Ensure build_output.json is created",
+        Priority::Normal,
+    );
+    let mut st = SubTask::new(
+        "ST-GEN",
+        "Generate artifact",
+        "run-generator",
+        "file: build_output.json",
+    );
     st.verification_spec = Some(VerificationSpec::FileExists {
         path: "build_output.json".to_string(),
         min_bytes: Some(10),
@@ -560,12 +621,16 @@ async fn test_subtask_queue_verification_failure_backtracking() -> Result<(), Bo
 /// Khi subtask liên tục thất bại và retry_count vượt ngưỡng `max_retries_on_error`,
 /// hàng đợi phải dừng lại và trả về `QueueExecutionOutcome::Failed`, task chuyển `TaskStatus::Failed`.
 #[tokio::test]
-async fn test_subtask_queue_backtracking_exhausted_retries() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_subtask_queue_backtracking_exhausted_retries(
+) -> Result<(), Box<dyn std::error::Error>> {
     let env = TestEnv::new("test_queue_exhausted_retries");
     let workdir = env.path();
 
     let engine = Arc::new(CallbackMockEngine::new(move |input, _| {
-        if input.prompt_or_command.contains("Autonomous AI Problem Solver") {
+        if input
+            .prompt_or_command
+            .contains("Autonomous AI Problem Solver")
+        {
             let rem_json = serde_json::json!({
                 "id": "ST-FAIL-RETRY",
                 "title": "Attempt fix",
@@ -608,7 +673,12 @@ async fn test_subtask_queue_backtracking_exhausted_retries() -> Result<(), Box<d
     let (executor, _scratchpad, durable) = setup_test_executor(engine, Some(guardrail), workdir);
 
     let mut task = Task::new("OOM Prone Task", "Task that keeps failing", Priority::High);
-    task.subtasks.push(SubTask::new("ST-OOM", "Heavy compute", "run-heavy", "Success"));
+    task.subtasks.push(SubTask::new(
+        "ST-OOM",
+        "Heavy compute",
+        "run-heavy",
+        "Success",
+    ));
 
     let mut all_verifications = Vec::new();
     let mut working_context = String::new();
@@ -645,7 +715,8 @@ async fn test_subtask_queue_backtracking_exhausted_retries() -> Result<(), Box<d
 }
 
 #[tokio::test]
-async fn test_subtask_executor_scoped_scratchpad_isolation_and_merge() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_subtask_executor_scoped_scratchpad_isolation_and_merge(
+) -> Result<(), Box<dyn std::error::Error>> {
     let mock = Arc::new(CallbackMockEngine::new(|_input, _attempt| {
         Ok(EngineOutput {
             stdout_content: "ok".to_string(),
@@ -658,24 +729,36 @@ async fn test_subtask_executor_scoped_scratchpad_isolation_and_merge() -> Result
     let env = TestEnv::new("scoped_scratchpad_test");
     let (executor, scratchpad, _durable) = setup_test_executor(mock, None, env.path());
 
-    scratchpad.append_log("Root executor plan initialized").await?;
+    scratchpad
+        .append_log("Root executor plan initialized")
+        .await?;
 
     // Create ReadOnly scope for review subtask
-    let audit_scope = executor.scoped_scratchpad("subtask-review", agent_runtime::ScopeAccess::ReadOnly);
+    let audit_scope =
+        executor.scoped_scratchpad("subtask-review", agent_runtime::ScopeAccess::ReadOnly);
     assert_eq!(audit_scope.access(), agent_runtime::ScopeAccess::ReadOnly);
     let parent_content = audit_scope.read_parent().await?;
     assert!(parent_content.contains("Root executor plan initialized"));
     assert!(audit_scope.append_log("illegal write").await.is_err());
 
     // Create ReadWrite scope for worker subtask
-    let worker_scope = executor.scoped_scratchpad("subtask-worker", agent_runtime::ScopeAccess::ReadWrite);
-    worker_scope.append_log("Running worker isolated action").await?;
-    assert!(worker_scope.read().await?.contains("Running worker isolated action"));
+    let worker_scope =
+        executor.scoped_scratchpad("subtask-worker", agent_runtime::ScopeAccess::ReadWrite);
+    worker_scope
+        .append_log("Running worker isolated action")
+        .await?;
+    assert!(worker_scope
+        .read()
+        .await?
+        .contains("Running worker isolated action"));
 
     // Merge into executor root scratchpad
-    worker_scope.merge_into_parent("Worker finished unit test execution").await?;
+    worker_scope
+        .merge_into_parent("Worker finished unit test execution")
+        .await?;
     let root_content = scratchpad.read().await?;
-    assert!(root_content.contains("[DELEGATION RESULT: subtask-worker] Worker finished unit test execution"));
+    assert!(root_content
+        .contains("[DELEGATION RESULT: subtask-worker] Worker finished unit test execution"));
 
     worker_scope.cleanup().await?;
     assert!(!worker_scope.file_path().exists());
@@ -684,7 +767,8 @@ async fn test_subtask_executor_scoped_scratchpad_isolation_and_merge() -> Result
 }
 
 #[tokio::test]
-async fn test_subtask_executor_isolated_scratchpad_anti_snoop_and_cleanup() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_subtask_executor_isolated_scratchpad_anti_snoop_and_cleanup(
+) -> Result<(), Box<dyn std::error::Error>> {
     let mock = Arc::new(CallbackMockEngine::new(|_input, _attempt| {
         Ok(EngineOutput {
             stdout_content: "ok".to_string(),
@@ -698,26 +782,48 @@ async fn test_subtask_executor_isolated_scratchpad_anti_snoop_and_cleanup() -> R
     let (executor, scratchpad, _durable) = setup_test_executor(mock, None, env.path());
 
     // Parent holds confidential instructions and state
-    scratchpad.append_log("CONFIDENTIAL_AGENT_KEY=super-secret-token-42").await?;
+    scratchpad
+        .append_log("CONFIDENTIAL_AGENT_KEY=super-secret-token-42")
+        .await?;
 
     // 1. Untrusted sub-agent gets isolated scope
     let isolated_subagent = executor.isolated_scratchpad("untrusted-subagent");
-    assert_eq!(isolated_subagent.access(), agent_runtime::ScopeAccess::Isolated);
+    assert_eq!(
+        isolated_subagent.access(),
+        agent_runtime::ScopeAccess::Isolated
+    );
 
     // Attempting to read parent memory fails (anti-snooping)
     let snoop_res = isolated_subagent.read_parent().await;
-    assert!(snoop_res.is_err(), "Isolated sub-agent must not access parent memory");
-    assert_eq!(snoop_res.unwrap_err().kind(), std::io::ErrorKind::PermissionDenied);
+    assert!(
+        snoop_res.is_err(),
+        "Isolated sub-agent must not access parent memory"
+    );
+    assert_eq!(
+        snoop_res.unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
 
     // Sub-agent can write internally without polluting root
-    isolated_subagent.append_log("Local computations performed").await?;
-    assert!(isolated_subagent.read().await?.contains("Local computations performed"));
-    assert!(!scratchpad.read().await?.contains("Local computations performed"));
+    isolated_subagent
+        .append_log("Local computations performed")
+        .await?;
+    assert!(isolated_subagent
+        .read()
+        .await?
+        .contains("Local computations performed"));
+    assert!(!scratchpad
+        .read()
+        .await?
+        .contains("Local computations performed"));
 
     // 2. Safe merge to parent
-    isolated_subagent.merge_into_parent("Untrusted subagent finished securely").await?;
+    isolated_subagent
+        .merge_into_parent("Untrusted subagent finished securely")
+        .await?;
     let parent_content = scratchpad.read().await?;
-    assert!(parent_content.contains("[DELEGATION RESULT: untrusted-subagent] Untrusted subagent finished securely"));
+    assert!(parent_content
+        .contains("[DELEGATION RESULT: untrusted-subagent] Untrusted subagent finished securely"));
 
     // 3. Auto-cleanup on drop test
     let sub_path;
@@ -729,7 +835,10 @@ async fn test_subtask_executor_isolated_scratchpad_anti_snoop_and_cleanup() -> R
         sub_path = scoped_tmp.file_path().to_path_buf();
         assert!(sub_path.exists());
     }
-    assert!(!sub_path.exists(), "Ephemeral worker scratchpad must be removed on drop");
+    assert!(
+        !sub_path.exists(),
+        "Ephemeral worker scratchpad must be removed on drop"
+    );
 
     Ok(())
 }

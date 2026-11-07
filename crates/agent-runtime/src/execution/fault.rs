@@ -18,24 +18,24 @@ impl ExecutionFault {
     pub fn to_engine_error(&self) -> EngineError {
         match self {
             Self::SocketTimeout => EngineError::Timeout,
-            Self::ConnectionReset => {
-                EngineError::ProcessFailed("Connection reset by peer during engine execution".to_string())
-            }
-            Self::TransientIo => {
-                EngineError::ProcessFailed("Transient I/O failure during execution: broken pipe".to_string())
-            }
-            Self::ServiceUnavailable => {
-                EngineError::ApiRequestFailed("503 Service Unavailable: execution backend temporarily busy".to_string())
-            }
-            Self::WorkerCrash => {
-                EngineError::ProcessFailed("Execution worker process crashed (exit code 137 / SIGKILL)".to_string())
-            }
-            Self::CapacityOverload => {
-                EngineError::ProcessFailed("Execution capacity overload: worker queue full".to_string())
-            }
-            Self::CorruptedOutput => {
-                EngineError::ProcessFailed("Corrupted execution output stream: invalid payload received".to_string())
-            }
+            Self::ConnectionReset => EngineError::ProcessFailed(
+                "Connection reset by peer during engine execution".to_string(),
+            ),
+            Self::TransientIo => EngineError::ProcessFailed(
+                "Transient I/O failure during execution: broken pipe".to_string(),
+            ),
+            Self::ServiceUnavailable => EngineError::ApiRequestFailed(
+                "503 Service Unavailable: execution backend temporarily busy".to_string(),
+            ),
+            Self::WorkerCrash => EngineError::ProcessFailed(
+                "Execution worker process crashed (exit code 137 / SIGKILL)".to_string(),
+            ),
+            Self::CapacityOverload => EngineError::ProcessFailed(
+                "Execution capacity overload: worker queue full".to_string(),
+            ),
+            Self::CorruptedOutput => EngineError::ProcessFailed(
+                "Corrupted execution output stream: invalid payload received".to_string(),
+            ),
             Self::Panic => {
                 EngineError::ProcessFailed("Execution worker panicked unexpectedly".to_string())
             }

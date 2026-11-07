@@ -2,7 +2,11 @@ use agent_engine::{AccountEngineKind, AccountVault};
 use std::collections::HashMap;
 
 fn temp_vault_dir(prefix: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("vault_test_{}_{}", prefix, uuid::Uuid::new_v4().simple()));
+    let dir = std::env::temp_dir().join(format!(
+        "vault_test_{}_{}",
+        prefix,
+        uuid::Uuid::new_v4().simple()
+    ));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -16,14 +20,24 @@ fn test_account_vault_registration_and_isolation() {
     let mut env1 = HashMap::new();
     env1.insert("GOOGLE_PROJECT".to_string(), "project-alpha".to_string());
     let acc1 = vault
-        .register_account(AccountEngineKind::Antigravity, "acc_google_work", "Work Google Account", env1)
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_google_work",
+            "Work Google Account",
+            env1,
+        )
         .unwrap();
 
     // 2. Đăng ký tài khoản Antigravity 2
     let mut env2 = HashMap::new();
     env2.insert("GOOGLE_PROJECT".to_string(), "project-beta".to_string());
     let acc2 = vault
-        .register_account(AccountEngineKind::Antigravity, "acc_google_personal", "Personal Google Account", env2)
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "acc_google_personal",
+            "Personal Google Account",
+            env2,
+        )
         .unwrap();
 
     // Kiểm tra thư mục sandbox cách ly riêng biệt
@@ -33,13 +47,28 @@ fn test_account_vault_registration_and_isolation() {
 
     // Kiểm tra biến môi trường được inject khi spawn CLI
     let env_acc1 = vault.build_env_for_account(&acc1);
-    assert_eq!(env_acc1.get("HOME"), Some(&acc1.home_dir.to_string_lossy().to_string()));
-    assert_eq!(env_acc1.get("GEMINI_CLI_HOME"), Some(&acc1.home_dir.to_string_lossy().to_string()));
-    assert_eq!(env_acc1.get("GOOGLE_PROJECT"), Some(&"project-alpha".to_string()));
+    assert_eq!(
+        env_acc1.get("HOME"),
+        Some(&acc1.home_dir.to_string_lossy().to_string())
+    );
+    assert_eq!(
+        env_acc1.get("GEMINI_CLI_HOME"),
+        Some(&acc1.home_dir.to_string_lossy().to_string())
+    );
+    assert_eq!(
+        env_acc1.get("GOOGLE_PROJECT"),
+        Some(&"project-alpha".to_string())
+    );
 
     let env_acc2 = vault.build_env_for_account(&acc2);
-    assert_eq!(env_acc2.get("HOME"), Some(&acc2.home_dir.to_string_lossy().to_string()));
-    assert_eq!(env_acc2.get("GOOGLE_PROJECT"), Some(&"project-beta".to_string()));
+    assert_eq!(
+        env_acc2.get("HOME"),
+        Some(&acc2.home_dir.to_string_lossy().to_string())
+    );
+    assert_eq!(
+        env_acc2.get("GOOGLE_PROJECT"),
+        Some(&"project-beta".to_string())
+    );
 
     let _ = std::fs::remove_dir_all(temp_dir);
 }
@@ -52,33 +81,52 @@ fn test_round_robin_rotation_and_cooldown() {
     // Đăng ký 2 tài khoản Codex
     let mut env_a = HashMap::new();
     env_a.insert("OPENAI_API_KEY".to_string(), "sk-account-a".to_string());
-    vault.register_account(AccountEngineKind::Codex, "acc_a", "Codex Account A", env_a).unwrap();
+    vault
+        .register_account(AccountEngineKind::Codex, "acc_a", "Codex Account A", env_a)
+        .unwrap();
 
     let mut env_b = HashMap::new();
     env_b.insert("OPENAI_API_KEY".to_string(), "sk-account-b".to_string());
-    vault.register_account(AccountEngineKind::Codex, "acc_b", "Codex Account B", env_b).unwrap();
+    vault
+        .register_account(AccountEngineKind::Codex, "acc_b", "Codex Account B", env_b)
+        .unwrap();
 
     // Lượt 1: Bốc acc_a
-    let picked1 = vault.select_next_account(&AccountEngineKind::Codex).unwrap();
+    let picked1 = vault
+        .select_next_account(&AccountEngineKind::Codex)
+        .unwrap();
     assert_eq!(picked1.id, "acc_a");
 
     // Lượt 2: Xoay vòng sang acc_b
-    let picked2 = vault.select_next_account(&AccountEngineKind::Codex).unwrap();
+    let picked2 = vault
+        .select_next_account(&AccountEngineKind::Codex)
+        .unwrap();
     assert_eq!(picked2.id, "acc_b");
 
     // Lượt 3: Xoay vòng lại acc_a
-    let picked3 = vault.select_next_account(&AccountEngineKind::Codex).unwrap();
+    let picked3 = vault
+        .select_next_account(&AccountEngineKind::Codex)
+        .unwrap();
     assert_eq!(picked3.id, "acc_a");
 
     // Giả sử acc_a gặp lỗi Rate Limit 429 -> Đưa vào Cooldown 60s
-    vault.mark_cooldown(&AccountEngineKind::Codex, "acc_a", 60, "Rate limit 429 exceeded");
+    vault.mark_cooldown(
+        &AccountEngineKind::Codex,
+        "acc_a",
+        60,
+        "Rate limit 429 exceeded",
+    );
 
     // Lượt 4: Vì acc_a đang Cooldown, hệ thống tự động bỏ qua acc_a và chỉ bốc acc_b
-    let picked4 = vault.select_next_account(&AccountEngineKind::Codex).unwrap();
+    let picked4 = vault
+        .select_next_account(&AccountEngineKind::Codex)
+        .unwrap();
     assert_eq!(picked4.id, "acc_b");
 
     // Lượt 5: Vẫn tiếp tục bốc acc_b vì acc_a chưa hết thời gian phạt
-    let picked5 = vault.select_next_account(&AccountEngineKind::Codex).unwrap();
+    let picked5 = vault
+        .select_next_account(&AccountEngineKind::Codex)
+        .unwrap();
     assert_eq!(picked5.id, "acc_b");
 
     let _ = std::fs::remove_dir_all(temp_dir);
@@ -90,7 +138,14 @@ fn test_vault_persistence_reload() {
 
     {
         let vault = AccountVault::new_with_dir(temp_dir.clone());
-        vault.register_account(AccountEngineKind::Antigravity, "persist_acc", "Persistent Account", HashMap::new()).unwrap();
+        vault
+            .register_account(
+                AccountEngineKind::Antigravity,
+                "persist_acc",
+                "Persistent Account",
+                HashMap::new(),
+            )
+            .unwrap();
     }
 
     // Khởi tạo lại vault từ cùng thư mục để kiểm tra tính bền vững

@@ -11,7 +11,9 @@ use agent_memory::{
 #[test]
 fn test_topic_83ce28_d71323_context_builder_chaos_resilience() {
     let builder = ContextBuilder::new("Implement distributed fault-tolerant ledger")
-        .with_lessons(vec!["Always verify ledger cryptographic hash chain".to_string()])
+        .with_lessons(vec![
+            "Always verify ledger cryptographic hash chain".to_string()
+        ])
         .with_recent_logs(vec!["Log: Phase 1 consensus verified".to_string()])
         .add_subtask_step("ST-01".to_string(), "Scaffolded module".to_string())
         .with_max_total_chars(8000);
@@ -20,7 +22,11 @@ fn test_topic_83ce28_d71323_context_builder_chaos_resilience() {
     let policy = ContextBuilderFaultPolicy::intermittent(ContextBuilderFault::SocketTimeout, 2);
     let mut resilient = ResilientContextBuilder::new(builder, policy, 3);
     let res = resilient.build();
-    assert!(res.is_ok(), "ResilientContextBuilder should recover from intermittent socket timeout: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "ResilientContextBuilder should recover from intermittent socket timeout: {:?}",
+        res.err()
+    );
     let (sys, work) = res.unwrap();
     assert!(sys.contains("PRIMARY GOAL"));
     assert!(sys.contains("Implement distributed fault-tolerant ledger"));
@@ -38,7 +44,10 @@ fn test_context_builder_intermittent_connection_reset_recovery() {
     let mut resilient = ResilientContextBuilder::new(builder, policy, 3);
 
     let res = resilient.build();
-    assert!(res.is_ok(), "Must recover from intermittent connection reset");
+    assert!(
+        res.is_ok(),
+        "Must recover from intermittent connection reset"
+    );
     assert_eq!(resilient.built_count(), 1);
     assert!(resilient.recovered_count() > 0);
 }
@@ -102,7 +111,10 @@ fn test_context_builder_budget_exceeded_rejection() {
     let res = resilient.build();
     assert!(matches!(
         res,
-        Err(ContextBuilderError::BudgetExceeded { required: _, max_budget: _ })
+        Err(ContextBuilderError::BudgetExceeded {
+            required: _,
+            max_budget: _
+        })
     ));
     assert_eq!(resilient.built_count(), 0);
     assert_eq!(resilient.rejected_count(), 1);
@@ -121,8 +133,8 @@ fn test_context_builder_empty_goal_validation_failure() {
 #[test]
 fn test_context_builder_audit_ledger_recording() {
     let mut ledger = AuditLedger::new();
-    let builder = ContextBuilder::new("Audit tracked goal")
-        .with_recent_logs(vec!["Activity 1".to_string()]);
+    let builder =
+        ContextBuilder::new("Audit tracked goal").with_recent_logs(vec!["Activity 1".to_string()]);
 
     let policy = ContextBuilderFaultPolicy::none();
     let mut resilient = ResilientContextBuilder::new(builder, policy, 3);
@@ -138,7 +150,8 @@ fn test_context_builder_audit_ledger_recording() {
 
     // Now test recording a blocked event on validation failure
     let invalid_builder = ContextBuilder::new("");
-    let mut resilient_invalid = ResilientContextBuilder::new(invalid_builder, ContextBuilderFaultPolicy::none(), 3);
+    let mut resilient_invalid =
+        ResilientContextBuilder::new(invalid_builder, ContextBuilderFaultPolicy::none(), 3);
     let err_res = resilient_invalid.build_and_record(&mut ledger);
     assert!(matches!(err_res, Err(ContextBuilderError::EmptyGoal)));
 
@@ -213,14 +226,8 @@ fn test_topic_d85ca9_9c90cb_context_builder_benchmark_and_resilience() {
         "Throughput should exceed 500 ops/sec, got {}",
         stats.throughput_ops_per_sec
     );
-    assert!(
-        stats.p50_latency_us > 0.0,
-        "P50 latency must be tracked"
-    );
-    assert!(
-        stats.p90_latency_us > 0.0,
-        "P90 latency must be tracked"
-    );
+    assert!(stats.p50_latency_us > 0.0, "P50 latency must be tracked");
+    assert!(stats.p90_latency_us > 0.0, "P90 latency must be tracked");
     assert!(
         stats.p99_latency_us < 20_000.0,
         "P99 latency must be under 20ms, got {} us",

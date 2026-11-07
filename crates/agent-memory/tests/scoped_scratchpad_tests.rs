@@ -35,7 +35,10 @@ async fn test_readonly_scoped_scratchpad_blocks_writes() {
     );
 
     let append_res = child_scope.append_log("Unauthorized log attempt").await;
-    assert!(append_res.is_err(), "ReadOnly scratchpad must reject append_log");
+    assert!(
+        append_res.is_err(),
+        "ReadOnly scratchpad must reject append_log"
+    );
     assert_eq!(
         append_res.unwrap_err().kind(),
         std::io::ErrorKind::PermissionDenied
@@ -52,14 +55,23 @@ async fn test_readonly_scoped_scratchpad_blocks_writes() {
 async fn test_readwrite_scoped_scratchpad_isolation_and_merge() {
     let ws = unique_temp_dir();
     let root_mgr = ScratchpadManager::for_task(&ws, "parent-task-2");
-    root_mgr.append_log("Parent starting sub-delegation").await.unwrap();
+    root_mgr
+        .append_log("Parent starting sub-delegation")
+        .await
+        .unwrap();
 
     let child_scope_1 = root_mgr.scoped_child("subagent-worker-1", ScopeAccess::ReadWrite);
     let child_scope_2 = root_mgr.scoped_child("subagent-worker-2", ScopeAccess::ReadWrite);
 
     // Each child writes to their own isolated workspace
-    child_scope_1.append_log("Worker 1 step A completed").await.unwrap();
-    child_scope_2.append_log("Worker 2 step B completed").await.unwrap();
+    child_scope_1
+        .append_log("Worker 1 step A completed")
+        .await
+        .unwrap();
+    child_scope_2
+        .append_log("Worker 2 step B completed")
+        .await
+        .unwrap();
 
     let content_1 = child_scope_1.read().await.unwrap();
     let content_2 = child_scope_2.read().await.unwrap();
@@ -112,7 +124,10 @@ async fn test_hierarchical_nesting_and_auto_cleanup() {
         assert!(grandchild_path.exists());
         // grandchild drops here, triggering auto-cleanup
     }
-    assert!(!grandchild_path.exists(), "Grandchild scratchpad should be auto-cleaned upon drop");
+    assert!(
+        !grandchild_path.exists(),
+        "Grandchild scratchpad should be auto-cleaned upon drop"
+    );
 
     let _ = std::fs::remove_dir_all(&ws);
 }
@@ -132,9 +147,15 @@ async fn test_subagent_scoped_scratchpad_permissions_isolation_anti_snooping_and
     let parent_text = auditor.read_parent().await.unwrap();
     assert!(parent_text.contains("CONFIDENTIAL_PARENT_STRATEGY=Alpha"));
 
-    let err_write = auditor.write("Auditor illegal overwrite").await.unwrap_err();
+    let err_write = auditor
+        .write("Auditor illegal overwrite")
+        .await
+        .unwrap_err();
     assert_eq!(err_write.kind(), std::io::ErrorKind::PermissionDenied);
-    let err_append = auditor.append_log("Auditor illegal append").await.unwrap_err();
+    let err_append = auditor
+        .append_log("Auditor illegal append")
+        .await
+        .unwrap_err();
     assert_eq!(err_append.kind(), std::io::ErrorKind::PermissionDenied);
 
     // 2. Phân quyền Isolated: Cô lập hoàn toàn, cấm đọc trộm bộ nhớ cha (Anti-Snooping)
@@ -157,7 +178,11 @@ async fn test_subagent_scoped_scratchpad_permissions_isolation_anti_snooping_and
         .append_log("Processing external job #99 without parent secrets")
         .await
         .unwrap();
-    assert!(isolated_worker.read().await.unwrap().contains("Processing external job #99"));
+    assert!(isolated_worker
+        .read()
+        .await
+        .unwrap()
+        .contains("Processing external job #99"));
 
     // Kiểm tra bộ nhớ cha không bị ô nhiễm bởi các log cục bộ của isolated_worker
     let parent_after_worker = root_mgr.read().await.unwrap();
@@ -167,8 +192,14 @@ async fn test_subagent_scoped_scratchpad_permissions_isolation_anti_snooping_and
     let sibling_a = root_mgr.scoped_child("worker-node-a", ScopeAccess::ReadWrite);
     let sibling_b = root_mgr.scoped_child("worker-node-b", ScopeAccess::ReadWrite);
 
-    sibling_a.append_log("Internal state of worker A").await.unwrap();
-    sibling_b.append_log("Internal state of worker B").await.unwrap();
+    sibling_a
+        .append_log("Internal state of worker A")
+        .await
+        .unwrap();
+    sibling_b
+        .append_log("Internal state of worker B")
+        .await
+        .unwrap();
 
     let text_a = sibling_a.read().await.unwrap();
     let text_b = sibling_b.read().await.unwrap();
@@ -181,7 +212,10 @@ async fn test_subagent_scoped_scratchpad_permissions_isolation_anti_snooping_and
         let auto_clean_child = sibling_a
             .child_scope("ephemeral-sub-step", ScopeAccess::ReadWrite)
             .with_auto_cleanup(true);
-        auto_clean_child.append_log("Ephemeral intermediate calculation").await.unwrap();
+        auto_clean_child
+            .append_log("Ephemeral intermediate calculation")
+            .await
+            .unwrap();
         temp_child_path = auto_clean_child.file_path().to_path_buf();
         assert!(temp_child_path.exists());
     }

@@ -227,7 +227,12 @@ impl ResilientAuthValidator {
                     self.validated_count += 1;
                     return Ok(true);
                 }
-                Some(t) if self.fallback_token.as_ref().is_some_and(|f| token_matches(t, f)) => {
+                Some(t)
+                    if self
+                        .fallback_token
+                        .as_ref()
+                        .is_some_and(|f| token_matches(t, f)) =>
+                {
                     self.validated_count += 1;
                     self.fallback_count += 1;
                     return Ok(true);

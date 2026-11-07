@@ -1,6 +1,6 @@
 use agent_domain::{
-    ActionSeverity, AuditEventType, AuditIntegrityError, AuditLedger, GuardrailPolicy,
-    RedLineRule, GENESIS_HASH,
+    ActionSeverity, AuditEventType, AuditIntegrityError, AuditLedger, GuardrailPolicy, RedLineRule,
+    GENESIS_HASH,
 };
 use agent_runtime::{
     FnMcpToolHandler, McpGatewayError, McpJsonRpcRequest, McpPropertyType, McpServerConfig,
@@ -95,7 +95,9 @@ fn build_enterprise_mcp_gateway() -> McpToolGateway {
             if sql.contains("SIMULATE_DB_CRASH") {
                 return Err("Database connection lost during query".to_string());
             }
-            Ok(McpToolCallResult::success_text(format!("rows_returned: 2 for [{sql}]")))
+            Ok(McpToolCallResult::success_text(format!(
+                "rows_returned: 2 for [{sql}]"
+            )))
         })),
     );
 
@@ -399,11 +401,8 @@ fn tdd_mcp_schema_and_argument_validation_errors() {
         Some(MCP_ERR_METHOD_NOT_FOUND)
     );
 
-    let invalid_params_resp = gateway.handle_jsonrpc(McpJsonRpcRequest::new(
-        json!(101),
-        "tools/call",
-        None,
-    ));
+    let invalid_params_resp =
+        gateway.handle_jsonrpc(McpJsonRpcRequest::new(json!(101), "tools/call", None));
     assert_eq!(
         invalid_params_resp.error.as_ref().map(|e| e.code),
         Some(MCP_ERR_INVALID_PARAMS)
@@ -433,7 +432,10 @@ fn tdd_mcp_audit_ledger_hash_chain_and_tamper_detection() {
         arguments: json!({ "sql": "TRUNCATE tasks;" }),
         actor: Some("agent-rogue".to_string()),
     });
-    assert!(matches!(blocked_res, Err(McpGatewayError::PolicyBlocked(_))));
+    assert!(matches!(
+        blocked_res,
+        Err(McpGatewayError::PolicyBlocked(_))
+    ));
 
     // 3. Schema failure
     let schema_res = gateway.invoke_tool_call(McpToolCallParams {
@@ -561,4 +563,3 @@ fn tdd_mcp_interceptor_deep_nested_payload_and_protocol_edge_cases() {
 
     assert!(gateway.verify_audit_integrity().is_ok());
 }
-

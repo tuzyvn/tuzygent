@@ -59,8 +59,7 @@ async fn test_attempt_remediation_retry_exhausted() {
     use agent_memory::{DurableMemoryStore, ScratchpadManager};
     use std::sync::Arc;
 
-    let temp_dir =
-        std::env::temp_dir().join(format!("test_rem_exhaust_{}", uuid::Uuid::new_v4()));
+    let temp_dir = std::env::temp_dir().join(format!("test_rem_exhaust_{}", uuid::Uuid::new_v4()));
     let _ = std::fs::create_dir_all(&temp_dir);
 
     let executor = SubtaskExecutor::new(

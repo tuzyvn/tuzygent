@@ -32,7 +32,8 @@ pub fn copy_credential_dir(src: &Path, dst: &Path) -> Result<(), std::io::Error>
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
-                    let _ = std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600));
+                    let _ =
+                        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600));
                 }
             }
         }

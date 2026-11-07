@@ -1,9 +1,9 @@
+use chrono::Utc;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use chrono::Utc;
 
-use crate::accounts::types::{AccountEngineKind, AccountProfile, AccountStatus};
 use super::AccountVault;
+use crate::accounts::types::{AccountEngineKind, AccountProfile, AccountStatus};
 
 /// Đọc và deserialize danh sách AccountProfile từ file metadata JSON.
 pub fn load_profiles_from_file(meta_file: &Path) -> Result<Vec<AccountProfile>, std::io::Error> {
@@ -95,7 +95,9 @@ impl AccountVault {
             None => {
                 drop(rr_lock);
                 let mut write_rr = self.rr_write();
-                let atomic = write_rr.entry(engine.clone()).or_insert_with(|| AtomicUsize::new(0));
+                let atomic = write_rr
+                    .entry(engine.clone())
+                    .or_insert_with(|| AtomicUsize::new(0));
                 atomic.fetch_add(1, Ordering::SeqCst)
             }
         };
@@ -109,7 +111,13 @@ impl AccountVault {
     }
 
     /// Đánh dấu tài khoản vào trạng thái Cooldown khi gặp Rate Limit 429 hoặc lỗi quota
-    pub fn mark_cooldown(&self, engine: &AccountEngineKind, id: &str, duration_secs: u64, reason: &str) {
+    pub fn mark_cooldown(
+        &self,
+        engine: &AccountEngineKind,
+        id: &str,
+        duration_secs: u64,
+        reason: &str,
+    ) {
         {
             let mut lock = self.accounts_write();
             if let Some(list) = lock.get_mut(engine) {

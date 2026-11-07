@@ -67,8 +67,13 @@ fn test_workflow_dag_to_mermaid() {
     );
 
     // Verify nodes are rendered with labels or IDs
-    assert!(mermaid.contains("start[\"Start Trigger\"]") || mermaid.contains("start[Start Trigger]"));
-    assert!(mermaid.contains("process[\"Agent Processor\"]") || mermaid.contains("process[Agent Processor]"));
+    assert!(
+        mermaid.contains("start[\"Start Trigger\"]") || mermaid.contains("start[Start Trigger]")
+    );
+    assert!(
+        mermaid.contains("process[\"Agent Processor\"]")
+            || mermaid.contains("process[Agent Processor]")
+    );
     assert!(mermaid.contains("end"));
 
     // Verify edges are rendered properly with and without labels

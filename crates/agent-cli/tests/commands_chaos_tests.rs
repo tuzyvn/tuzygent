@@ -79,7 +79,11 @@ async fn test_commands_socket_timeout_fault_injection() {
         })
         .await;
 
-    assert!(res.is_ok(), "Must recover from socket timeout: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "Must recover from socket timeout: {:?}",
+        res.err()
+    );
     assert_eq!(res.unwrap(), "socket-comm-success");
     assert!(dispatcher.recovered_count() >= 1);
 }
@@ -99,7 +103,11 @@ async fn test_commands_io_failure_fault_injection() {
         })
         .await;
 
-    assert!(res.is_ok(), "Must recover from transient I/O: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "Must recover from transient I/O: {:?}",
+        res.err()
+    );
     assert_eq!(res.unwrap(), vec![1, 2, 3]);
     assert!(dispatcher.recovered_count() >= 1);
 }
@@ -119,7 +127,11 @@ async fn test_commands_lock_contention_fault_injection() {
         })
         .await;
 
-    assert!(res.is_ok(), "Must recover from lock contention: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "Must recover from lock contention: {:?}",
+        res.err()
+    );
     assert_eq!(res.unwrap(), "lock-acquired-and-committed");
     assert!(dispatcher.recovered_count() >= 1);
 }
@@ -259,49 +271,76 @@ fn test_commands_error_and_retry_classification() {
 }
 
 async fn execute_high_load_concurrency_benchmark() {
-    let mut dispatcher = ResilientCommandDispatcher::with_policy(CliFaultPolicy::none(), 3)
-        .with_max_capacity(2_000);
+    let mut dispatcher =
+        ResilientCommandDispatcher::with_policy(CliFaultPolicy::none(), 3).with_max_capacity(2_000);
 
     let stats: CommandsBenchmarkStats =
         CommandsBenchmarkHarness::run_benchmark(&mut dispatcher, 10_000).await;
-    println!("[Commands Benchmark] Throughput: {:.2} ops/sec, P99: {:.2} µs, Memory: {} B",
-        stats.throughput_ops_per_sec, stats.p99_latency_us, stats.memory_allocated_bytes);
+    println!(
+        "[Commands Benchmark] Throughput: {:.2} ops/sec, P99: {:.2} µs, Memory: {} B",
+        stats.throughput_ops_per_sec, stats.p99_latency_us, stats.memory_allocated_bytes
+    );
 
     assert_eq!(stats.total_requests, 10_000);
     assert_eq!(stats.successful_operations, 9_000);
     assert_eq!(stats.rejected_count, 1_000);
-    assert!(stats.throughput_ops_per_sec > 200.0, "Throughput > 200 ops/sec, got {}", stats.throughput_ops_per_sec);
+    assert!(
+        stats.throughput_ops_per_sec > 200.0,
+        "Throughput > 200 ops/sec, got {}",
+        stats.throughput_ops_per_sec
+    );
     assert!(stats.p50_latency_us > 0.0 && stats.p90_latency_us > 0.0);
-    assert!(stats.p99_latency_us < 50_000.0, "P99 latency < 50ms, got {} µs", stats.p99_latency_us);
+    assert!(
+        stats.p99_latency_us < 50_000.0,
+        "P99 latency < 50ms, got {} µs",
+        stats.p99_latency_us
+    );
     assert!(stats.memory_allocated_bytes > 0);
 
     // 2. Verify bounded memory allocation (no unbounded memory leak / FIFO eviction)
     let mem_before = dispatcher.memory_usage_bytes();
     let _ = CommandsBenchmarkHarness::run_benchmark(&mut dispatcher, 5_000).await;
     let mem_after = dispatcher.memory_usage_bytes();
-    assert!(mem_after <= mem_before + 2048, "Memory strictly bounded (before: {}, after: {})", mem_before, mem_after);
+    assert!(
+        mem_after <= mem_before + 2048,
+        "Memory strictly bounded (before: {}, after: {})",
+        mem_before,
+        mem_after
+    );
 
     // 3. Batch dispatch optimization test
     let batch_items = vec![
         ("batch_cmd_1", Ok("batch_1_ok")),
         ("batch_cmd_2", Ok("batch_2_ok")),
-        ("batch_invalid_3", Err(CliExecutionError::ParseError {
-            code: 2,
-            message: "command syntax error".to_string(),
-        })),
+        (
+            "batch_invalid_3",
+            Err(CliExecutionError::ParseError {
+                code: 2,
+                message: "command syntax error".to_string(),
+            }),
+        ),
         ("batch_cmd_4", Ok("batch_4_ok")),
     ];
     let batch_res = dispatcher.dispatch_batch_operations(&batch_items).await;
     assert_eq!(batch_res.len(), 4);
-    assert!(batch_res[0].is_ok() && batch_res[1].is_ok() && batch_res[2].is_err() && batch_res[3].is_ok());
+    assert!(
+        batch_res[0].is_ok()
+            && batch_res[1].is_ok()
+            && batch_res[2].is_err()
+            && batch_res[3].is_ok()
+    );
 
     // 4. Lock Contention Comparison: Single Shared Lock vs 16-Way Sharded Concurrency
     let single_lock_stats = CommandsBenchmarkHarness::run_single_lock_benchmark(10_000, 4).await;
     let sharded_stats = CommandsBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
-    println!("  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
-        single_lock_stats.throughput_ops_per_sec, single_lock_stats.p99_latency_us);
-    println!("  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
-        sharded_stats.throughput_ops_per_sec, sharded_stats.p99_latency_us);
+    println!(
+        "  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+        single_lock_stats.throughput_ops_per_sec, single_lock_stats.p99_latency_us
+    );
+    println!(
+        "  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+        sharded_stats.throughput_ops_per_sec, sharded_stats.p99_latency_us
+    );
 
     assert_eq!(sharded_stats.total_requests, 10_000);
     assert_eq!(sharded_stats.successful_operations, 9_000);
@@ -321,4 +360,3 @@ async fn test_topic_ed30f7_d26a5b_commands_benchmark_and_high_load_resilience() 
 async fn test_commands_high_load_concurrency() {
     execute_high_load_concurrency_benchmark().await;
 }
-

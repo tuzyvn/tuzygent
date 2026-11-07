@@ -1,6 +1,5 @@
 use agent_domain::{
-    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul,
-    AutonomyLevel,
+    AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel,
 };
 use anyhow::{Context, Result};
 use std::path::Path;
@@ -86,17 +85,32 @@ impl PersonaLoader {
             }
             if trimmed.starts_with("- **Agent ID**:") {
                 in_metadata_list = true;
-                parsed_id = Some(trimmed.trim_start_matches("- **Agent ID**:").trim().to_string());
+                parsed_id = Some(
+                    trimmed
+                        .trim_start_matches("- **Agent ID**:")
+                        .trim()
+                        .to_string(),
+                );
                 continue;
             }
             if trimmed.starts_with("- **Title**:") {
                 in_metadata_list = true;
-                parsed_title = Some(trimmed.trim_start_matches("- **Title**:").trim().to_string());
+                parsed_title = Some(
+                    trimmed
+                        .trim_start_matches("- **Title**:")
+                        .trim()
+                        .to_string(),
+                );
                 continue;
             }
             if trimmed.starts_with("- **Domain**:") {
                 in_metadata_list = true;
-                parsed_domain = Some(trimmed.trim_start_matches("- **Domain**:").trim().to_string());
+                parsed_domain = Some(
+                    trimmed
+                        .trim_start_matches("- **Domain**:")
+                        .trim()
+                        .to_string(),
+                );
                 continue;
             }
             if trimmed.starts_with("- **Autonomy**:") {
@@ -119,7 +133,8 @@ impl PersonaLoader {
         }
 
         let agent_name = parsed_name.unwrap_or_else(|| format!("Agent {}", fallback_agent_name));
-        let agent_id = AgentId::from_str(&parsed_id.unwrap_or_else(|| fallback_agent_name.to_string()));
+        let agent_id =
+            AgentId::from_str(&parsed_id.unwrap_or_else(|| fallback_agent_name.to_string()));
         let description = if !desc_lines.is_empty() {
             desc_lines.join(" ")
         } else {
@@ -137,7 +152,8 @@ impl PersonaLoader {
         let role = AgentRole {
             role_code: fallback_agent_name.to_uppercase(),
             title: parsed_title.unwrap_or_else(|| format!("Specialist ({})", fallback_agent_name)),
-            primary_domain: parsed_domain.unwrap_or_else(|| "General Intelligence & Operations".to_string()),
+            primary_domain: parsed_domain
+                .unwrap_or_else(|| "General Intelligence & Operations".to_string()),
             capabilities: vec![
                 "autonomous reasoning".to_string(),
                 "tool execution".to_string(),

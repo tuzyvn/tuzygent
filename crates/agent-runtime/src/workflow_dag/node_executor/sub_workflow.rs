@@ -30,7 +30,11 @@ pub async fn execute_sub_workflow_node(
         ctx.timeline.push(WorkflowTimelineEvent {
             timestamp: Utc::now().format("%H:%M:%S").to_string(),
             level: "info".to_string(),
-            message: format!("🔀 Đang lồng ghép Sub-Workflow: '{}' (Độ sâu: {})", sub_id, ctx.depth + 1),
+            message: format!(
+                "🔀 Đang lồng ghép Sub-Workflow: '{}' (Độ sâu: {})",
+                sub_id,
+                ctx.depth + 1
+            ),
         });
 
         match orchestrator.load_workflow_from_catalog(sub_id).await {
@@ -41,9 +45,15 @@ pub async fn execute_sub_workflow_node(
                     "parent_node_id": current_id.to_string()
                 }));
 
-                let caller_desc = format!("Parent Workflow '{}' (Node: {})", workflow.name, node_label);
+                let caller_desc =
+                    format!("Parent Workflow '{}' (Node: {})", workflow.name, node_label);
                 match orchestrator
-                    .execute_workflow_internal(&child_wf, child_payload, &caller_desc, ctx.depth + 1)
+                    .execute_workflow_internal(
+                        &child_wf,
+                        child_payload,
+                        &caller_desc,
+                        ctx.depth + 1,
+                    )
                     .await
                 {
                     Ok(child_report) => {

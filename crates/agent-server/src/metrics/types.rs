@@ -85,7 +85,9 @@ impl MetricsSnapshot {
         let mut out = String::with_capacity(1024);
 
         // agent_tasks_total
-        out.push_str("# HELP agent_tasks_total Total number of tasks processed by the agent server\n");
+        out.push_str(
+            "# HELP agent_tasks_total Total number of tasks processed by the agent server\n",
+        );
         out.push_str("# TYPE agent_tasks_total counter\n");
         out.push_str(&format!(
             "agent_tasks_total{{status=\"completed\"}} {}\n",
@@ -114,7 +116,9 @@ impl MetricsSnapshot {
         ));
 
         // agent_remediations_total
-        out.push_str("# HELP agent_remediations_total Total number of remediation subtasks triggered\n");
+        out.push_str(
+            "# HELP agent_remediations_total Total number of remediation subtasks triggered\n",
+        );
         out.push_str("# TYPE agent_remediations_total counter\n");
         out.push_str(&format!(
             "agent_remediations_total {}\n\n",

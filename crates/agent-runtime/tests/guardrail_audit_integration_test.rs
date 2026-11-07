@@ -1,4 +1,6 @@
-use agent_domain::{ActionSeverity, AuditIntegrityError, AuditLedger, GuardrailPolicy, GENESIS_HASH};
+use agent_domain::{
+    ActionSeverity, AuditIntegrityError, AuditLedger, GuardrailPolicy, GENESIS_HASH,
+};
 
 #[test]
 fn test_runtime_guardrail_audit_lifecycle_integration() {
@@ -28,7 +30,10 @@ fn test_runtime_guardrail_audit_lifecycle_integration() {
     // 4. Chặn lệnh nguy hiểm thứ hai: Lệnh sửa quyền truy cập nguy hiểm
     let perm_cmd = "chmod 777 /etc/shadow";
     let blocked_perm = policy.evaluate_and_record(&mut ledger, perm_cmd);
-    assert!(blocked_perm.is_err(), "Lệnh thay đổi quyền 777 phải bị chặn");
+    assert!(
+        blocked_perm.is_err(),
+        "Lệnh thay đổi quyền 777 phải bị chặn"
+    );
 
     // 5. Ngoại lệ cấp hệ thống
     ledger.record_exception(
@@ -46,7 +51,10 @@ fn test_runtime_guardrail_audit_lifecycle_integration() {
 
     for (i, entry) in ledger.entries().iter().enumerate() {
         assert_eq!(entry.sequence, i as u64);
-        assert!(entry.verify_hash(), "Hash của mỗi bản ghi phải hợp lệ với payload");
+        assert!(
+            entry.verify_hash(),
+            "Hash của mỗi bản ghi phải hợp lệ với payload"
+        );
     }
 
     // Kiểm tra verify_integrity() trả về Ok với chuỗi hợp lệ
@@ -120,7 +128,10 @@ fn test_runtime_guardrail_audit_tamper_detection() {
         let result = tampered_ledger.verify_integrity();
         match result {
             Err(AuditIntegrityError::InvalidPrevHash { sequence, .. }) => {
-                assert_eq!(sequence, 2, "Bản ghi kế tiếp phải phát hiện prev_hash không khớp");
+                assert_eq!(
+                    sequence, 2,
+                    "Bản ghi kế tiếp phải phát hiện prev_hash không khớp"
+                );
             }
             other => panic!("Kỳ vọng lỗi InvalidPrevHash, nhận được: {:?}", other),
         }
@@ -134,7 +145,11 @@ fn test_runtime_guardrail_audit_tamper_detection() {
         let tampered_ledger = AuditLedger::from_entries(tampered_entries);
         let result = tampered_ledger.verify_integrity();
         match result {
-            Err(AuditIntegrityError::InvalidSequence { index, expected, found }) => {
+            Err(AuditIntegrityError::InvalidSequence {
+                index,
+                expected,
+                found,
+            }) => {
                 assert_eq!(index, 1);
                 assert_eq!(expected, 1);
                 assert_eq!(found, 2);

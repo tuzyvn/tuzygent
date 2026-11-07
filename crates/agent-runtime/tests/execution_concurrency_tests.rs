@@ -17,8 +17,8 @@ async fn test_topic_884ce9_04c010_execution_benchmark_and_lock_contention_isolat
 
     // 1. Single-threaded high load baseline benchmark (10,000 requests)
     let service = ExecutionService::new("/tmp", None, None);
-    let mut resilient =
-        ResilientExecutionService::new(service, ExecutionFaultPolicy::none(), 3).with_max_capacity(2_000);
+    let mut resilient = ResilientExecutionService::new(service, ExecutionFaultPolicy::none(), 3)
+        .with_max_capacity(2_000);
 
     let stats: ExecutionBenchmarkStats =
         ExecutionBenchmarkHarness::run_benchmark(&mut resilient, 10_000).await;
@@ -26,13 +26,19 @@ async fn test_topic_884ce9_04c010_execution_benchmark_and_lock_contention_isolat
     println!("  Total requests      : {}", stats.total_requests);
     println!("  Successful ops      : {}", stats.successful_operations);
     println!("  Rejected ops        : {}", stats.rejected_count);
-    println!("  Throughput          : {:.2} ops/sec", stats.throughput_ops_per_sec);
+    println!(
+        "  Throughput          : {:.2} ops/sec",
+        stats.throughput_ops_per_sec
+    );
     println!("  P50 Latency         : {:.2} µs", stats.p50_latency_us);
     println!("  P90 Latency         : {:.2} µs", stats.p90_latency_us);
     println!("  P99 Latency         : {:.2} µs", stats.p99_latency_us);
     println!("  Max Latency         : {:.2} µs", stats.max_latency_us);
     println!("  Duration            : {:?}", stats.total_duration);
-    println!("  Memory Allocated    : {} bytes", stats.memory_allocated_bytes);
+    println!(
+        "  Memory Allocated    : {} bytes",
+        stats.memory_allocated_bytes
+    );
 
     assert_eq!(stats.total_requests, 10_000);
     assert_eq!(stats.successful_operations, 9_000);
@@ -65,7 +71,10 @@ async fn test_topic_884ce9_04c010_execution_benchmark_and_lock_contention_isolat
         mem_after
     );
     println!("\n[2. Bounded Memory Check]");
-    println!("  Memory before: {} bytes | Memory after 5k extra ops: {} bytes", mem_before, mem_after);
+    println!(
+        "  Memory before: {} bytes | Memory after 5k extra ops: {} bytes",
+        mem_before, mem_after
+    );
 
     // 3. Batch execution optimization test
     let mock_engine = Arc::new(agent_runtime::execution::benchmark::BenchmarkMockEngine);
@@ -85,12 +94,14 @@ async fn test_topic_884ce9_04c010_execution_benchmark_and_lock_contention_isolat
     // 4. Lock Contention Comparison: Single Shared Lock vs 16-Way Sharded Concurrency
     println!("\n[3. Lock Contention Comparison (10,000 requests across 4 worker threads)]");
     let single_lock_stats = ExecutionBenchmarkHarness::run_single_lock_benchmark(10_000, 4).await;
-    println!("  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+    println!(
+        "  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
         single_lock_stats.throughput_ops_per_sec, single_lock_stats.p99_latency_us
     );
 
     let sharded_stats = ExecutionBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
-    println!("  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+    println!(
+        "  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
         sharded_stats.throughput_ops_per_sec, sharded_stats.p99_latency_us
     );
 
@@ -106,9 +117,12 @@ async fn test_topic_884ce9_04c010_execution_benchmark_and_lock_contention_isolat
     // 5. High Concurrency Scaling with 8 tasks (10,000 requests)
     let scaling_stats = ExecutionBenchmarkHarness::run_concurrent_benchmark(10_000, 8).await;
     println!("\n[4. Concurrency Scaling (8 tasks, 10,000 requests)]");
-    println!("  Throughput: {:.2} ops/sec | P50: {:.2} µs | P90: {:.2} µs | P99: {:.2} µs",
-        scaling_stats.throughput_ops_per_sec, scaling_stats.p50_latency_us,
-        scaling_stats.p90_latency_us, scaling_stats.p99_latency_us
+    println!(
+        "  Throughput: {:.2} ops/sec | P50: {:.2} µs | P90: {:.2} µs | P99: {:.2} µs",
+        scaling_stats.throughput_ops_per_sec,
+        scaling_stats.p50_latency_us,
+        scaling_stats.p90_latency_us,
+        scaling_stats.p99_latency_us
     );
     assert_eq!(scaling_stats.total_requests, 10_000);
     assert_eq!(scaling_stats.successful_operations, 9_000);

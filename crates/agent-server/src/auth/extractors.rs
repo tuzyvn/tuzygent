@@ -1,5 +1,5 @@
-use axum::extract::Request;
 use super::types::AuthError;
+use axum::extract::Request;
 
 pub fn token_matches(provided: &str, expected: &str) -> bool {
     provided.len() == expected.len()
@@ -17,7 +17,9 @@ pub fn extract_bearer_token(request: &Request) -> Result<Option<&str>, AuthError
     };
 
     let header_str = header.to_str().map_err(|e| {
-        AuthError::TokenDecodingFailure(format!("Authorization header contains non-ASCII bytes: {e}"))
+        AuthError::TokenDecodingFailure(format!(
+            "Authorization header contains non-ASCII bytes: {e}"
+        ))
     })?;
 
     if let Some(token) = header_str.strip_prefix("Bearer ") {

@@ -1,11 +1,12 @@
-use std::process::Command;
 use agent_cli::cli::{Cli, InspectArgs, InspectTarget, OutputFormat};
 use clap::Parser;
+use std::process::Command;
 
 #[test]
 fn test_inspect_parsing_task_and_task_id_alias() {
     // 1. Test parsing "inspect task <id>"
-    let cli = Cli::try_parse_from(["agent-ctl", "inspect", "task", "task-p0-123"]).expect("parse failed");
+    let cli =
+        Cli::try_parse_from(["agent-ctl", "inspect", "task", "task-p0-123"]).expect("parse failed");
     match cli.command {
         agent_cli::Commands::Inspect(InspectArgs {
             format,
@@ -131,11 +132,7 @@ fn test_inspect_parsing_dag() {
     match cli.command {
         agent_cli::Commands::Inspect(InspectArgs {
             format,
-            target:
-                InspectTarget::Dag {
-                    id,
-                    catalog_path,
-                },
+            target: InspectTarget::Dag { id, catalog_path },
             ..
         }) => {
             assert_eq!(format, OutputFormat::Json);
@@ -159,12 +156,7 @@ fn test_inspect_execution_task_table_and_json() {
         agent_domain::Priority::High,
     );
     let task_id_str = task.id.0.clone();
-    let mut subtask = agent_domain::SubTask::new(
-        "sub-1",
-        "Run unit tests",
-        "cargo test",
-        "exit 0",
-    );
+    let mut subtask = agent_domain::SubTask::new("sub-1", "Run unit tests", "cargo test", "exit 0");
     subtask.status = agent_domain::TaskStatus::Completed;
     task.subtasks.push(subtask);
 
@@ -192,9 +184,18 @@ fn test_inspect_execution_task_table_and_json() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "STDERR: {stderr}");
-    assert!(stdout.contains(&task_id_str), "STDOUT must contain task ID: {stdout}");
-    assert!(stdout.contains("Self-Healing Audit"), "STDOUT must contain title: {stdout}");
-    assert!(stdout.contains("Run unit tests"), "STDOUT must contain subtask: {stdout}");
+    assert!(
+        stdout.contains(&task_id_str),
+        "STDOUT must contain task ID: {stdout}"
+    );
+    assert!(
+        stdout.contains("Self-Healing Audit"),
+        "STDOUT must contain title: {stdout}"
+    );
+    assert!(
+        stdout.contains("Run unit tests"),
+        "STDOUT must contain subtask: {stdout}"
+    );
 
     // 2. Run inspect task json format
     let output_json = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
@@ -212,8 +213,8 @@ fn test_inspect_execution_task_table_and_json() {
 
     let stdout_json = String::from_utf8_lossy(&output_json.stdout);
     assert!(output_json.status.success());
-    let parsed: serde_json::Value = serde_json::from_str(&stdout_json)
-        .expect("Output must be valid JSON");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout_json).expect("Output must be valid JSON");
     assert_eq!(parsed["task"]["id"], task_id_str);
 
     let _ = std::fs::remove_dir_all(&temp_dir);
@@ -225,12 +226,16 @@ fn test_inspect_execution_memory_table_and_json() {
     std::fs::create_dir_all(&temp_dir).unwrap();
 
     let memory_service = agent_memory::MemoryService::open(&temp_dir, "default", "coder").unwrap();
-    let episode_id = memory_service.record_episode("task-1", "Fixed unwrap panic", true).unwrap();
-    let lesson_id = memory_service.propose_lesson(
-        "Always handle None safely with context",
-        "when unwrap is found",
-        &episode_id,
-    ).unwrap();
+    let episode_id = memory_service
+        .record_episode("task-1", "Fixed unwrap panic", true)
+        .unwrap();
+    let lesson_id = memory_service
+        .propose_lesson(
+            "Always handle None safely with context",
+            "when unwrap is found",
+            &episode_id,
+        )
+        .unwrap();
 
     // 1. Inspect memory in table format
     let output = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
@@ -248,8 +253,15 @@ fn test_inspect_execution_memory_table_and_json() {
         .expect("failed to execute agent-ctl");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(output.status.success(), "STDERR: {}", String::from_utf8_lossy(&output.stderr));
-    assert!(stdout.contains(&lesson_id) || stdout.contains("Always handle None safely"), "{stdout}");
+    assert!(
+        output.status.success(),
+        "STDERR: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        stdout.contains(&lesson_id) || stdout.contains("Always handle None safely"),
+        "{stdout}"
+    );
 
     // 2. Inspect memory in json format
     let output_json = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
@@ -315,7 +327,11 @@ fn test_inspect_execution_dag_table_and_json() {
             ]
         }
     ]);
-    std::fs::write(&catalog_path, serde_json::to_string_pretty(&sample_catalog).unwrap()).unwrap();
+    std::fs::write(
+        &catalog_path,
+        serde_json::to_string_pretty(&sample_catalog).unwrap(),
+    )
+    .unwrap();
 
     // 1. Inspect dag table format
     let output = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
@@ -334,9 +350,16 @@ fn test_inspect_execution_dag_table_and_json() {
         .expect("failed to execute agent-ctl");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(output.status.success(), "STDERR: {}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "STDERR: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert!(stdout.contains("Deployment Pipeline"), "{stdout}");
-    assert!(stdout.contains("node-1") || stdout.contains("Build Binary"), "{stdout}");
+    assert!(
+        stdout.contains("node-1") || stdout.contains("Build Binary"),
+        "{stdout}"
+    );
 
     // 2. Inspect dag json format
     let output_json = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))

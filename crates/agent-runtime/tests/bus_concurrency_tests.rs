@@ -12,7 +12,9 @@ use std::sync::Arc;
 #[test]
 fn test_topic_aa275b_6e89b1_bus_benchmark_and_lock_contention_isolation() {
     println!("\n================================================================================");
-    println!("[Reproduction & Benchmark Test] Executing TOPIC-20261105-aa275b / 6e89b1 Bus Benchmark...");
+    println!(
+        "[Reproduction & Benchmark Test] Executing TOPIC-20261105-aa275b / 6e89b1 Bus Benchmark..."
+    );
     println!("================================================================================");
 
     // 1. Single-threaded high load baseline benchmark (10,000 requests)
@@ -24,13 +26,19 @@ fn test_topic_aa275b_6e89b1_bus_benchmark_and_lock_contention_isolation() {
     println!("  Total requests      : {}", stats.total_requests);
     println!("  Successful ops      : {}", stats.successful_operations);
     println!("  Rejected ops        : {}", stats.rejected_count);
-    println!("  Throughput          : {:.2} ops/sec", stats.throughput_ops_per_sec);
+    println!(
+        "  Throughput          : {:.2} ops/sec",
+        stats.throughput_ops_per_sec
+    );
     println!("  P50 Latency         : {:.2} µs", stats.p50_latency_us);
     println!("  P90 Latency         : {:.2} µs", stats.p90_latency_us);
     println!("  P99 Latency         : {:.2} µs", stats.p99_latency_us);
     println!("  Max Latency         : {:.2} µs", stats.max_latency_us);
     println!("  Duration            : {:?}", stats.total_duration);
-    println!("  Memory Allocated    : {} bytes", stats.memory_allocated_bytes);
+    println!(
+        "  Memory Allocated    : {} bytes",
+        stats.memory_allocated_bytes
+    );
 
     assert_eq!(stats.total_requests, 10_000);
     assert_eq!(stats.successful_operations, 9_000);
@@ -64,7 +72,10 @@ fn test_topic_aa275b_6e89b1_bus_benchmark_and_lock_contention_isolation() {
         mem_after
     );
     println!("\n[2. Bounded Memory Check]");
-    println!("  Memory before: {} bytes | Memory after 5k extra ops: {} bytes", mem_before, mem_after);
+    println!(
+        "  Memory before: {} bytes | Memory after 5k extra ops: {} bytes",
+        mem_before, mem_after
+    );
 
     // 3. Batch publication optimization test
     let batch_events = vec![
@@ -74,8 +85,14 @@ fn test_topic_aa275b_6e89b1_bus_benchmark_and_lock_contention_isolation() {
         BusBenchmarkHarness::make_benchmark_event(4, false),
     ];
     let batch_res = resilient.publish_resilient_batch(batch_events);
-    assert!(batch_res.is_err(), "Batch containing invalid event must return error");
-    assert_eq!(batch_res.unwrap_err(), BusError::CorruptedEvent("Event ID cannot be empty".to_string()));
+    assert!(
+        batch_res.is_err(),
+        "Batch containing invalid event must return error"
+    );
+    assert_eq!(
+        batch_res.unwrap_err(),
+        BusError::CorruptedEvent("Event ID cannot be empty".to_string())
+    );
 
     let valid_batch = vec![
         BusBenchmarkHarness::make_benchmark_event(10, false),
@@ -83,18 +100,24 @@ fn test_topic_aa275b_6e89b1_bus_benchmark_and_lock_contention_isolation() {
         BusBenchmarkHarness::make_benchmark_event(12, false),
     ];
     let valid_batch_res = resilient.publish_resilient_batch(valid_batch);
-    assert!(valid_batch_res.is_ok(), "Valid batch must succeed: {:?}", valid_batch_res.err());
+    assert!(
+        valid_batch_res.is_ok(),
+        "Valid batch must succeed: {:?}",
+        valid_batch_res.err()
+    );
     assert_eq!(valid_batch_res.unwrap(), 3);
 
     // 4. Lock Contention Comparison: Single Shared Lock vs 16-Way Sharded Concurrency
     println!("\n[3. Lock Contention Comparison (10,000 requests across 4 worker threads)]");
     let single_lock_stats = BusBenchmarkHarness::run_single_lock_benchmark(10_000, 4);
-    println!("  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+    println!(
+        "  [Single Lock] Throughput: {:.2} ops/sec | P99: {:.2} µs",
         single_lock_stats.throughput_ops_per_sec, single_lock_stats.p99_latency_us
     );
 
     let sharded_stats = BusBenchmarkHarness::run_concurrent_benchmark(10_000, 4);
-    println!("  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
+    println!(
+        "  [16-Sharded ] Throughput: {:.2} ops/sec | P99: {:.2} µs",
         sharded_stats.throughput_ops_per_sec, sharded_stats.p99_latency_us
     );
 
@@ -115,9 +138,12 @@ fn test_topic_aa275b_6e89b1_bus_benchmark_and_lock_contention_isolation() {
     // 5. High Concurrency Scaling with 8 threads (10,000 requests)
     let scaling_stats = BusBenchmarkHarness::run_concurrent_benchmark(10_000, 8);
     println!("\n[4. Concurrency Scaling (8 threads, 10,000 requests)]");
-    println!("  Throughput: {:.2} ops/sec | P50: {:.2} µs | P90: {:.2} µs | P99: {:.2} µs",
-        scaling_stats.throughput_ops_per_sec, scaling_stats.p50_latency_us,
-        scaling_stats.p90_latency_us, scaling_stats.p99_latency_us
+    println!(
+        "  Throughput: {:.2} ops/sec | P50: {:.2} µs | P90: {:.2} µs | P99: {:.2} µs",
+        scaling_stats.throughput_ops_per_sec,
+        scaling_stats.p50_latency_us,
+        scaling_stats.p90_latency_us,
+        scaling_stats.p99_latency_us
     );
     assert_eq!(scaling_stats.total_requests, 10_000);
     assert_eq!(scaling_stats.successful_operations, 9_000);
@@ -278,7 +304,9 @@ async fn test_sharded_bus_queue_concurrency_and_lock_isolation() {
     assert_eq!(sharded_bus.total_capacity(), 8 * 1024);
 
     // Subscribe to shard 0
-    let _sub_shard_0 = sharded_bus.subscribe_resilient_shard(0).expect("Shard 0 must exist");
+    let _sub_shard_0 = sharded_bus
+        .subscribe_resilient_shard(0)
+        .expect("Shard 0 must exist");
 
     let bus_clone = Arc::clone(&sharded_bus);
     let num_threads = 4;

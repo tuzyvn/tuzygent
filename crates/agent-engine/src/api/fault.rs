@@ -36,9 +36,9 @@ impl ApiFault {
         match self {
             ApiFault::SocketTimeout => ApiError::SocketTimeout,
             ApiFault::ConnectionReset => ApiError::ConnectionReset,
-            ApiFault::RateLimitExceeded => {
-                ApiError::RateLimitExceeded("429 Too Many Requests / Rate limit exceeded".to_string())
-            }
+            ApiFault::RateLimitExceeded => ApiError::RateLimitExceeded(
+                "429 Too Many Requests / Rate limit exceeded".to_string(),
+            ),
             ApiFault::TransientIo => {
                 ApiError::TransientIo("Simulated transient I/O network failure".to_string())
             }

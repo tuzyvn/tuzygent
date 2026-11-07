@@ -36,9 +36,7 @@ pub async fn execute_single_step(
                 subtask_index,
                 task.subtasks.len()
             );
-            task.status = TaskStatus::Failed {
-                error: err.clone(),
-            };
+            task.status = TaskStatus::Failed { error: err.clone() };
             return Err(err);
         }
     };

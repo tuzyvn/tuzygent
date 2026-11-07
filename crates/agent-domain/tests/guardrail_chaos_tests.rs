@@ -193,8 +193,8 @@ fn test_topic_ddd866_b4f9b6_guardrail_benchmark_and_resilience() {
     // 2. High-load benchmark: 10,000 requests measuring P50/P90/P99 latency, throughput, and proving bounded memory allocation
     let policy = GuardrailPolicy::default_enterprise();
     let fault_policy = GuardrailFaultPolicy::none();
-    let mut evaluator = ResilientGuardrailEvaluator::new(policy, fault_policy, 3)
-        .with_max_capacity(10_000);
+    let mut evaluator =
+        ResilientGuardrailEvaluator::new(policy, fault_policy, 3).with_max_capacity(10_000);
 
     let stats: GuardrailBenchmarkStats =
         GuardrailBenchmarkHarness::run_benchmark(&mut evaluator, 10_000);

@@ -95,10 +95,12 @@ pub async fn verify_account_handler(
         AccountEngineKind::Claude => {
             Arc::new(agent_engine::ClaudeCodeEngine::new(None, None).with_env(env))
         }
-        AccountEngineKind::Generic(_) => return Json(serde_json::json!({
-            "success": false,
-            "error": "Account verification is unavailable for generic engines"
-        })),
+        AccountEngineKind::Generic(_) => {
+            return Json(serde_json::json!({
+                "success": false,
+                "error": "Account verification is unavailable for generic engines"
+            }))
+        }
     };
 
     let input = EngineInput::new("echo verify", &state.workspace);
@@ -123,9 +125,7 @@ pub async fn verify_account_handler(
                 Ok(output) => format!("Engine exited with code {}", output.exit_code),
                 Err(err) => err.to_string(),
             };
-            state
-                .vault
-                .mark_cooldown(&engine_kind, &id, 60, &error);
+            state.vault.mark_cooldown(&engine_kind, &id, 60, &error);
             Json(serde_json::json!({
                 "success": false,
                 "error": error

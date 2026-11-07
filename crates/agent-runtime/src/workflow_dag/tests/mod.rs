@@ -1,6 +1,9 @@
 use super::*;
 
-pub(crate) fn test_workflow(nodes: serde_json::Value, edges: serde_json::Value) -> WorkflowDefinition {
+pub(crate) fn test_workflow(
+    nodes: serde_json::Value,
+    edges: serde_json::Value,
+) -> WorkflowDefinition {
     serde_json::from_value(serde_json::json!({
         "id": "wf-test",
         "name": "Validation Test Workflow",

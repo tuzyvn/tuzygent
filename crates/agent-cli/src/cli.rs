@@ -1,6 +1,6 @@
+use clap::{Parser, Subcommand};
 use std::collections::VecDeque;
 use std::path::PathBuf;
-use clap::{Parser, Subcommand};
 
 use crate::commands::memory::MemoryArgs;
 use crate::commands::replay::{ForkArgs, ReplayArgs};
@@ -37,7 +37,10 @@ impl Cli {
 
     /// Evaluates whether an exit code is intermittent or retryable
     pub fn is_intermittent_exit_code(code: i32) -> bool {
-        matches!(code, 2 | exit_codes::TRANSIENT_INTERMITTENT | 111 | exit_codes::TIMEOUT | 137)
+        matches!(
+            code,
+            2 | exit_codes::TRANSIENT_INTERMITTENT | 111 | exit_codes::TIMEOUT | 137
+        )
     }
 
     /// Normalizes and controls raw exit code safely to prevent crash loops
@@ -100,7 +103,11 @@ impl Cli {
                         message: "from_step must be >= 1".to_string(),
                     });
                 }
-                if args.subtask_id.as_deref().is_some_and(|s| s.trim().is_empty()) {
+                if args
+                    .subtask_id
+                    .as_deref()
+                    .is_some_and(|s| s.trim().is_empty())
+                {
                     return Err(crate::fault::CliExecutionError::ParseError {
                         code: exit_codes::USAGE_ERROR,
                         message: "subtask_id must not be empty".to_string(),
@@ -121,7 +128,11 @@ impl Cli {
                         message: "from_step must be >= 1".to_string(),
                     });
                 }
-                if args.subtask_id.as_deref().is_some_and(|s| s.trim().is_empty()) {
+                if args
+                    .subtask_id
+                    .as_deref()
+                    .is_some_and(|s| s.trim().is_empty())
+                {
                     return Err(crate::fault::CliExecutionError::ParseError {
                         code: exit_codes::USAGE_ERROR,
                         message: "subtask_id must not be empty".to_string(),
@@ -134,7 +145,9 @@ impl Cli {
     }
 
     /// Intercepts and catches intermittent errors, mapping them into structured CliExecutionError
-    pub fn catch_intermittent_error<T, E>(res: Result<T, E>) -> Result<T, crate::fault::CliExecutionError>
+    pub fn catch_intermittent_error<T, E>(
+        res: Result<T, E>,
+    ) -> Result<T, crate::fault::CliExecutionError>
     where
         E: ToString,
     {
@@ -147,7 +160,10 @@ impl Cli {
             } else if msg.contains("broken pipe") {
                 crate::fault::CliExecutionError::BrokenPipe
             } else if msg.contains("non-zero code 2") {
-                crate::fault::CliExecutionError::NonZeroExit { code: 2, message: msg }
+                crate::fault::CliExecutionError::NonZeroExit {
+                    code: 2,
+                    message: msg,
+                }
             } else if msg.contains("lock") {
                 crate::fault::CliExecutionError::LockContention(msg)
             } else {
@@ -305,52 +321,73 @@ pub enum Commands {
     },
     /// Create a new autonomous digital employee
     Create {
-        #[arg(short, long)] id: String,
-        #[arg(short, long)] name: String,
-        #[arg(short, long, default_value = "full")] autonomy: String,
+        #[arg(short, long)]
+        id: String,
+        #[arg(short, long)]
+        name: String,
+        #[arg(short, long, default_value = "full")]
+        autonomy: String,
     },
     /// List all registered agents and their statuses
     List,
     /// Execute an autonomous mission using an agent
     Run {
-        #[arg(short, long)] agent_id: String,
-        #[arg(short, long)] goal: String,
-        #[arg(short, long, default_value = ".")] workspace: String,
-        #[arg(short, long, default_value = "")] engine: String,
-        #[arg(long)] sandbox: Option<String>,
-        #[arg(short, long)] persona_path: Option<String>,
-        #[arg(short, long)] timeout: Option<u64>,
+        #[arg(short, long)]
+        agent_id: String,
+        #[arg(short, long)]
+        goal: String,
+        #[arg(short, long, default_value = ".")]
+        workspace: String,
+        #[arg(short, long, default_value = "")]
+        engine: String,
+        #[arg(long)]
+        sandbox: Option<String>,
+        #[arg(short, long)]
+        persona_path: Option<String>,
+        #[arg(short, long)]
+        timeout: Option<u64>,
         /// Automatically approve custom/unspecified verification if execution succeeds with exit code 0
-        #[arg(long, default_value_t = true)] auto_approve: bool,
+        #[arg(long, default_value_t = true)]
+        auto_approve: bool,
     },
     /// List, inspect or test configured AI CLI engines
     Engines {
-        #[arg(short, long, default_value = ".")] workspace: String,
-        #[arg(long)] test: Option<String>,
+        #[arg(short, long, default_value = ".")]
+        workspace: String,
+        #[arg(long)]
+        test: Option<String>,
     },
     /// Execute an entire multi-agent workflow DAG definition from catalog.json
     RunWorkflow {
-        #[arg(long)] workflow_id: String,
-        #[arg(long, default_value = "workflows/catalog.json")] catalog_path: String,
-        #[arg(long, default_value = ".")] workspace: String,
+        #[arg(long)]
+        workflow_id: String,
+        #[arg(long, default_value = "workflows/catalog.json")]
+        catalog_path: String,
+        #[arg(long, default_value = ".")]
+        workspace: String,
     },
     /// Execute real multi-agent collaboration and task delegation via Event Bus
     #[command(alias = "multi-agent", alias = "collab")]
     DemoMultiAgent {
-        #[arg(short, long, default_value = "")] engine: String,
-        #[arg(short, long, default_value = ".")] workspace: String,
+        #[arg(short, long, default_value = "")]
+        engine: String,
+        #[arg(short, long, default_value = ".")]
+        workspace: String,
     },
     /// Comedy Show: Two autonomous agents performing a Stand-up comedy show about IT life
     ComedyShow {
-        #[arg(short, long, default_value = "antigravity")] engine: String,
+        #[arg(short, long, default_value = "antigravity")]
+        engine: String,
     },
     /// Load and inspect persona profile from directory or file
     PersonaInspect {
-        #[arg(short, long)] path: String,
+        #[arg(short, long)]
+        path: String,
     },
     /// Initialize sample persona profiles (DevOps, Coder, ERP Auditor, HR Payroll)
     InitSamplePersonas {
-        #[arg(short, long, default_value = "personas")] output_dir: String,
+        #[arg(short, long, default_value = "personas")]
+        output_dir: String,
     },
     /// Manage multi-agent teams declaratively via OpenRig-style RigSpec
     Rig {
@@ -368,19 +405,26 @@ pub enum Commands {
 pub enum AuthAction {
     /// List all configured accounts and their statuses
     List {
-        #[arg(short, long)] engine: Option<String>,
+        #[arg(short, long)]
+        engine: Option<String>,
     },
     /// Register or import an account into the vault
     Add {
-        #[arg(short, long)] engine: String,
-        #[arg(short, long)] id: String,
-        #[arg(short, long)] name: String,
-        #[arg(long)] api_key: Option<String>,
+        #[arg(short, long)]
+        engine: String,
+        #[arg(short, long)]
+        id: String,
+        #[arg(short, long)]
+        name: String,
+        #[arg(long)]
+        api_key: Option<String>,
     },
     /// Remove an account from the vault
     Remove {
-        #[arg(short, long)] engine: String,
-        #[arg(short, long)] id: String,
+        #[arg(short, long)]
+        engine: String,
+        #[arg(short, long)]
+        id: String,
     },
 }
 
@@ -388,34 +432,47 @@ pub enum AuthAction {
 pub enum RigAction {
     /// Boot all persistent seats defined in RigSpec (creates tmux sessions or processes)
     Up {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")] spec: PathBuf,
-        #[arg(short, long, default_value = ".")] workspace: String,
+        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        spec: PathBuf,
+        #[arg(short, long, default_value = ".")]
+        workspace: String,
     },
     /// Shutdown and cleanup all seats of a Rig
     Down {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")] spec: PathBuf,
+        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        spec: PathBuf,
     },
     /// Inspect health and status of all seats in a Rig
     Status {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")] spec: PathBuf,
+        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        spec: PathBuf,
     },
     /// Deliver a high-level goal to the Kernel Operator for autonomous team dispatch
     Run {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")] spec: PathBuf,
-        #[arg(short, long)] goal: String,
-        #[arg(short, long, default_value = ".")] workspace: String,
-        #[arg(short, long)] engine: Option<String>,
+        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        spec: PathBuf,
+        #[arg(short, long)]
+        goal: String,
+        #[arg(short, long, default_value = ".")]
+        workspace: String,
+        #[arg(short, long)]
+        engine: Option<String>,
     },
     /// Create a full state snapshot of the Rig (seat states, tmux buffers, timestamps)
     Snapshot {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")] spec: PathBuf,
-        #[arg(short, long, default_value = ".")] workspace: String,
-        #[arg(short, long)] out: Option<String>,
+        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        spec: PathBuf,
+        #[arg(short, long, default_value = ".")]
+        workspace: String,
+        #[arg(short, long)]
+        out: Option<String>,
     },
     /// Restore a Rig's seats from a snapshot file
     Restore {
-        #[arg(short, long)] snapshot: PathBuf,
-        #[arg(short, long, default_value = ".")] workspace: String,
+        #[arg(short, long)]
+        snapshot: PathBuf,
+        #[arg(short, long, default_value = ".")]
+        workspace: String,
     },
 }
 
@@ -434,7 +491,17 @@ pub struct InspectArgs {
     pub target: InspectTarget,
 }
 
-#[derive(clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    clap::ValueEnum,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum OutputFormat {
     #[default]
@@ -450,27 +517,33 @@ pub enum InspectTarget {
         /// Optional Task ID (positional)
         id: Option<String>,
         /// Optional Task ID (via flag --id)
-        #[arg(long = "id")] flag_id: Option<String>,
+        #[arg(long = "id")]
+        flag_id: Option<String>,
         /// Filter by task status
-        #[arg(long)] status: Option<String>,
+        #[arg(long)]
+        status: Option<String>,
         /// Max number of tasks to inspect/list
-        #[arg(long, default_value_t = 20)] limit: usize,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
     },
     /// Inspect agent persona memory records and retrieved lessons
     Memory {
         /// Optional Memory ID or semantic query
         id_or_query: Option<String>,
         /// Project scope
-        #[arg(long, default_value = "default")] project: String,
+        #[arg(long, default_value = "default")]
+        project: String,
         /// Persona name
-        #[arg(long, default_value = "default")] persona: String,
+        #[arg(long, default_value = "default")]
+        persona: String,
     },
     /// Inspect workflow DAG definition, nodes, edges, or execution run report
     Dag {
         /// Optional workflow ID or run ID
         id: Option<String>,
         /// Path to workflow catalog JSON
-        #[arg(long, default_value = "workflows/catalog.json")] catalog_path: String,
+        #[arg(long, default_value = "workflows/catalog.json")]
+        catalog_path: String,
     },
 }
 
@@ -484,14 +557,18 @@ mod tests {
         assert_eq!(SafeExitCode::from_raw(2).as_i32(), exit_codes::USAGE_ERROR);
         assert!(SafeExitCode::from_raw(75).is_intermittent());
         assert!(Cli::is_intermittent_exit_code(2));
-        assert_eq!(Cli::sanitize_exit_code(2), exit_codes::TRANSIENT_INTERMITTENT);
+        assert_eq!(
+            Cli::sanitize_exit_code(2),
+            exit_codes::TRANSIENT_INTERMITTENT
+        );
         assert_eq!(Cli::sanitize_exit_code(0), exit_codes::SUCCESS);
 
         let err_res: Result<(), _> = Err("network timed out during dispatch");
         let caught = Cli::catch_intermittent_error(err_res);
         assert_eq!(caught, Err(crate::fault::CliExecutionError::SocketTimeout));
 
-        let code_from_err = SafeExitCode::from_error(&crate::fault::CliExecutionError::SocketTimeout);
+        let code_from_err =
+            SafeExitCode::from_error(&crate::fault::CliExecutionError::SocketTimeout);
         assert_eq!(code_from_err, SafeExitCode::IntermittentFailure);
     }
 

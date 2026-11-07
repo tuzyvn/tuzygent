@@ -51,9 +51,7 @@ impl DurableMemoryFaultPolicy {
         self.invocation_count = self.invocation_count.wrapping_add(1);
 
         let inject = match self.fail_interval {
-            Some(interval) if interval > 0 => {
-                (self.invocation_count - 1).is_multiple_of(interval)
-            }
+            Some(interval) if interval > 0 => (self.invocation_count - 1).is_multiple_of(interval),
             Some(_) => true,
             None => true,
         };

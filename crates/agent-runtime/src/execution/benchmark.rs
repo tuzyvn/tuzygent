@@ -28,13 +28,17 @@ pub struct BenchmarkMockEngine;
 #[async_trait]
 impl ComputeEngine for BenchmarkMockEngine {
     async fn execute(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
-        if input.prompt_or_command.contains("invalid") || input.prompt_or_command.contains("rm -rf") {
+        if input.prompt_or_command.contains("invalid") || input.prompt_or_command.contains("rm -rf")
+        {
             Err(EngineError::PolicyRejected(
                 "Command rejected by security guardrail".to_string(),
             ))
         } else {
             Ok(EngineOutput {
-                stdout_content: format!("Benchmark execution output for: {}", input.prompt_or_command),
+                stdout_content: format!(
+                    "Benchmark execution output for: {}",
+                    input.prompt_or_command
+                ),
                 exit_code: 0,
                 execution_duration_ms: 1,
                 engine_used: EngineKind::Mock,

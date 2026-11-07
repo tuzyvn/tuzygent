@@ -1,6 +1,6 @@
 use agent_domain::{
-    ActionSeverity, AuditEventType, AuditIntegrityError, AuditLedger, GuardrailPolicy,
-    RedLineRule, GENESIS_HASH,
+    ActionSeverity, AuditEventType, AuditIntegrityError, AuditLedger, GuardrailPolicy, RedLineRule,
+    GENESIS_HASH,
 };
 use agent_runtime::{
     FnMcpToolHandler, McpGatewayError, McpJsonRpcRequest, McpPropertyType, McpServerConfig,
@@ -409,7 +409,10 @@ fn integration_mcp_audit_ledger_hash_chain_and_tamper_detection() {
         arguments: json!({ "sql": "TRUNCATE tasks;" }),
         actor: Some("agent-rogue".to_string()),
     });
-    assert!(matches!(blocked_res, Err(McpGatewayError::PolicyBlocked(_))));
+    assert!(matches!(
+        blocked_res,
+        Err(McpGatewayError::PolicyBlocked(_))
+    ));
 
     let schema_res = gateway.invoke_tool_call(McpToolCallParams {
         server_id: Some("postgres-mcp".to_string()),

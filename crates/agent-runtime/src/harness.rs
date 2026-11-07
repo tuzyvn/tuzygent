@@ -98,9 +98,15 @@ impl HarnessMemoryStore {
                     Ok(lessons) => return Ok(lessons),
                     Err(err) => {
                         let ts = chrono::Utc::now().timestamp();
-                        let corrupt = self.memory_path.with_extension(format!("corrupt.{}.json", ts));
+                        let corrupt = self
+                            .memory_path
+                            .with_extension(format!("corrupt.{}.json", ts));
                         let _ = tokio::fs::copy(&self.memory_path, &corrupt).await;
-                        tracing::error!("Harness lessons corrupt, backup saved to {:?}: {}", corrupt, err);
+                        tracing::error!(
+                            "Harness lessons corrupt, backup saved to {:?}: {}",
+                            corrupt,
+                            err
+                        );
                         return Err(anyhow!("Invalid harness lessons: {}", err));
                     }
                 },
@@ -223,14 +229,19 @@ impl HarnessMemoryStore {
         let json_data = serde_json::to_string_pretty(lessons)
             .map_err(|e| anyhow!("Lỗi serialize harness lessons: {}", e))?;
 
-        let temp_path = self.memory_path.with_extension(format!("tmp.{}", Uuid::new_v4().simple()));
+        let temp_path = self
+            .memory_path
+            .with_extension(format!("tmp.{}", Uuid::new_v4().simple()));
         if let Err(e) = tokio::fs::write(&temp_path, &json_data).await {
             let _ = tokio::fs::remove_file(&temp_path).await;
             return Err(anyhow!("Không ghi được file tạm harness lessons: {}", e));
         }
         if let Err(e) = tokio::fs::rename(&temp_path, &self.memory_path).await {
             let _ = tokio::fs::remove_file(&temp_path).await;
-            return Err(anyhow!("Không thể rename atomic file harness lessons: {}", e));
+            return Err(anyhow!(
+                "Không thể rename atomic file harness lessons: {}",
+                e
+            ));
         }
         Ok(())
     }

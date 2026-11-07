@@ -117,7 +117,14 @@ impl WorkspaceBenchmarkHarness {
 
         let duration = start.elapsed();
         let mem = resilient.memory_usage_bytes();
-        Self::calculate_stats(latencies, total_requests, successful, rejected, duration, mem)
+        Self::calculate_stats(
+            latencies,
+            total_requests,
+            successful,
+            rejected,
+            duration,
+            mem,
+        )
     }
 
     /// Đo lường hiện tượng lock contention khi dùng Single Shared Lock
@@ -174,7 +181,14 @@ impl WorkspaceBenchmarkHarness {
         }
 
         let duration = start.elapsed();
-        Self::calculate_stats(all_lats, total_requests, total_succ, total_rej, duration, 4096)
+        Self::calculate_stats(
+            all_lats,
+            total_requests,
+            total_succ,
+            total_rej,
+            duration,
+            4096,
+        )
     }
 
     /// Đo lường concurrency khi phân mảnh độc lập không khóa chéo (16-Way Sharded)
@@ -228,6 +242,13 @@ impl WorkspaceBenchmarkHarness {
         }
 
         let duration = start.elapsed();
-        Self::calculate_stats(all_lats, total_requests, total_succ, total_rej, duration, 4096)
+        Self::calculate_stats(
+            all_lats,
+            total_requests,
+            total_succ,
+            total_rej,
+            duration,
+            4096,
+        )
     }
 }

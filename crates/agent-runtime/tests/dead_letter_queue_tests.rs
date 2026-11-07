@@ -17,7 +17,9 @@ struct MockSuccessEngine;
 #[async_trait]
 impl ComputeEngine for MockSuccessEngine {
     async fn execute(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
-        let stdout = if input.prompt_or_command.contains("Architect") || input.prompt_or_command.contains("JSON") {
+        let stdout = if input.prompt_or_command.contains("Architect")
+            || input.prompt_or_command.contains("JSON")
+        {
             r#"[{"id":"ST-1","title":"Execution step","command_or_prompt":"echo ok","expected_verification":"cmd: true"}]"#.to_string()
         } else {
             "Operation completed successfully.".to_string()
@@ -73,7 +75,11 @@ async fn test_poison_task_isolated_to_dead_letter_queue_after_repeated_failures(
     service.dispatch(task_id.clone(), engine.clone());
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    let task_1 = service.get_task(&task_id).await.unwrap().expect("Task exists");
+    let task_1 = service
+        .get_task(&task_id)
+        .await
+        .unwrap()
+        .expect("Task exists");
     assert!(
         matches!(task_1.status, TaskStatus::Failed { .. }),
         "First failure should result in Failed status, got: {:?}",
@@ -89,7 +95,11 @@ async fn test_poison_task_isolated_to_dead_letter_queue_after_repeated_failures(
     assert!(retried, "Retry should succeed for Failed task");
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    let task_2 = service.get_task(&task_id).await.unwrap().expect("Task exists");
+    let task_2 = service
+        .get_task(&task_id)
+        .await
+        .unwrap()
+        .expect("Task exists");
     assert!(
         matches!(task_2.status, TaskStatus::Quarantined { .. }),
         "Second failure should isolate task into Quarantined (Dead-Letter Queue), got: {:?}",
@@ -142,8 +152,16 @@ async fn test_dead_letter_queue_isolation_unblocks_remaining_queue() {
     // Wait for both to be processed through the queue
     tokio::time::sleep(Duration::from_millis(600)).await;
 
-    let poison_task = service.get_task(&poison_id).await.unwrap().expect("poison task exists");
-    let normal_task = service.get_task(&normal_id).await.unwrap().expect("normal task exists");
+    let poison_task = service
+        .get_task(&poison_id)
+        .await
+        .unwrap()
+        .expect("poison task exists");
+    let normal_task = service
+        .get_task(&normal_id)
+        .await
+        .unwrap()
+        .expect("normal task exists");
 
     // Poison task must be quarantined in Dead-Letter Queue
     assert!(
@@ -169,11 +187,20 @@ async fn test_dead_letter_queue_query_and_release_lifecycle() {
     let store = Arc::new(SqliteTaskStore::new(&ws).unwrap());
     let service = TaskService::new(store.clone(), &ws, 2, None, None);
 
-    let t1 = service.submit_task("Task 1", "Goal 1", Priority::Normal).await.unwrap();
-    let t2 = service.submit_task("Task 2", "Goal 2", Priority::Normal).await.unwrap();
+    let t1 = service
+        .submit_task("Task 1", "Goal 1", Priority::Normal)
+        .await
+        .unwrap();
+    let t2 = service
+        .submit_task("Task 2", "Goal 2", Priority::Normal)
+        .await
+        .unwrap();
 
     // Explicitly quarantine t1
-    let q_res = service.quarantine_task(&t1, "Manual quarantine: suspicious behavior").await.unwrap();
+    let q_res = service
+        .quarantine_task(&t1, "Manual quarantine: suspicious behavior")
+        .await
+        .unwrap();
     assert!(q_res);
 
     // Query APIs
@@ -193,8 +220,14 @@ async fn test_dead_letter_queue_query_and_release_lifecycle() {
     assert_eq!(summary.get("quarantined"), Some(&1));
 
     // Batch retry failed tasks must ignore quarantined tasks
-    let retried = service.retry_failed_tasks(Arc::new(MockSuccessEngine)).await.unwrap();
-    assert_eq!(retried, 0, "Quarantined tasks must not be retried by retry_failed_tasks");
+    let retried = service
+        .retry_failed_tasks(Arc::new(MockSuccessEngine))
+        .await
+        .unwrap();
+    assert_eq!(
+        retried, 0,
+        "Quarantined tasks must not be retried by retry_failed_tasks"
+    );
 
     // Release quarantined task with new engine
     let released = service
@@ -221,9 +254,18 @@ async fn test_batch_release_all_quarantined() {
     let store = Arc::new(SqliteTaskStore::new(&ws).unwrap());
     let service = TaskService::new(store.clone(), &ws, 2, None, None);
 
-    let t1 = service.submit_task("Task 1", "Goal 1", Priority::Low).await.unwrap();
-    let t2 = service.submit_task("Task 2", "Goal 2", Priority::Low).await.unwrap();
-    let t3 = service.submit_task("Task 3", "Goal 3", Priority::Low).await.unwrap();
+    let t1 = service
+        .submit_task("Task 1", "Goal 1", Priority::Low)
+        .await
+        .unwrap();
+    let t2 = service
+        .submit_task("Task 2", "Goal 2", Priority::Low)
+        .await
+        .unwrap();
+    let t3 = service
+        .submit_task("Task 3", "Goal 3", Priority::Low)
+        .await
+        .unwrap();
 
     service.quarantine_task(&t1, "Reason 1").await.unwrap();
     service.quarantine_task(&t2, "Reason 2").await.unwrap();
@@ -260,7 +302,11 @@ async fn test_topic_20261106_013a3a_dead_letter_queue_and_poison_task_isolation(
     assert_eq!(service.poison_threshold(), 2);
 
     let poison_id = service
-        .submit_task("Poison Job", "Repeatedly triggers fatal faults", Priority::Critical)
+        .submit_task(
+            "Poison Job",
+            "Repeatedly triggers fatal faults",
+            Priority::Critical,
+        )
         .await
         .unwrap();
     let healthy_id = service
@@ -272,17 +318,28 @@ async fn test_topic_20261106_013a3a_dead_letter_queue_and_poison_task_isolation(
     service.dispatch(poison_id.clone(), poison_engine.clone());
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    let p1 = service.get_task(&poison_id).await.unwrap().expect("p1 exists");
+    let p1 = service
+        .get_task(&poison_id)
+        .await
+        .unwrap()
+        .expect("p1 exists");
     assert_eq!(p1.failure_count, 1);
     assert!(matches!(p1.status, TaskStatus::Failed { .. }));
     assert!(!service.is_quarantined(&poison_id).await.unwrap());
 
     // Retry poison task -> failure_count = 2 >= poison_threshold -> Quarantined
-    let retried = service.retry_task(&poison_id, poison_engine.clone()).await.unwrap();
+    let retried = service
+        .retry_task(&poison_id, poison_engine.clone())
+        .await
+        .unwrap();
     assert!(retried);
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    let p2 = service.get_task(&poison_id).await.unwrap().expect("p2 exists");
+    let p2 = service
+        .get_task(&poison_id)
+        .await
+        .unwrap()
+        .expect("p2 exists");
     assert_eq!(p2.failure_count, 2);
     assert!(p2.is_quarantined());
     assert!(service.is_quarantined(&poison_id).await.unwrap());
@@ -292,7 +349,11 @@ async fn test_topic_20261106_013a3a_dead_letter_queue_and_poison_task_isolation(
     service.dispatch(healthy_id.clone(), healthy_engine.clone());
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    let healthy_task = service.get_task(&healthy_id).await.unwrap().expect("healthy exists");
+    let healthy_task = service
+        .get_task(&healthy_id)
+        .await
+        .unwrap()
+        .expect("healthy exists");
     assert_eq!(healthy_task.status, TaskStatus::Completed);
 
     // Operator inspects DLQ
@@ -308,7 +369,11 @@ async fn test_topic_20261106_013a3a_dead_letter_queue_and_poison_task_isolation(
     assert!(released);
     tokio::time::sleep(Duration::from_millis(300)).await;
 
-    let p_fixed = service.get_task(&poison_id).await.unwrap().expect("p_fixed exists");
+    let p_fixed = service
+        .get_task(&poison_id)
+        .await
+        .unwrap()
+        .expect("p_fixed exists");
     assert_eq!(p_fixed.status, TaskStatus::Completed);
     assert_eq!(p_fixed.failure_count, 0);
     assert_eq!(service.count_quarantined_tasks().await.unwrap(), 0);

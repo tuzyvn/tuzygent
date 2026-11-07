@@ -161,23 +161,36 @@ impl ResilientCliRunner {
         }
     }
 
-    fn check_fault_injection(&mut self, act: &str, att: usize) -> Option<Result<(), CliExecutionError>> {
+    fn check_fault_injection(
+        &mut self,
+        act: &str,
+        att: usize,
+    ) -> Option<Result<(), CliExecutionError>> {
         let fault = self.policy.should_inject()?;
         if fault == CliFault::Panic {
             self.panics_caught_count += 1;
             return if att <= self.max_retries {
                 self.recovered_count += 1;
-                self.record_audit(act, ActionSeverity::HighImpact, "Simulated CLI panic isolated; retrying");
+                self.record_audit(
+                    act,
+                    ActionSeverity::HighImpact,
+                    "Simulated CLI panic isolated; retrying",
+                );
                 Some(Ok(()))
             } else {
                 self.failed_count += 1;
-                Some(Err(CliExecutionError::Panic("Simulated panic max retries exceeded".to_string())))
+                Some(Err(CliExecutionError::Panic(
+                    "Simulated panic max retries exceeded".to_string(),
+                )))
             };
         }
         let simulated_err = fault.to_execution_error();
         if is_retryable_cli_error(&simulated_err) && att <= self.max_retries {
             self.recovered_count += 1;
-            let msg = format!("Injected transient fault {:?} recovered on retry attempt {}", fault, att);
+            let msg = format!(
+                "Injected transient fault {:?} recovered on retry attempt {}",
+                fault, att
+            );
             self.record_audit(act, ActionSeverity::Routine, &msg);
             Some(Ok(()))
         } else {
@@ -186,10 +199,18 @@ impl ResilientCliRunner {
         }
     }
 
-    fn handle_error_outcome(&mut self, act: &str, att: usize, err: CliExecutionError) -> Result<(), CliExecutionError> {
+    fn handle_error_outcome(
+        &mut self,
+        act: &str,
+        att: usize,
+        err: CliExecutionError,
+    ) -> Result<(), CliExecutionError> {
         if is_retryable_cli_error(&err) && att <= self.max_retries {
             self.recovered_count += 1;
-            let msg = format!("Retryable error '{}' encountered; retrying attempt {}/{}", err, att, self.max_retries);
+            let msg = format!(
+                "Retryable error '{}' encountered; retrying attempt {}/{}",
+                err, att, self.max_retries
+            );
             self.record_audit(act, ActionSeverity::HighImpact, &msg);
             Ok(())
         } else {
@@ -200,7 +221,12 @@ impl ResilientCliRunner {
         }
     }
 
-    fn handle_panic_outcome(&mut self, act: &str, att: usize, payload: Box<dyn std::any::Any + Send>) -> Result<(), CliExecutionError> {
+    fn handle_panic_outcome(
+        &mut self,
+        act: &str,
+        att: usize,
+        payload: Box<dyn std::any::Any + Send>,
+    ) -> Result<(), CliExecutionError> {
         self.panics_caught_count += 1;
         let panic_msg = if let Some(s) = payload.downcast_ref::<&str>() {
             s.to_string()
@@ -211,7 +237,10 @@ impl ResilientCliRunner {
         };
         if att <= self.max_retries {
             self.recovered_count += 1;
-            let msg = format!("Critical panic isolated in CLI runner: {}; retrying {}/{}", panic_msg, att, self.max_retries);
+            let msg = format!(
+                "Critical panic isolated in CLI runner: {}; retrying {}/{}",
+                panic_msg, att, self.max_retries
+            );
             self.record_audit(act, ActionSeverity::Destructive, &msg);
             Ok(())
         } else {
@@ -220,7 +249,11 @@ impl ResilientCliRunner {
         }
     }
 
-    pub async fn run_resilient<F, Fut, T>(&mut self, action_name: &str, mut op: F) -> Result<T, CliExecutionError>
+    pub async fn run_resilient<F, Fut, T>(
+        &mut self,
+        action_name: &str,
+        mut op: F,
+    ) -> Result<T, CliExecutionError>
     where
         F: FnMut() -> Fut,
         Fut: Future<Output = Result<T, CliExecutionError>>,
@@ -252,7 +285,11 @@ impl ResilientCliRunner {
         }
     }
 
-    pub fn run_resilient_sync<F, T>(&mut self, action_name: &str, mut op: F) -> Result<T, CliExecutionError>
+    pub fn run_resilient_sync<F, T>(
+        &mut self,
+        action_name: &str,
+        mut op: F,
+    ) -> Result<T, CliExecutionError>
     where
         F: FnMut() -> Result<T, CliExecutionError>,
     {
@@ -318,7 +355,10 @@ impl ResilientCliRunner {
         self.execute_batch_operations(operations).await
     }
 
-    pub async fn execute_batch_commands(&mut self, commands: &[Cli]) -> Vec<Result<(), CliExecutionError>> {
+    pub async fn execute_batch_commands(
+        &mut self,
+        commands: &[Cli],
+    ) -> Vec<Result<(), CliExecutionError>> {
         let mut results = Vec::with_capacity(commands.len());
         for cmd in commands {
             results.push(self.run_command_resilient(cmd.clone()).await);
@@ -393,7 +433,11 @@ impl ShardedResilientCliRunner {
         self.total_capacity
     }
 
-    pub async fn run_resilient<F, Fut, T>(&self, action_name: &str, op: F) -> Result<T, CliExecutionError>
+    pub async fn run_resilient<F, Fut, T>(
+        &self,
+        action_name: &str,
+        op: F,
+    ) -> Result<T, CliExecutionError>
     where
         F: FnMut() -> Fut,
         Fut: Future<Output = Result<T, CliExecutionError>>,

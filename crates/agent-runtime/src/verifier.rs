@@ -10,11 +10,23 @@ pub struct TaskVerifier<'a> {
 
 impl<'a> TaskVerifier<'a> {
     pub fn new(workspace_dir: &'a Path) -> Self {
-        Self { workspace_dir, sandbox: Default::default(), guardrail: agent_domain::GuardrailPolicy::default_enterprise() }
+        Self {
+            workspace_dir,
+            sandbox: Default::default(),
+            guardrail: agent_domain::GuardrailPolicy::default_enterprise(),
+        }
     }
 
-    pub fn with_policy(workspace_dir: &'a Path, sandbox: crate::sandbox::SandboxConfig, guardrail: agent_domain::GuardrailPolicy) -> Self {
-        Self { workspace_dir, sandbox, guardrail }
+    pub fn with_policy(
+        workspace_dir: &'a Path,
+        sandbox: crate::sandbox::SandboxConfig,
+        guardrail: agent_domain::GuardrailPolicy,
+    ) -> Self {
+        Self {
+            workspace_dir,
+            sandbox,
+            guardrail,
+        }
     }
 
     /// Automatically parse string description of expected verification into concrete specifications
@@ -38,7 +50,10 @@ impl<'a> TaskVerifier<'a> {
                     command: cmd.to_string(),
                     expected_exit_code: 0,
                 });
-            } else if lower.starts_with("cargo test") || lower.starts_with("npm test") || lower.starts_with("pytest") {
+            } else if lower.starts_with("cargo test")
+                || lower.starts_with("npm test")
+                || lower.starts_with("pytest")
+            {
                 specs.push(VerificationSpec::Command {
                     command: line.to_string(),
                     expected_exit_code: 0,
@@ -49,7 +64,9 @@ impl<'a> TaskVerifier<'a> {
                     path: path.to_string(),
                     min_bytes: Some(1),
                 });
-            } else if lower.starts_with("json:") || (lower.contains("valid json") && lower.contains('.')) {
+            } else if lower.starts_with("json:")
+                || (lower.contains("valid json") && lower.contains('.'))
+            {
                 let path = line.split_once(':').map(|(_, p)| p.trim()).unwrap_or(line);
                 let cleaned_path = path.split_whitespace().next().unwrap_or(path);
                 specs.push(VerificationSpec::JsonValid {
@@ -157,14 +174,20 @@ impl<'a> TaskVerifier<'a> {
                             VerificationResult {
                                 passed: true,
                                 spec: spec.clone(),
-                                details: format!("File {:?} contains required pattern '{}'", path, pattern),
+                                details: format!(
+                                    "File {:?} contains required pattern '{}'",
+                                    path, pattern
+                                ),
                                 executed_at: now,
                             }
                         } else {
                             VerificationResult {
                                 passed: false,
                                 spec: spec.clone(),
-                                details: format!("File {:?} does not contain required pattern '{}'", path, pattern),
+                                details: format!(
+                                    "File {:?} does not contain required pattern '{}'",
+                                    path, pattern
+                                ),
                                 executed_at: now,
                             }
                         }
@@ -177,17 +200,41 @@ impl<'a> TaskVerifier<'a> {
                     },
                 }
             }
-            VerificationSpec::Command { command, expected_exit_code } => {
+            VerificationSpec::Command {
+                command,
+                expected_exit_code,
+            } => {
                 info!("Executing verification command: {}", command);
-                if !self.guardrail.allow_shell_execution || self.guardrail.check_command_safety(command).is_err() {
-                    return VerificationResult { passed: false, spec: spec.clone(), details: "Verification command rejected by policy".into(), executed_at: now };
+                if !self.guardrail.allow_shell_execution
+                    || self.guardrail.check_command_safety(command).is_err()
+                {
+                    return VerificationResult {
+                        passed: false,
+                        spec: spec.clone(),
+                        details: "Verification command rejected by policy".into(),
+                        executed_at: now,
+                    };
                 }
-                let mut input = agent_engine::EngineInput::new(command, self.workspace_dir.to_string_lossy().as_ref());
+                let mut input = agent_engine::EngineInput::new(
+                    command,
+                    self.workspace_dir.to_string_lossy().as_ref(),
+                );
                 input.timeout_seconds = 60;
                 input.max_output_bytes = Some(self.guardrail.max_output_bytes);
-                input.command_sandbox = crate::sandbox::SandboxEnvironment::with_config(self.workspace_dir, self.sandbox.clone())
-                    .command_sandbox(self.workspace_dir);
-                match agent_engine::process::run_command(&input, "sh", &["-c".into(), command.clone()], &std::collections::HashMap::new(), None).await {
+                input.command_sandbox = crate::sandbox::SandboxEnvironment::with_config(
+                    self.workspace_dir,
+                    self.sandbox.clone(),
+                )
+                .command_sandbox(self.workspace_dir);
+                match agent_engine::process::run_command(
+                    &input,
+                    "sh",
+                    &["-c".into(), command.clone()],
+                    &std::collections::HashMap::new(),
+                    None,
+                )
+                .await
+                {
                     Ok(output) => {
                         let actual_code = output.status.code().unwrap_or(-1);
                         let passed = actual_code == *expected_exit_code;
@@ -200,7 +247,10 @@ impl<'a> TaskVerifier<'a> {
                             spec: spec.clone(),
                             details: format!(
                                 "Exit code: {} (expected {}). stdout: {} | stderr: {}",
-                                actual_code, expected_exit_code, stdout_tail.trim(), stderr_tail.trim()
+                                actual_code,
+                                expected_exit_code,
+                                stdout_tail.trim(),
+                                stderr_tail.trim()
                             ),
                             executed_at: now,
                         }
@@ -232,7 +282,11 @@ impl<'a> TaskVerifier<'a> {
         for spec in specs {
             let res = self.verify_spec(spec).await;
             if !res.passed {
-                warn!("Verification check failed: {} -> {}", spec_description(spec), res.details);
+                warn!(
+                    "Verification check failed: {} -> {}",
+                    spec_description(spec),
+                    res.details
+                );
                 all_passed = false;
             }
             results.push(res);
@@ -246,7 +300,9 @@ fn spec_description(spec: &VerificationSpec) -> String {
         VerificationSpec::Command { command, .. } => format!("Command '{}'", command),
         VerificationSpec::FileExists { path, .. } => format!("FileExists '{}'", path),
         VerificationSpec::JsonValid { path } => format!("JsonValid '{}'", path),
-        VerificationSpec::ContentContains { path, pattern } => format!("ContentContains in '{}' pattern '{}'", path, pattern),
+        VerificationSpec::ContentContains { path, pattern } => {
+            format!("ContentContains in '{}' pattern '{}'", path, pattern)
+        }
         VerificationSpec::Custom { description } => format!("Custom '{}'", description),
     }
 }

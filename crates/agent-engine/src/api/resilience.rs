@@ -1,12 +1,12 @@
+use async_trait::async_trait;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use async_trait::async_trait;
 
-use agent_domain::{ActionSeverity, AuditEventType, AuditLedger};
 use crate::api::fault::{is_retryable_engine_error, ApiFault, ApiFaultPolicy};
 use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+use agent_domain::{ActionSeverity, AuditEventType, AuditLedger};
 
 /// Wrapper tự phục hồi cho ComputeEngine với cơ chế retry có kiểm soát, bounded memory cache và injection fault testing
 #[derive(Clone)]
@@ -129,7 +129,9 @@ impl<E> ResilientApiEngine<E> {
                 * (std::mem::size_of::<String>() + std::mem::size_of::<EngineOutput>());
             let content: usize = cache
                 .iter()
-                .map(|(k, v)| k.len() + v.stdout_content.len() + std::mem::size_of::<EngineOutput>())
+                .map(|(k, v)| {
+                    k.len() + v.stdout_content.len() + std::mem::size_of::<EngineOutput>()
+                })
                 .sum();
             (overhead, content)
         } else {
@@ -221,7 +223,8 @@ impl<E: ComputeEngine> ResilientApiEngine<E> {
                             if let Some(ref policy) = self.backoff_policy {
                                 policy.sleep_for_attempt(attempt as u32).await;
                             } else if self.retry_delay_ms > 0 {
-                                tokio::time::sleep(Duration::from_millis(self.retry_delay_ms)).await;
+                                tokio::time::sleep(Duration::from_millis(self.retry_delay_ms))
+                                    .await;
                             }
                             continue;
                         } else {
@@ -268,7 +271,10 @@ impl<E: ComputeEngine> ResilientApiEngine<E> {
                         l.record_event(
                             AuditEventType::CommandAllowed,
                             ActionSeverity::Routine,
-                            format!("API execution succeeded with engine '{}'", self.engine_kind()),
+                            format!(
+                                "API execution succeeded with engine '{}'",
+                                self.engine_kind()
+                            ),
                         );
                     }
                     return Ok(output);

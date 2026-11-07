@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use super::test_workflow;
 use crate::workflow_dag::*;
+use std::collections::HashMap;
 
 fn make_node(id: &str, node_type: &str, data: serde_json::Value) -> WorkflowNode {
     serde_json::from_value(serde_json::json!({
@@ -18,7 +18,8 @@ struct TestWorkspace {
 
 impl TestWorkspace {
     fn new() -> Self {
-        let dir = std::env::temp_dir().join(format!("tuzygent-wf-unit-test-{}", uuid::Uuid::new_v4()));
+        let dir =
+            std::env::temp_dir().join(format!("tuzygent-wf-unit-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).expect("Failed to create temp dir");
         let dir_str = dir.to_str().expect("Valid UTF-8 dir path");
         let orchestrator = WorkflowOrchestrator::new(dir_str, dir_str);
@@ -49,7 +50,8 @@ fn test_execute_trigger_node_branches() {
     assert!(outcome_custom.node_output["timestamp"].is_string());
     assert!(chrono::DateTime::parse_from_rfc3339(
         outcome_custom.node_output["timestamp"].as_str().unwrap()
-    ).is_ok());
+    )
+    .is_ok());
     assert!(outcome_custom.node_error.is_none());
     assert!(outcome_custom.engine_used.is_none());
     assert!(outcome_custom.healed.is_none());
@@ -57,18 +59,15 @@ fn test_execute_trigger_node_branches() {
     assert!(outcome_custom.lesson_learned.is_none());
 
     // Branch B: Default triggerType (None -> "manual")
-    let node_default = make_node(
-        "trig_default",
-        "triggerNode",
-        serde_json::json!({}),
-    );
+    let node_default = make_node("trig_default", "triggerNode", serde_json::json!({}));
     let outcome_default = execute_trigger_node(&node_default);
     assert_eq!(outcome_default.status, "completed");
     assert_eq!(outcome_default.node_output["triggered"], true);
     assert_eq!(outcome_default.node_output["type"], "manual");
     assert!(chrono::DateTime::parse_from_rfc3339(
         outcome_default.node_output["timestamp"].as_str().unwrap()
-    ).is_ok());
+    )
+    .is_ok());
     assert!(outcome_default.node_error.is_none());
 }
 
@@ -93,11 +92,7 @@ fn test_execute_approval_node_branches() {
     assert!(outcome_role.lesson_learned.is_none());
 
     // Branch B: Without required_role (None -> null)
-    let node_no_role = make_node(
-        "appr_2",
-        "approvalNode",
-        serde_json::json!({}),
-    );
+    let node_no_role = make_node("appr_2", "approvalNode", serde_json::json!({}));
     let outcome_no_role = execute_approval_node(&node_no_role);
     assert_eq!(outcome_no_role.status, "waiting_approval");
     assert_eq!(outcome_no_role.node_output["decision"], "Pending");
@@ -126,11 +121,7 @@ fn test_execute_router_node_branches() {
     assert!(outcome_expr.lesson_learned.is_none());
 
     // Branch B: Without expression (None -> "")
-    let node_no_expr = make_node(
-        "route_2",
-        "routerNode",
-        serde_json::json!({}),
-    );
+    let node_no_expr = make_node("route_2", "routerNode", serde_json::json!({}));
     let outcome_no_expr = execute_router_node(&node_no_expr);
     assert_eq!(outcome_no_expr.status, "completed");
     assert_eq!(outcome_no_expr.node_output["route_selected"], "branch-a");
@@ -191,7 +182,13 @@ async fn test_execute_tool_node_command_success_json_and_plain_text() {
     assert!(outcome_json.node_error.is_none());
     assert_eq!(outcome_json.node_output["status"], 0);
     assert_eq!(outcome_json.node_output["data"]["status"], "ok");
-    assert_eq!(outcome_json.node_output["data"]["items"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        outcome_json.node_output["data"]["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
     assert!(outcome_json.healed.is_none());
 
     // Branch B: Command returning plain text
@@ -320,8 +317,14 @@ async fn test_execute_tool_node_self_healing_success_and_failure_after_attempt()
     assert_eq!(outcome_heal.healed, Some(true));
     assert_eq!(outcome_heal.healing_attempts, Some(1));
     assert!(outcome_heal.lesson_learned.is_some());
-    assert!(outcome_heal.lesson_learned.as_ref().unwrap().contains("Điều chỉnh lệnh thực thi sang:"));
-    assert!(timeline.iter().any(|e| e.message.contains("⚡ [Harness² Self-Healing] Đã tự khắc phục lệnh Shell")));
+    assert!(outcome_heal
+        .lesson_learned
+        .as_ref()
+        .unwrap()
+        .contains("Điều chỉnh lệnh thực thi sang:"));
+    assert!(timeline.iter().any(|e| e
+        .message
+        .contains("⚡ [Harness² Self-Healing] Đã tự khắc phục lệnh Shell")));
 
     // 2. Self healing is attempted but still fails on retry (max_tool_attempts reached)
     let node_retry_fail = make_node(
@@ -346,7 +349,9 @@ async fn test_execute_tool_node_self_healing_success_and_failure_after_attempt()
     assert_eq!(outcome_retry_fail.status, "failed");
     assert!(outcome_retry_fail.node_error.is_some());
     assert!(outcome_retry_fail.healed.is_none());
-    assert!(timeline_fail.iter().any(|e| e.message.contains("🔄 [Harness² Propose-Probe] Tự động sửa lệnh Tool")));
+    assert!(timeline_fail.iter().any(|e| e
+        .message
+        .contains("🔄 [Harness² Propose-Probe] Tự động sửa lệnh Tool")));
 }
 
 #[tokio::test]
@@ -360,11 +365,7 @@ async fn test_execute_sub_workflow_node_branches() -> Result<(), Box<dyn std::er
     );
 
     // Branch 1: Missing subWorkflowId and endpoint
-    let empty_sub_node = make_node(
-        "sub_empty",
-        "subWorkflowNode",
-        serde_json::json!({}),
-    );
+    let empty_sub_node = make_node("sub_empty", "subWorkflowNode", serde_json::json!({}));
     let context_state = HashMap::new();
     let mut last_agent_execution = None;
     let mut timeline = Vec::new();
@@ -437,10 +438,7 @@ async fn test_execute_sub_workflow_node_branches() -> Result<(), Box<dyn std::er
     child_failed_def.id = "child-failed-id".to_string();
     child_failed_def.name = "Child Failed".to_string();
 
-    let catalog_data = serde_json::to_string_pretty(&vec![
-        child_completed_def,
-        child_failed_def,
-    ])?;
+    let catalog_data = serde_json::to_string_pretty(&vec![child_completed_def, child_failed_def])?;
     tokio::fs::write(wf_dir.join("catalog.json"), catalog_data).await?;
 
     // Branch 3: Sub-workflow execution succeeds via endpoint fallback
@@ -462,12 +460,23 @@ async fn test_execute_sub_workflow_node_branches() -> Result<(), Box<dyn std::er
     .await;
     assert_eq!(outcome_success.status, "completed");
     assert!(outcome_success.node_error.is_none());
-    assert_eq!(outcome_success.node_output["sub_workflow_id"], "child-completed-id");
-    assert_eq!(outcome_success.node_output["sub_workflow_name"], "Child Completed");
+    assert_eq!(
+        outcome_success.node_output["sub_workflow_id"],
+        "child-completed-id"
+    );
+    assert_eq!(
+        outcome_success.node_output["sub_workflow_name"],
+        "Child Completed"
+    );
     assert_eq!(outcome_success.node_output["status"], "Completed");
     assert_eq!(outcome_success.node_output["nodes_executed"], 1);
-    assert!(ctx.timeline.iter().any(|e| e.message.contains("🔀 Đang lồng ghép Sub-Workflow: 'child-completed-id'")));
-    assert!(ctx.timeline.iter().any(|e| e.message.contains("[SubWF: Child Completed]")));
+    assert!(ctx.timeline.iter().any(|e| e
+        .message
+        .contains("🔀 Đang lồng ghép Sub-Workflow: 'child-completed-id'")));
+    assert!(ctx
+        .timeline
+        .iter()
+        .any(|e| e.message.contains("[SubWF: Child Completed]")));
 
     // Branch 4: Sub-workflow execution completes with non-success status ("Failed")
     let failing_sub_node = make_node(
@@ -540,25 +549,62 @@ async fn test_execute_node_all_branches_and_fallback() -> Result<(), Box<dyn std
     };
 
     // 1. "triggerNode"
-    let trigger_node = make_node("n_trig", "triggerNode", serde_json::json!({"triggerType": "webhook"}));
-    let trig_res = execute_node(&ws.orchestrator, &wf, &trigger_node, &trigger_node.id, &mut ctx).await?;
+    let trigger_node = make_node(
+        "n_trig",
+        "triggerNode",
+        serde_json::json!({"triggerType": "webhook"}),
+    );
+    let trig_res = execute_node(
+        &ws.orchestrator,
+        &wf,
+        &trigger_node,
+        &trigger_node.id,
+        &mut ctx,
+    )
+    .await?;
     assert_eq!(trig_res.status, "completed");
     assert_eq!(trig_res.node_output["type"], "webhook");
 
     // 2. "approvalNode"
-    let approval_node = make_node("n_appr", "approvalNode", serde_json::json!({"requiredRole": "lead"}));
-    let appr_res = execute_node(&ws.orchestrator, &wf, &approval_node, &approval_node.id, &mut ctx).await?;
+    let approval_node = make_node(
+        "n_appr",
+        "approvalNode",
+        serde_json::json!({"requiredRole": "lead"}),
+    );
+    let appr_res = execute_node(
+        &ws.orchestrator,
+        &wf,
+        &approval_node,
+        &approval_node.id,
+        &mut ctx,
+    )
+    .await?;
     assert_eq!(appr_res.status, "waiting_approval");
     assert_eq!(appr_res.node_output["required_role"], "lead");
 
     // 3. "routerNode"
-    let router_node = make_node("n_route", "routerNode", serde_json::json!({"expression": "a == b"}));
-    let route_res = execute_node(&ws.orchestrator, &wf, &router_node, &router_node.id, &mut ctx).await?;
+    let router_node = make_node(
+        "n_route",
+        "routerNode",
+        serde_json::json!({"expression": "a == b"}),
+    );
+    let route_res = execute_node(
+        &ws.orchestrator,
+        &wf,
+        &router_node,
+        &router_node.id,
+        &mut ctx,
+    )
+    .await?;
     assert_eq!(route_res.status, "completed");
     assert_eq!(route_res.node_output["condition"], "a == b");
 
     // 4. "toolNode"
-    let tool_node = make_node("n_tool", "toolNode", serde_json::json!({"command": "echo test_tool_node"}));
+    let tool_node = make_node(
+        "n_tool",
+        "toolNode",
+        serde_json::json!({"command": "echo test_tool_node"}),
+    );
     let tool_res = execute_node(&ws.orchestrator, &wf, &tool_node, &tool_node.id, &mut ctx).await?;
     assert_eq!(tool_res.status, "completed");
     assert_eq!(tool_res.node_output["stdout"], "test_tool_node");
@@ -574,7 +620,11 @@ async fn test_execute_node_all_branches_and_fallback() -> Result<(), Box<dyn std
     );
     sub_wf.id = "catalog-sub-wf".to_string();
     sub_wf.name = "Catalog Sub WF".to_string();
-    tokio::fs::write(wf_dir.join("catalog.json"), serde_json::to_string(&vec![sub_wf])?).await?;
+    tokio::fs::write(
+        wf_dir.join("catalog.json"),
+        serde_json::to_string(&vec![sub_wf])?,
+    )
+    .await?;
 
     // 5. "subWorkflowNode"
     let sub_wf_node = make_node(
@@ -582,7 +632,14 @@ async fn test_execute_node_all_branches_and_fallback() -> Result<(), Box<dyn std
         "subWorkflowNode",
         serde_json::json!({"subWorkflowId": "catalog-sub-wf", "label": "Custom SubWF Label"}),
     );
-    let sub_wf_res = execute_node(&ws.orchestrator, &wf, &sub_wf_node, &sub_wf_node.id, &mut ctx).await?;
+    let sub_wf_res = execute_node(
+        &ws.orchestrator,
+        &wf,
+        &sub_wf_node,
+        &sub_wf_node.id,
+        &mut ctx,
+    )
+    .await?;
     assert_eq!(sub_wf_res.status, "completed");
     assert_eq!(sub_wf_res.node_output["sub_workflow_id"], "catalog-sub-wf");
 
@@ -592,7 +649,8 @@ async fn test_execute_node_all_branches_and_fallback() -> Result<(), Box<dyn std
         "workflowNode",
         serde_json::json!({"subWorkflowId": "catalog-sub-wf"}),
     );
-    let alias_res = execute_node(&ws.orchestrator, &wf, &alias_node, &alias_node.id, &mut ctx).await?;
+    let alias_res =
+        execute_node(&ws.orchestrator, &wf, &alias_node, &alias_node.id, &mut ctx).await?;
     assert_eq!(alias_res.status, "completed");
     assert_eq!(alias_res.node_output["sub_workflow_id"], "catalog-sub-wf");
 
@@ -602,7 +660,14 @@ async fn test_execute_node_all_branches_and_fallback() -> Result<(), Box<dyn std
         "futureCustomNodeType",
         serde_json::json!({"label": "Unsupported Label"}),
     );
-    let fallback_res = execute_node(&ws.orchestrator, &wf, &unsupported_node, &unsupported_node.id, &mut ctx).await?;
+    let fallback_res = execute_node(
+        &ws.orchestrator,
+        &wf,
+        &unsupported_node,
+        &unsupported_node.id,
+        &mut ctx,
+    )
+    .await?;
     assert_eq!(fallback_res.status, "failed");
     assert_eq!(fallback_res.node_output, serde_json::json!({}));
     assert_eq!(
@@ -620,7 +685,14 @@ async fn test_execute_node_all_branches_and_fallback() -> Result<(), Box<dyn std
         "anotherCustomNodeType",
         serde_json::json!({}),
     );
-    let fallback_res2 = execute_node(&ws.orchestrator, &wf, &unsupported_no_label, "n_no_label_id", &mut ctx).await?;
+    let fallback_res2 = execute_node(
+        &ws.orchestrator,
+        &wf,
+        &unsupported_no_label,
+        "n_no_label_id",
+        &mut ctx,
+    )
+    .await?;
     assert_eq!(fallback_res2.status, "failed");
     assert_eq!(
         fallback_res2.node_error,
@@ -629,5 +701,3 @@ async fn test_execute_node_all_branches_and_fallback() -> Result<(), Box<dyn std
 
     Ok(())
 }
-
-

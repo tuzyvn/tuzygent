@@ -210,4 +210,3 @@ pub async fn handle(action: RigAction) -> anyhow::Result<()> {
 
     Ok(())
 }
-

@@ -131,10 +131,12 @@ pub async fn attempt_remediation_retry(
                         "Verification Self-Correction in '{}': step '{}' to fix {}",
                         task.title, rem_task.title, err_msg
                     ),
-                    RemediationFailureKind::ExitCode | RemediationFailureKind::EngineError => format!(
-                        "Self-Correction in '{}': Formulated step '{}' to fix {}",
-                        task.title, rem_task.title, err_msg
-                    ),
+                    RemediationFailureKind::ExitCode | RemediationFailureKind::EngineError => {
+                        format!(
+                            "Self-Correction in '{}': Formulated step '{}' to fix {}",
+                            task.title, rem_task.title, err_msg
+                        )
+                    }
                 };
 
                 let _ = executor.durable.save_lesson(&lesson).await;

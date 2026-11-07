@@ -335,7 +335,9 @@ async fn test_resilient_cli_with_generic_engine_live_echo() {
 
 #[tokio::test]
 async fn test_topic_1823d4_bec5af_cli_benchmark_and_resilience() {
-    println!("[Reproduction & Benchmark Test] Executing TOPIC-20261105-1823d4 / bec5af CLI Benchmark...");
+    println!(
+        "[Reproduction & Benchmark Test] Executing TOPIC-20261105-1823d4 / bec5af CLI Benchmark..."
+    );
 
     // 1. Verify LOC compliance across all modular CLI components (< 350 lines P90)
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -369,8 +371,8 @@ async fn test_topic_1823d4_bec5af_cli_benchmark_and_resilience() {
 
     // 2. High-load benchmark: 10,000 requests measuring P50/P90/P99 latency, throughput, and proving bounded memory allocation
     let inner_mock = BenchmarkMockCliEngine;
-    let resilient = ResilientCliEngine::new(inner_mock, CliFaultPolicy::none(), 3)
-        .with_max_capacity(2_000);
+    let resilient =
+        ResilientCliEngine::new(inner_mock, CliFaultPolicy::none(), 3).with_max_capacity(2_000);
 
     let stats: CliBenchmarkStats = CliBenchmarkHarness::run_benchmark(&resilient, 10_000).await;
     assert_eq!(stats.total_requests, 10_000);
@@ -381,14 +383,8 @@ async fn test_topic_1823d4_bec5af_cli_benchmark_and_resilience() {
         "Throughput should exceed 500 ops/sec, got {}",
         stats.throughput_ops_per_sec
     );
-    assert!(
-        stats.p50_latency_us > 0.0,
-        "P50 latency must be tracked"
-    );
-    assert!(
-        stats.p90_latency_us > 0.0,
-        "P90 latency must be tracked"
-    );
+    assert!(stats.p50_latency_us > 0.0, "P50 latency must be tracked");
+    assert!(stats.p90_latency_us > 0.0, "P90 latency must be tracked");
     assert!(
         stats.p99_latency_us < 20_000.0,
         "P99 latency must be under 20ms, got {} us",

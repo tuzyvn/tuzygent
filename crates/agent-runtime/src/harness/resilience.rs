@@ -1,7 +1,5 @@
 use super::cache::HarnessLessonCache;
-use super::fault::{
-    is_retryable_harness_error, HarnessError, HarnessFault, HarnessFaultPolicy,
-};
+use super::fault::{is_retryable_harness_error, HarnessError, HarnessFault, HarnessFaultPolicy};
 use super::{HarnessLesson, HarnessMemoryStore};
 use std::path::Path;
 use std::sync::{Arc, Mutex};

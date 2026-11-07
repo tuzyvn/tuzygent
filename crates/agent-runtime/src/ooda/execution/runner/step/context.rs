@@ -63,7 +63,9 @@ fn parse_steps(ctx: &str) -> Vec<ContextStep> {
                     || prefix.starts_with("task")
                     || prefix.starts_with("Task")
                     || prefix.starts_with("subtask")
-                    || prefix.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-'));
+                    || prefix
+                        .chars()
+                        .all(|c| c.is_alphanumeric() || c == '_' || c == '-'));
 
             if is_id {
                 // If we had a previous step collected, push it

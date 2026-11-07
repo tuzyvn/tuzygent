@@ -159,17 +159,23 @@ impl CoreFaultPolicy {
             CoreFaultKind::SimulateLockContention => {
                 self.injected_count.fetch_add(1, Ordering::Relaxed);
                 self.record_failure();
-                Err(CoreExecutionError::LockContention("sharded-agent-mutex".to_string()))
+                Err(CoreExecutionError::LockContention(
+                    "sharded-agent-mutex".to_string(),
+                ))
             }
             CoreFaultKind::SimulateTransientFailure => {
                 self.injected_count.fetch_add(1, Ordering::Relaxed);
                 self.record_failure();
-                Err(CoreExecutionError::TransientEngineFailure("LLM HTTP 503 Provider Unavailable".to_string()))
+                Err(CoreExecutionError::TransientEngineFailure(
+                    "LLM HTTP 503 Provider Unavailable".to_string(),
+                ))
             }
             CoreFaultKind::SimulatePanic => {
                 self.injected_count.fetch_add(1, Ordering::Relaxed);
                 self.record_failure();
-                Err(CoreExecutionError::Panic("Simulated panic caught safely".to_string()))
+                Err(CoreExecutionError::Panic(
+                    "Simulated panic caught safely".to_string(),
+                ))
             }
             CoreFaultKind::SimulateUnwrapViolation => {
                 self.injected_count.fetch_add(1, Ordering::Relaxed);

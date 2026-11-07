@@ -5,84 +5,6 @@ use anyhow::{anyhow, Result};
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use std::sync::Mutex;
 
-pub fn save_review(
-    conn: &Mutex<Connection>,
-    expected: &Task,
-    updated: &Task,
-    result: &TaskResult,
-    reviewer: &str,
-    decision: &str,
-    revision: &str,
-) -> Result<bool> {
-    if expected.id != updated.id || updated.id != result.task_id {
-        return Err(anyhow!("Review task IDs differ"));
-    }
-    let mut conn = acquire_conn(conn);
-    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    let current_opt: Option<String> = tx
-        .query_row(
-            "SELECT raw_json FROM tasks WHERE id=?1",
-            params![expected.id.0],
-            |row| row.get(0),
-        )
-        .optional()?;
-    let Some(current_raw) = current_opt else {
-        return Ok(false);
-    };
-    let current: Task = serde_json::from_str(&current_raw)?;
-    if serde_json::to_value(&current)? != serde_json::to_value(expected)? {
-        return Ok(false);
-    }
-    let checkpoint: Option<String> = tx
-        .query_row(
-            "SELECT subtasks_json FROM subtask_checkpoints WHERE task_id=?1",
-            params![expected.id.0],
-            |row| row.get(0),
-        )
-        .optional()?;
-    if let Some(cp) = checkpoint {
-        if serde_json::from_str::<serde_json::Value>(&cp)?
-            != serde_json::to_value(&expected.subtasks)?
-        {
-            return Ok(false);
-        }
-    } else if !expected.subtasks.is_empty() {
-        return Ok(false);
-    }
-    let now = updated.updated_at.to_rfc3339();
-    tx.execute(
-        "UPDATE tasks SET status=?1, updated_at=?2, raw_json=?3 WHERE id=?4",
-        params![serde_json::to_string(&updated.status)?, now, serde_json::to_string(updated)?, updated.id.0],
-    )?;
-    let metadata = agent_domain::CheckpointMetadata::new(updated.id.clone(), &updated.subtasks);
-    let metadata_json = serde_json::to_string(&metadata)?;
-    tx.execute(
-        "UPDATE subtask_checkpoints SET subtasks_json=?1, updated_at=?2, metadata_json=?3 WHERE task_id=?4",
-        params![serde_json::to_string(&updated.subtasks)?, now, metadata_json, updated.id.0],
-    )?;
-    tx.execute(
-        "INSERT INTO task_reviews(task_id,revision,reviewer,decision,created_at) VALUES (?1,?2,?3,?4,?5)",
-        params![updated.id.0, revision, reviewer, decision, now],
-    )?;
-    if updated.status == TaskStatus::Queued {
-        tx.execute("DELETE FROM task_results WHERE task_id=?1", params![updated.id.0])?;
-    } else {
-        tx.execute(
-            "INSERT INTO task_results (task_id,status,summary,duration_ms,raw_json,created_at) VALUES (?1,?2,?3,?4,?5,?6) ON CONFLICT(task_id) DO UPDATE SET status=excluded.status,summary=excluded.summary,duration_ms=excluded.duration_ms,raw_json=excluded.raw_json",
-            params![
-                updated.id.0,
-                serde_json::to_string(&result.status)?,
-                result.summary,
-                i64::try_from(result.duration_ms).unwrap_or(i64::MAX),
-                serde_json::to_string(result)?,
-                now
-            ],
-        )?;
-    }
-    tx.commit()?;
-    Ok(true)
-}
-
 pub fn cancel_task(conn: &Mutex<Connection>, id: &TaskId) -> Result<bool> {
     let mut conn = acquire_conn(conn);
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -99,14 +21,19 @@ pub fn cancel_task(conn: &Mutex<Connection>, id: &TaskId) -> Result<bool> {
         return Ok(false);
     };
     let mut task: Task = serde_json::from_str(&raw)?;
-    if matches!(task.status, TaskStatus::Completed | TaskStatus::Failed { .. } | TaskStatus::Quarantined { .. }) {
+    if matches!(
+        task.status,
+        TaskStatus::Completed | TaskStatus::Failed { .. } | TaskStatus::Quarantined { .. }
+    ) {
         return Err(anyhow!("Cannot cancel a finished task"));
     }
     if matches!(task.status, TaskStatus::Canceled { .. }) {
         return Ok(true);
     }
     let reason = "Canceled by user request".to_string();
-    task.status = TaskStatus::Canceled { reason: reason.clone() };
+    task.status = TaskStatus::Canceled {
+        reason: reason.clone(),
+    };
     task.updated_at = chrono::Utc::now();
     let result = TaskResult {
         task_id: id.clone(),
@@ -120,7 +47,12 @@ pub fn cancel_task(conn: &Mutex<Connection>, id: &TaskId) -> Result<bool> {
     let now = task.updated_at.to_rfc3339();
     tx.execute(
         "UPDATE tasks SET status=?1, updated_at=?2, raw_json=?3 WHERE id=?4",
-        params![serde_json::to_string(&task.status)?, now, serde_json::to_string(&task)?, id.0],
+        params![
+            serde_json::to_string(&task.status)?,
+            now,
+            serde_json::to_string(&task)?,
+            id.0
+        ],
     )?;
     tx.execute(
         "INSERT INTO task_results (task_id, status, summary, duration_ms, raw_json, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(task_id) DO UPDATE SET status=excluded.status, summary=excluded.summary, duration_ms=excluded.duration_ms, raw_json=excluded.raw_json",
@@ -152,7 +84,10 @@ pub fn finish_task(
         return Err(anyhow!("Task {} not found", task.id.0));
     };
     let current: Task = serde_json::from_str(&raw)?;
-    if matches!(current.status, TaskStatus::Completed | TaskStatus::Failed { .. } | TaskStatus::Quarantined { .. }) {
+    if matches!(
+        current.status,
+        TaskStatus::Completed | TaskStatus::Failed { .. } | TaskStatus::Quarantined { .. }
+    ) {
         return Err(anyhow!("Task is already finished: {:?}", current.status));
     }
     let mut final_task = task.clone();
@@ -161,7 +96,10 @@ pub fn finish_task(
         final_task.status = current.status.clone();
         final_result.status = current.status.clone();
         final_result.summary = reason.clone();
-    } else if matches!(result.status, TaskStatus::Completed | TaskStatus::Failed { .. } | TaskStatus::Quarantined { .. }) {
+    } else if matches!(
+        result.status,
+        TaskStatus::Completed | TaskStatus::Failed { .. } | TaskStatus::Quarantined { .. }
+    ) {
         final_task.status = result.status.clone();
         final_result.status = result.status.clone();
     } else {
@@ -179,7 +117,8 @@ pub fn finish_task(
         ],
     )?;
     if !preserve_checkpoint {
-        let metadata = agent_domain::CheckpointMetadata::new(final_task.id.clone(), &final_task.subtasks);
+        let metadata =
+            agent_domain::CheckpointMetadata::new(final_task.id.clone(), &final_task.subtasks);
         let metadata_json = serde_json::to_string(&metadata)?;
         tx.execute(
             "INSERT INTO subtask_checkpoints (task_id, subtasks_json, updated_at, metadata_json) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(task_id) DO UPDATE SET subtasks_json=excluded.subtasks_json, updated_at=excluded.updated_at, metadata_json=excluded.metadata_json",
@@ -255,7 +194,9 @@ pub fn claim_next_queued(conn: &Mutex<Connection>) -> Result<Option<Task>> {
         for raw in rows.flatten() {
             if let Ok(t) = serde_json::from_str::<Task>(&raw) {
                 let effective_now = now.max(t.updated_at);
-                if t.status == TaskStatus::Queued && t.run_after.is_none_or(|dt| dt <= effective_now) {
+                if t.status == TaskStatus::Queued
+                    && t.run_after.is_none_or(|dt| dt <= effective_now)
+                {
                     found = Some(t);
                     break;
                 }
@@ -327,20 +268,3 @@ pub fn submit_idempotent(
     Ok(IdempotentSubmission::Created(task.id.clone()))
 }
 
-pub fn get_idempotent_task(conn: &Mutex<Connection>, key: &str) -> Result<Option<TaskId>> {
-    let conn = acquire_conn(conn);
-    let mut stmt = conn.prepare("SELECT task_id FROM task_idempotency WHERE key = ?1")?;
-    let mut rows = stmt.query(params![key])?;
-    if let Some(row) = rows.next()? {
-        let id: String = row.get(0)?;
-        Ok(Some(TaskId(id)))
-    } else {
-        Ok(None)
-    }
-}
-
-pub fn delete_idempotent_key(conn: &Mutex<Connection>, key: &str) -> Result<bool> {
-    let conn = acquire_conn(conn);
-    let affected = conn.execute("DELETE FROM task_idempotency WHERE key = ?1", params![key])?;
-    Ok(affected > 0)
-}

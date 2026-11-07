@@ -33,10 +33,10 @@ pub use safety::{
     check_and_apply_guardrail_policy, evaluate_command_safety, evaluate_guardrail_safety,
     GuardrailBlockReason,
 };
+use std::sync::atomic::AtomicBool;
 pub use verification::{
     execute_subtask_verification, finalize_subtask_completion, SubtaskVerificationOutcome,
 };
-use std::sync::atomic::AtomicBool;
 
 /// Executor responsible for running subtasks, verifying outcomes,
 /// handling failures, and generating dynamic remediations.
@@ -113,15 +113,15 @@ impl SubtaskExecutor {
 
     pub async fn checkpoint(&self, task: &agent_domain::Task) -> Result<(), String> {
         if let Some(store) = &self.checkpoint_store {
-            store.save_checkpoint(&task.id, &task.subtasks).await.map_err(|e| format!("Failed to persist task checkpoint: {e}"))?;
+            store
+                .save_checkpoint(&task.id, &task.subtasks)
+                .await
+                .map_err(|e| format!("Failed to persist task checkpoint: {e}"))?;
         }
         Ok(())
     }
 
-    pub async fn execute_engine(
-        &self,
-        input: &EngineInput,
-    ) -> Result<EngineOutput, EngineError> {
+    pub async fn execute_engine(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
         let mut service = crate::execution::ExecutionService::new(
             &self.workspace_dir,
             self.sandbox_config.clone(),
@@ -141,7 +141,8 @@ impl SubtaskExecutor {
         sub_agent_or_subtask_id: &str,
         access: agent_memory::ScopeAccess,
     ) -> agent_memory::ScopedScratchpad {
-        self.scratchpad.scoped_child(sub_agent_or_subtask_id, access)
+        self.scratchpad
+            .scoped_child(sub_agent_or_subtask_id, access)
     }
 
     /// Khởi tạo ScopedScratchpad cô lập hoàn toàn cho subtask hoặc sub-agent, cấm đọc trộm bộ nhớ cha

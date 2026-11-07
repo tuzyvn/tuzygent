@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod unit_tests {
-    use anyhow::Context;
     use crate::durable::fault::DurableMemoryFault;
     use crate::durable::policy::DurableMemoryFaultPolicy;
     use crate::durable::resilience::ResilientDurableMemory;
     use crate::durable::storage::StructuredLesson;
+    use anyhow::Context;
     use tokio::fs;
 
     #[tokio::test]
@@ -75,10 +75,16 @@ mod unit_tests {
             ));
 
         let res_ctx = mem.load_relevant_context("resilience").await;
-        assert!(res_ctx.is_err(), "Must return Err on failure without panicking");
+        assert!(
+            res_ctx.is_err(),
+            "Must return Err on failure without panicking"
+        );
 
         let res_lessons = mem.load_structured_lessons().await;
-        assert!(res_lessons.is_err(), "Must return Err on failure without panicking");
+        assert!(
+            res_lessons.is_err(),
+            "Must return Err on failure without panicking"
+        );
 
         let _ = fs::remove_dir_all(&temp_dir).await;
         Ok(())
@@ -95,19 +101,28 @@ mod unit_tests {
         let params = Bm25Params::default();
         let idf_rare = compute_idf(1, 20);
         let idf_common = compute_idf(15, 20);
-        assert!(idf_rare > idf_common, "Rare token must have higher IDF than common token");
+        assert!(
+            idf_rare > idf_common,
+            "Rare token must have higher IDF than common token"
+        );
         assert!(idf_common > 0.0, "IDF must remain strictly positive");
 
         // TF monotonicity and saturation
         let s_tf1 = compute_bm25_term_score(1.0, 15, 15.0, idf_rare, params);
         let s_tf3 = compute_bm25_term_score(3.0, 15, 15.0, idf_rare, params);
         let s_tf10 = compute_bm25_term_score(10.0, 15, 15.0, idf_rare, params);
-        assert!(s_tf1 < s_tf3 && s_tf3 < s_tf10, "BM25 term score must increase with TF");
+        assert!(
+            s_tf1 < s_tf3 && s_tf3 < s_tf10,
+            "BM25 term score must increase with TF"
+        );
 
         // Document length normalization
         let s_short = compute_bm25_term_score(1.0, 6, 18.0, idf_rare, params);
         let s_long = compute_bm25_term_score(1.0, 48, 18.0, idf_rare, params);
-        assert!(s_short > s_long, "Shorter document with same TF must score higher");
+        assert!(
+            s_short > s_long,
+            "Shorter document with same TF must score higher"
+        );
 
         let corpus = vec![
             "database connection pool exhausted under spike",
@@ -128,7 +143,8 @@ mod unit_tests {
             task_title: "Fix postgres deadlock in transaction".to_string(),
             trigger_error: Some("deadlock detected on lock_table".to_string()),
             remediation_applied: Some("Retry serializable transaction with backoff".to_string()),
-            general_insight: "Order row locks consistently to prevent postgres deadlock".to_string(),
+            general_insight: "Order row locks consistently to prevent postgres deadlock"
+                .to_string(),
             success: true,
         };
         let old_failed = StructuredLesson {
@@ -137,13 +153,18 @@ mod unit_tests {
             task_title: "Fix postgres deadlock in transaction".to_string(),
             trigger_error: Some("deadlock detected on lock_table".to_string()),
             remediation_applied: None,
-            general_insight: "Order row locks consistently to prevent postgres deadlock".to_string(),
+            general_insight: "Order row locks consistently to prevent postgres deadlock"
+                .to_string(),
             success: false,
         };
 
-        let s_recent = score_lesson_relevance("postgres deadlock transaction", &recent_verified, now);
+        let s_recent =
+            score_lesson_relevance("postgres deadlock transaction", &recent_verified, now);
         let s_old = score_lesson_relevance("postgres deadlock transaction", &old_failed, now);
-        assert!(s_recent > s_old, "Recent verified lesson must outscore old failed lesson");
+        assert!(
+            s_recent > s_old,
+            "Recent verified lesson must outscore old failed lesson"
+        );
 
         let breakdown = score_lesson_hybrid(
             "postgres deadlock transaction",
@@ -204,13 +225,12 @@ mod unit_tests {
     }
 
     #[tokio::test]
-    async fn test_durable_memory_store_load_relevant_context_hybrid_ranking() -> anyhow::Result<()> {
+    async fn test_durable_memory_store_load_relevant_context_hybrid_ranking() -> anyhow::Result<()>
+    {
         use crate::durable::storage::DurableMemoryStore;
 
-        let temp_dir = std::env::temp_dir().join(format!(
-            "test_dms_hybrid_{}",
-            uuid::Uuid::new_v4().simple()
-        ));
+        let temp_dir =
+            std::env::temp_dir().join(format!("test_dms_hybrid_{}", uuid::Uuid::new_v4().simple()));
         let store = DurableMemoryStore::new(&temp_dir);
 
         // Save 3 lessons:
@@ -219,9 +239,12 @@ mod unit_tests {
             id: "les-partial-fail".to_string(),
             timestamp: "2026-01-01T00:00:00Z".to_string(),
             task_title: "Investigate redis timeout in background worker".to_string(),
-            trigger_error: Some("connection reset on worker pool alpha beta gamma delta".to_string()),
+            trigger_error: Some(
+                "connection reset on worker pool alpha beta gamma delta".to_string(),
+            ),
             remediation_applied: None,
-            general_insight: "Worker retry loop failed to recover redis connection under load".to_string(),
+            general_insight: "Worker retry loop failed to recover redis connection under load"
+                .to_string(),
             success: false,
         };
         store.save_structured_lesson(&partial_failed).await?;
@@ -278,7 +301,8 @@ mod unit_tests {
     }
 
     #[tokio::test]
-    async fn test_retrieve_ranked_lessons_hybrid_semantic_scoring_and_top_k() -> anyhow::Result<()> {
+    async fn test_retrieve_ranked_lessons_hybrid_semantic_scoring_and_top_k() -> anyhow::Result<()>
+    {
         use crate::durable::ranking::{rank_lesson_blocks, score_lesson_hybrid};
         use crate::durable::storage::DurableMemoryStore;
         use chrono::{Duration, Utc};
@@ -312,7 +336,9 @@ mod unit_tests {
             id: "les-stale-multi".to_string(),
             timestamp: (now - Duration::days(120)).to_rfc3339(),
             task_title: "Debug mvcc_snapshot_conflict timeout in database".to_string(),
-            trigger_error: Some("mvcc_snapshot_conflict serialization failure on timeout".to_string()),
+            trigger_error: Some(
+                "mvcc_snapshot_conflict serialization failure on timeout".to_string(),
+            ),
             remediation_applied: None,
             general_insight: "Concurrent writers triggered mvcc_snapshot_conflict".to_string(),
             success: false,
@@ -320,10 +346,16 @@ mod unit_tests {
         let l_best_hybrid = StructuredLesson {
             id: "les-best-hybrid".to_string(),
             timestamp: now.to_rfc3339(),
-            task_title: "Resolve mvcc_snapshot_conflict serialization timeout in database".to_string(),
-            trigger_error: Some("mvcc_snapshot_conflict serialization error under load".to_string()),
-            remediation_applied: Some("Retry transaction with jittered exponential backoff".to_string()),
-            general_insight: "Jittered retry resolves mvcc_snapshot_conflict serialization timeout".to_string(),
+            task_title: "Resolve mvcc_snapshot_conflict serialization timeout in database"
+                .to_string(),
+            trigger_error: Some(
+                "mvcc_snapshot_conflict serialization error under load".to_string(),
+            ),
+            remediation_applied: Some(
+                "Retry transaction with jittered exponential backoff".to_string(),
+            ),
+            general_insight: "Jittered retry resolves mvcc_snapshot_conflict serialization timeout"
+                .to_string(),
             success: true,
         };
 
@@ -346,7 +378,9 @@ mod unit_tests {
         assert!(b_best.coverage_ratio > b_common.coverage_ratio);
         assert!(b_best.confidence_weight > b_stale.confidence_weight);
         assert!(b_best.recency_weight > b_stale.recency_weight);
-        assert!(b_best.final_score > b_stale.final_score && b_stale.final_score > b_common.final_score);
+        assert!(
+            b_best.final_score > b_stale.final_score && b_stale.final_score > b_common.final_score
+        );
 
         let top2 = store.retrieve_ranked_lessons(query, 2).await?;
         assert_eq!(top2.len(), 2, "top_k=2 must truncate results to 2 items");

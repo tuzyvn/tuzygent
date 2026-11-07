@@ -1,13 +1,17 @@
-use std::collections::HashMap;
 use super::test_workflow;
 use crate::workflow_dag::*;
+use std::collections::HashMap;
 
 #[test]
 fn test_consensus_gate_constructor_and_builder() {
     let gate = WorkflowNode::ConsensusGate(
         "gate_security",
         2,
-        vec!["sec_reviewer_1".to_string(), "sec_reviewer_2".to_string(), "sec_reviewer_3".to_string()],
+        vec![
+            "sec_reviewer_1".to_string(),
+            "sec_reviewer_2".to_string(),
+            "sec_reviewer_3".to_string(),
+        ],
     )
     .with_label("Security Review Gate")
     .with_quorum_threshold(0.66);
@@ -32,7 +36,11 @@ fn test_consensus_gate_sufficient_votes_scenario() {
     let gate = WorkflowNode::ConsensusGate(
         "gate_1",
         2,
-        vec!["reviewer_a".to_string(), "reviewer_b".to_string(), "reviewer_c".to_string()],
+        vec![
+            "reviewer_a".to_string(),
+            "reviewer_b".to_string(),
+            "reviewer_c".to_string(),
+        ],
     );
 
     let mut context_state = HashMap::new();
@@ -70,7 +78,11 @@ fn test_consensus_gate_insufficient_votes_scenario() {
     let gate = WorkflowNode::ConsensusGate(
         "gate_strict",
         3,
-        vec!["reviewer_a".to_string(), "reviewer_b".to_string(), "reviewer_c".to_string()],
+        vec![
+            "reviewer_a".to_string(),
+            "reviewer_b".to_string(),
+            "reviewer_c".to_string(),
+        ],
     );
 
     let mut context_state = HashMap::new();
@@ -108,7 +120,11 @@ fn test_consensus_gate_missing_reviewers_insufficient_votes() {
     let gate = WorkflowNode::ConsensusGate(
         "gate_missing",
         2,
-        vec!["reviewer_a".to_string(), "reviewer_b".to_string(), "reviewer_c".to_string()],
+        vec![
+            "reviewer_a".to_string(),
+            "reviewer_b".to_string(),
+            "reviewer_c".to_string(),
+        ],
     );
 
     // Only reviewer_a has cast a vote; reviewer_b and reviewer_c have not executed/voted
@@ -135,7 +151,11 @@ fn test_consensus_gate_quorum_threshold_evaluation() {
     let gate_quorum = WorkflowNode::ConsensusGate(
         "gate_q",
         0, // will be overridden by quorum_threshold when required_votes is None or if configured
-        vec!["rev_1".to_string(), "rev_2".to_string(), "rev_3".to_string()],
+        vec![
+            "rev_1".to_string(),
+            "rev_2".to_string(),
+            "rev_3".to_string(),
+        ],
     );
 
     // Construct node where required_votes is None but quorum_threshold is Some(0.66)
@@ -170,13 +190,10 @@ fn test_consensus_gate_quorum_threshold_evaluation() {
 
 #[test]
 fn test_consensus_gate_serde_roundtrip() {
-    let node = WorkflowNode::ConsensusGate(
-        "gate_json",
-        2,
-        vec!["alice".to_string(), "bob".to_string()],
-    )
-    .with_label("Pair Approval")
-    .with_quorum_threshold(0.75);
+    let node =
+        WorkflowNode::ConsensusGate("gate_json", 2, vec!["alice".to_string(), "bob".to_string()])
+            .with_label("Pair Approval")
+            .with_quorum_threshold(0.75);
 
     let serialized = serde_json::to_string(&node).expect("Serialization must succeed");
     let deserialized: WorkflowNode =
@@ -203,15 +220,18 @@ fn test_consensus_gate_serde_roundtrip() {
         }
     });
 
-    let from_json: WorkflowNode = serde_json::from_value(raw_json).expect("From Value must succeed");
+    let from_json: WorkflowNode =
+        serde_json::from_value(raw_json).expect("From Value must succeed");
     assert_eq!(from_json.data.required_votes, Some(3));
     assert_eq!(from_json.data.quorum_threshold, Some(0.66));
     assert_eq!(from_json.data.reviewers.unwrap().len(), 3);
 }
 
 #[tokio::test]
-async fn test_orchestrator_consensus_gate_dag_sufficient_votes() -> Result<(), Box<dyn std::error::Error>> {
-    let tmp_dir = std::env::temp_dir().join(format!("tuzygent-consensus-pass-{}", uuid::Uuid::new_v4()));
+async fn test_orchestrator_consensus_gate_dag_sufficient_votes(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let tmp_dir =
+        std::env::temp_dir().join(format!("tuzygent-consensus-pass-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&tmp_dir)?;
     let dir_str = tmp_dir.to_str().ok_or("Failed to convert path")?;
     let orchestrator = WorkflowOrchestrator::new(dir_str, dir_str);
@@ -252,12 +272,20 @@ async fn test_orchestrator_consensus_gate_dag_sufficient_votes() -> Result<(), B
         }
     });
 
-    let report = orchestrator.execute_workflow(&wf, Some(trigger_payload), "test_runner").await?;
+    let report = orchestrator
+        .execute_workflow(&wf, Some(trigger_payload), "test_runner")
+        .await?;
 
     assert_eq!(report.status, "Completed");
     assert_eq!(report.node_results["consensus_gate"].status, "completed");
-    assert_eq!(report.node_results["consensus_gate"].output["consensus_reached"], true);
-    assert_eq!(report.node_results["consensus_gate"].output["approved_votes"], 2);
+    assert_eq!(
+        report.node_results["consensus_gate"].output["consensus_reached"],
+        true
+    );
+    assert_eq!(
+        report.node_results["consensus_gate"].output["approved_votes"],
+        2
+    );
     assert_eq!(report.node_results["action_deploy"].status, "completed");
 
     let _ = std::fs::remove_dir_all(&tmp_dir);
@@ -265,8 +293,10 @@ async fn test_orchestrator_consensus_gate_dag_sufficient_votes() -> Result<(), B
 }
 
 #[tokio::test]
-async fn test_orchestrator_consensus_gate_dag_insufficient_votes() -> Result<(), Box<dyn std::error::Error>> {
-    let tmp_dir = std::env::temp_dir().join(format!("tuzygent-consensus-fail-{}", uuid::Uuid::new_v4()));
+async fn test_orchestrator_consensus_gate_dag_insufficient_votes(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let tmp_dir =
+        std::env::temp_dir().join(format!("tuzygent-consensus-fail-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&tmp_dir)?;
     let dir_str = tmp_dir.to_str().ok_or("Failed to convert path")?;
     let orchestrator = WorkflowOrchestrator::new(dir_str, dir_str);
@@ -307,13 +337,24 @@ async fn test_orchestrator_consensus_gate_dag_insufficient_votes() -> Result<(),
         }
     });
 
-    let report = orchestrator.execute_workflow(&wf, Some(trigger_payload), "test_runner").await?;
+    let report = orchestrator
+        .execute_workflow(&wf, Some(trigger_payload), "test_runner")
+        .await?;
 
     assert_eq!(report.status, "Failed");
     assert_eq!(report.node_results["consensus_gate"].status, "failed");
-    assert_eq!(report.node_results["consensus_gate"].output["consensus_reached"], false);
-    assert_eq!(report.node_results["consensus_gate"].output["approved_votes"], 1);
-    assert_eq!(report.node_results["consensus_gate"].output["rejected_votes"], 1);
+    assert_eq!(
+        report.node_results["consensus_gate"].output["consensus_reached"],
+        false
+    );
+    assert_eq!(
+        report.node_results["consensus_gate"].output["approved_votes"],
+        1
+    );
+    assert_eq!(
+        report.node_results["consensus_gate"].output["rejected_votes"],
+        1
+    );
     // Crucial: action_deploy must be skipped because consensus_gate failed!
     assert_eq!(report.node_results["action_deploy"].status, "skipped");
 

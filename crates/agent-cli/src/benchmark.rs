@@ -114,8 +114,7 @@ impl CliBenchmarkHarness {
         let concurrency = concurrency.max(1);
         let num_requests = num_requests.max(1);
         let shared_runner = Arc::new(tokio::sync::Mutex::new(
-            ResilientCliRunner::new(CliFaultPolicy::none(), 3)
-                .with_max_capacity(num_requests + 64),
+            ResilientCliRunner::new(CliFaultPolicy::none(), 3).with_max_capacity(num_requests + 64),
         ));
 
         let start = Instant::now();

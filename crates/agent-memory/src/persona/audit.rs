@@ -1,6 +1,6 @@
 use crate::persona::fault::PersonaError;
 use crate::persona::resilience::ResilientPersonaLoader;
-use agent_domain::{ActionSeverity, AuditEventType, AuditLedger, AgentPersonaProfile};
+use agent_domain::{ActionSeverity, AgentPersonaProfile, AuditEventType, AuditLedger};
 use std::path::Path;
 
 impl ResilientPersonaLoader {
@@ -15,7 +15,10 @@ impl ResilientPersonaLoader {
                 ledger.record_event(
                     AuditEventType::CommandAllowed,
                     ActionSeverity::Routine,
-                    format!("Persona profile successfully loaded: '{}'", profile.identity.name),
+                    format!(
+                        "Persona profile successfully loaded: '{}'",
+                        profile.identity.name
+                    ),
                 );
                 Ok(profile)
             }
@@ -52,7 +55,10 @@ impl ResilientPersonaLoader {
                 ledger.record_event(
                     AuditEventType::CommandAllowed,
                     ActionSeverity::Routine,
-                    format!("Persona profile successfully exported: '{}'", profile.identity.name),
+                    format!(
+                        "Persona profile successfully exported: '{}'",
+                        profile.identity.name
+                    ),
                 );
                 Ok(())
             }
@@ -70,7 +76,10 @@ impl ResilientPersonaLoader {
                 ledger.record_event(
                     event_type,
                     severity,
-                    format!("Persona export failure for '{}': {}", profile.identity.name, err),
+                    format!(
+                        "Persona export failure for '{}': {}",
+                        profile.identity.name, err
+                    ),
                 );
                 Err(err)
             }

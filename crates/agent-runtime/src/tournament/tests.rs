@@ -143,8 +143,7 @@ fn auto_judge_scores_verification_pass_rate_and_penalties_accurately() {
 #[test]
 fn auto_judge_assigns_negative_floor_score_to_errored_candidate() {
     let judge = AutoJudge::default();
-    let err_out: Result<EngineOutput, EngineError> =
-        Err(EngineError::Timeout);
+    let err_out: Result<EngineOutput, EngineError> = Err(EngineError::Timeout);
     let sc = judge.score_candidate("timed-out", EngineKind::Codex, &err_out, vec![], 0);
     assert!(!sc.succeeded);
     assert!(sc.total_score <= -1000.0);
@@ -240,11 +239,7 @@ async fn tournament_uses_fallback_engine_when_all_candidates_fail() {
             SimulatedEngine::non_zero(EngineKind::Codex, "compilation error", 1, 300),
         ),
     ];
-    let fallback = SimulatedEngine::success(
-        EngineKind::Mock,
-        "fallback recovery output",
-        100,
-    );
+    let fallback = SimulatedEngine::success(EngineKind::Mock, "fallback recovery output", 100);
 
     let executor = TournamentExecutor::with_named_candidates("/tmp", candidates)
         .with_fallback_engine(fallback);
@@ -256,6 +251,9 @@ async fn tournament_uses_fallback_engine_when_all_candidates_fail() {
     assert!(outcome.used_fallback);
     assert_eq!(outcome.winner_id, "fallback");
     assert_eq!(outcome.winner_engine, EngineKind::Mock);
-    assert_eq!(outcome.winner_output.stdout_content, "fallback recovery output");
+    assert_eq!(
+        outcome.winner_output.stdout_content,
+        "fallback recovery output"
+    );
     assert_eq!(outcome.scorecards.len(), 4);
 }

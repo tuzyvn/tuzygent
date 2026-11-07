@@ -8,8 +8,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 async fn oversized_unterminated_line_returns_error() {
     let mut command = tokio::process::Command::new("sh");
     command.arg("-c").arg("printf '12345678901234567890'");
-    let result =
-        run_process_with_limit(command, Duration::from_secs(2), None, 8).await;
+    let result = run_process_with_limit(command, Duration::from_secs(2), None, 8).await;
     assert!(
         matches!(result, Err(EngineError::ProcessFailed(message)) if message.contains("output line exceeds"))
     );
@@ -112,7 +111,8 @@ async fn every_cli_uses_the_wrapper_and_never_falls_back_to_host(
 }
 
 #[tokio::test]
-async fn antigravity_enforces_timeout_and_drains_stderr() -> Result<(), Box<dyn std::error::Error>> {
+async fn antigravity_enforces_timeout_and_drains_stderr() -> Result<(), Box<dyn std::error::Error>>
+{
     use std::os::unix::fs::PermissionsExt;
     let script = marker("agy-script");
     std::fs::write(&script, "#!/bin/sh\nsleep 2\n")?;

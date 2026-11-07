@@ -94,15 +94,15 @@ impl GuardrailPolicy {
         match fault {
             GuardrailFault::SocketTimeout => Err(GuardrailError::SocketTimeout),
             GuardrailFault::ConnectionReset => Err(GuardrailError::ConnectionReset),
-            GuardrailFault::TransientIo => {
-                Err(GuardrailError::IoError("Simulated transient I/O failure".to_string()))
-            }
-            GuardrailFault::CorruptedRule => {
-                Err(GuardrailError::CorruptedPolicy("Rule pattern corrupted or unparseable".to_string()))
-            }
-            GuardrailFault::ServiceUnavailable => {
-                Err(GuardrailError::ServiceUnavailable("Guardrail service temporarily unavailable".to_string()))
-            }
+            GuardrailFault::TransientIo => Err(GuardrailError::IoError(
+                "Simulated transient I/O failure".to_string(),
+            )),
+            GuardrailFault::CorruptedRule => Err(GuardrailError::CorruptedPolicy(
+                "Rule pattern corrupted or unparseable".to_string(),
+            )),
+            GuardrailFault::ServiceUnavailable => Err(GuardrailError::ServiceUnavailable(
+                "Guardrail service temporarily unavailable".to_string(),
+            )),
         }
     }
 
@@ -156,16 +156,14 @@ impl GuardrailPolicy {
         self.evaluate_and_record(ledger, command)
     }
 
-    pub fn record_exception(
-        &self,
-        ledger: &mut AuditLedger,
-        command: &str,
-        error: &str,
-    ) {
+    pub fn record_exception(&self, ledger: &mut AuditLedger, command: &str, error: &str) {
         ledger.record_event(
             AuditEventType::CommandException,
             ActionSeverity::HighImpact,
-            format!("Exception occurred while processing command '{}': {}", command, error),
+            format!(
+                "Exception occurred while processing command '{}': {}",
+                command, error
+            ),
         );
     }
 }

@@ -1,9 +1,9 @@
-use std::path::Path;
 use agent_domain::{Task, TaskId, TaskResult};
 use agent_memory::MemoryService;
 use agent_runtime::{SqliteTaskStore, TaskStore, WorkflowDefinition, WorkflowRunReport};
 use anyhow::{Context, Result};
 use serde::Serialize;
+use std::path::Path;
 
 use crate::cli::{InspectArgs, InspectTarget, OutputFormat};
 
@@ -20,12 +20,30 @@ pub async fn handle(args: InspectArgs) -> Result<()> {
             flag_id,
             status,
             limit,
-        } => handle_task(args.workspace.as_path(), id.or(flag_id), status, limit, args.format).await,
+        } => {
+            handle_task(
+                args.workspace.as_path(),
+                id.or(flag_id),
+                status,
+                limit,
+                args.format,
+            )
+            .await
+        }
         InspectTarget::Memory {
             id_or_query,
             project,
             persona,
-        } => handle_memory(args.workspace.as_path(), id_or_query, &project, &persona, args.format).await,
+        } => {
+            handle_memory(
+                args.workspace.as_path(),
+                id_or_query,
+                &project,
+                &persona,
+                args.format,
+            )
+            .await
+        }
         InspectTarget::Dag { id, catalog_path } => {
             handle_dag(args.workspace.as_path(), id, &catalog_path, args.format).await
         }
@@ -39,8 +57,8 @@ async fn handle_task(
     limit: usize,
     format: OutputFormat,
 ) -> Result<()> {
-    let store = SqliteTaskStore::new(workspace)
-        .context("Failed to open SQLite task store in workspace")?;
+    let store =
+        SqliteTaskStore::new(workspace).context("Failed to open SQLite task store in workspace")?;
 
     if let Some(id) = task_id {
         let task_id_obj = TaskId(id.clone());
@@ -58,19 +76,34 @@ async fn handle_task(
                 println!("{}", serde_json::to_string_pretty(&payload)?);
             }
             OutputFormat::Table => {
-                println!("┌────────────────────────────────────────────────────────────────────────┐");
+                println!(
+                    "┌────────────────────────────────────────────────────────────────────────┐"
+                );
                 println!("│ TASK INSPECTION: {:<53} │", task.id.0);
-                println!("├─────────────────┬──────────────────────────────────────────────────────┤");
-                println!("│ Title           │ {:<52} │", truncate_str(&task.title, 52));
+                println!(
+                    "├─────────────────┬──────────────────────────────────────────────────────┤"
+                );
+                println!(
+                    "│ Title           │ {:<52} │",
+                    truncate_str(&task.title, 52)
+                );
                 println!("│ Status          │ {:<52} │", format!("{:?}", task.status));
-                println!("│ Priority        │ {:<52} │", format!("{:?}", task.priority));
+                println!(
+                    "│ Priority        │ {:<52} │",
+                    format!("{:?}", task.priority)
+                );
                 println!(
                     "│ Agent           │ {:<52} │",
-                    task.assigned_agent.as_ref().map(|a| a.0.as_str()).unwrap_or("none")
+                    task.assigned_agent
+                        .as_ref()
+                        .map(|a| a.0.as_str())
+                        .unwrap_or("none")
                 );
                 println!("│ Created At      │ {:<52} │", task.created_at.to_rfc3339());
                 println!("│ Subtasks Count  │ {:<52} │", task.subtasks.len());
-                println!("└─────────────────┴──────────────────────────────────────────────────────┘");
+                println!(
+                    "└─────────────────┴──────────────────────────────────────────────────────┘"
+                );
 
                 if !task.subtasks.is_empty() {
                     println!("\n▶ SUBTASKS ({})", task.subtasks.len());
@@ -98,7 +131,10 @@ async fn handle_task(
                         println!("│ Engine          │ {:<52} │", truncate_str(engine, 52));
                     }
                     if !res.summary.is_empty() {
-                        println!("│ Summary         │ {:<52} │", truncate_str(&res.summary, 52));
+                        println!(
+                            "│ Summary         │ {:<52} │",
+                            truncate_str(&res.summary, 52)
+                        );
                     }
                     println!("└─────────────────┴──────────────────────────────────────────────────────┘");
                 }
@@ -203,7 +239,10 @@ async fn handle_memory(
                 println!("[]");
             }
             OutputFormat::Table => {
-                println!("(No memory records found for project='{}', persona='{}')", project, persona);
+                println!(
+                    "(No memory records found for project='{}', persona='{}')",
+                    project, persona
+                );
             }
         }
     }
@@ -220,14 +259,24 @@ fn print_memory_record_table(record: &agent_memory::MemoryRecord) {
     println!("│ Status          │ {:<52} │", record.status);
     println!("│ Scope           │ {:<52} │", record.scope);
     println!("│ Verified        │ {:<52} │", record.verified);
-    println!("│ Conditions      │ {:<52} │", truncate_str(&record.conditions, 52));
-    println!("│ Content         │ {:<52} │", truncate_str(&record.content, 52));
+    println!(
+        "│ Conditions      │ {:<52} │",
+        truncate_str(&record.conditions, 52)
+    );
+    println!(
+        "│ Content         │ {:<52} │",
+        truncate_str(&record.content, 52)
+    );
     println!("└─────────────────┴──────────────────────────────────────────────────────┘");
 }
 
 fn print_memory_list_table(records: &[agent_memory::MemoryRecord], persona: &str) {
     println!("┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐");
-    println!("│ PERSONA MEMORY ({:<10}) Total: {:<67} │", persona, records.len());
+    println!(
+        "│ PERSONA MEMORY ({:<10}) Total: {:<67} │",
+        persona,
+        records.len()
+    );
     println!("├──────────────────────────────────────┬─────────────┬───────────┬──────────┬────────────────────────────────────┤");
     println!("│ Record ID                            │ Kind        │ Status    │ Verified │ Content                            │");
     println!("├──────────────────────────────────────┼─────────────┼───────────┼──────────┼────────────────────────────────────┤");
@@ -294,7 +343,10 @@ async fn handle_dag(
         }
 
         // Find matching run report
-        if let Some(report) = run_reports.iter().find(|r| r.run_id == *id || r.workflow_id == *id) {
+        if let Some(report) = run_reports
+            .iter()
+            .find(|r| r.run_id == *id || r.workflow_id == *id)
+        {
             match format {
                 OutputFormat::Json => {
                     println!("{}", serde_json::to_string_pretty(report)?);
@@ -306,7 +358,10 @@ async fn handle_dag(
             return Ok(());
         }
 
-        anyhow::bail!("No workflow definition or run report found matching ID: {}", id);
+        anyhow::bail!(
+            "No workflow definition or run report found matching ID: {}",
+            id
+        );
     } else {
         // List workflows and recent runs
         #[derive(Serialize)]
@@ -375,7 +430,10 @@ fn print_workflow_definition_table(wf: &WorkflowDefinition) {
     println!("│ WORKFLOW DAG: {:<56} │", wf.id);
     println!("├─────────────────┬──────────────────────────────────────────────────────┤");
     println!("│ Name            │ {:<52} │", truncate_str(&wf.name, 52));
-    println!("│ Version         │ {:<52} │", wf.version.as_deref().unwrap_or("1.0.0"));
+    println!(
+        "│ Version         │ {:<52} │",
+        wf.version.as_deref().unwrap_or("1.0.0")
+    );
     println!(
         "│ Description     │ {:<52} │",
         truncate_str(wf.description.as_deref().unwrap_or(""), 52)
@@ -386,14 +444,26 @@ fn print_workflow_definition_table(wf: &WorkflowDefinition) {
 
     if !wf.nodes.is_empty() {
         println!("\n▶ WORKFLOW NODES");
-        println!("┌──────────────┬────────────────────────┬─────────────┬──────────────────────────┐");
-        println!("│ Node ID      │ Label / Persona        │ Type        │ Engine / Command         │");
-        println!("├──────────────┼────────────────────────┼─────────────┼──────────────────────────┤");
+        println!(
+            "┌──────────────┬────────────────────────┬─────────────┬──────────────────────────┐"
+        );
+        println!(
+            "│ Node ID      │ Label / Persona        │ Type        │ Engine / Command         │"
+        );
+        println!(
+            "├──────────────┼────────────────────────┼─────────────┼──────────────────────────┤"
+        );
         for n in &wf.nodes {
-            let label = n.data.label.as_deref()
+            let label = n
+                .data
+                .label
+                .as_deref()
                 .or(n.data.persona_name.as_deref())
                 .unwrap_or("-");
-            let extra = n.data.engine.as_deref()
+            let extra = n
+                .data
+                .engine
+                .as_deref()
                 .or(n.data.command.as_deref())
                 .unwrap_or("-");
             println!(
@@ -404,14 +474,22 @@ fn print_workflow_definition_table(wf: &WorkflowDefinition) {
                 truncate_str(extra, 24)
             );
         }
-        println!("└──────────────┴────────────────────────┴─────────────┴──────────────────────────┘");
+        println!(
+            "└──────────────┴────────────────────────┴─────────────┴──────────────────────────┘"
+        );
     }
 
     if !wf.edges.is_empty() {
         println!("\n▶ WORKFLOW EDGES");
-        println!("┌─────────────────────────────┬─────────────────────────────┬──────────────────────┐");
-        println!("│ Source Node                 │ Target Node                 │ Label                │");
-        println!("├─────────────────────────────┼─────────────────────────────┼──────────────────────┤");
+        println!(
+            "┌─────────────────────────────┬─────────────────────────────┬──────────────────────┐"
+        );
+        println!(
+            "│ Source Node                 │ Target Node                 │ Label                │"
+        );
+        println!(
+            "├─────────────────────────────┼─────────────────────────────┼──────────────────────┤"
+        );
         for e in &wf.edges {
             println!(
                 "│ {:<27} │ {:<27} │ {:<20} │",
@@ -420,7 +498,9 @@ fn print_workflow_definition_table(wf: &WorkflowDefinition) {
                 truncate_str(e.label.as_deref().unwrap_or("-"), 20)
             );
         }
-        println!("└─────────────────────────────┴─────────────────────────────┴──────────────────────┘");
+        println!(
+            "└─────────────────────────────┴─────────────────────────────┴──────────────────────┘"
+        );
     }
 }
 
@@ -429,7 +509,10 @@ fn print_run_report_table(report: &WorkflowRunReport) {
     println!("│ WORKFLOW RUN REPORT: {:<49} │", report.run_id);
     println!("├─────────────────┬──────────────────────────────────────────────────────┤");
     println!("│ Workflow ID     │ {:<52} │", report.workflow_id);
-    println!("│ Workflow Name   │ {:<52} │", truncate_str(&report.workflow_name, 52));
+    println!(
+        "│ Workflow Name   │ {:<52} │",
+        truncate_str(&report.workflow_name, 52)
+    );
     println!("│ Status          │ {:<52} │", report.status);
     println!("│ Duration (ms)   │ {:<52} │", report.duration_ms);
     println!("│ Triggered By    │ {:<52} │", report.triggered_by);
@@ -438,9 +521,15 @@ fn print_run_report_table(report: &WorkflowRunReport) {
 
     if !report.node_results.is_empty() {
         println!("\n▶ EXECUTED NODES ({})", report.node_results.len());
-        println!("┌──────────────┬──────────────────┬─────────────┬───────────┬────────────────────┐");
-        println!("│ Node ID      │ Name             │ Status      │ Time (ms) │ Engine             │");
-        println!("├──────────────┼──────────────────┼─────────────┼───────────┼────────────────────┤");
+        println!(
+            "┌──────────────┬──────────────────┬─────────────┬───────────┬────────────────────┐"
+        );
+        println!(
+            "│ Node ID      │ Name             │ Status      │ Time (ms) │ Engine             │"
+        );
+        println!(
+            "├──────────────┼──────────────────┼─────────────┼───────────┼────────────────────┤"
+        );
         for res in report.node_results.values() {
             println!(
                 "│ {:<12} │ {:<16} │ {:<11} │ {:<9} │ {:<18} │",
@@ -451,7 +540,9 @@ fn print_run_report_table(report: &WorkflowRunReport) {
                 truncate_str(res.engine_used.as_deref().unwrap_or("none"), 18)
             );
         }
-        println!("└──────────────┴──────────────────┴─────────────┴───────────┴────────────────────┘");
+        println!(
+            "└──────────────┴──────────────────┴─────────────┴───────────┴────────────────────┘"
+        );
     }
 }
 

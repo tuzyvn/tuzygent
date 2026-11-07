@@ -68,7 +68,10 @@ impl MetricsBenchmarkHarness {
         }
     }
 
-    pub fn run_sharded_concurrent(iterations: usize, shards_count: usize) -> MetricsBenchmarkReport {
+    pub fn run_sharded_concurrent(
+        iterations: usize,
+        shards_count: usize,
+    ) -> MetricsBenchmarkReport {
         let shards: Vec<Arc<ResilientMetricsService>> = (0..shards_count)
             .map(|_| Arc::new(ResilientMetricsService::new()))
             .collect();
@@ -129,7 +132,9 @@ impl MetricsBenchmarkHarness {
         }
     }
 
-    pub fn compare_concurrency(iterations: usize) -> (MetricsBenchmarkReport, MetricsBenchmarkReport) {
+    pub fn compare_concurrency(
+        iterations: usize,
+    ) -> (MetricsBenchmarkReport, MetricsBenchmarkReport) {
         let single = Self::run_single_thread(iterations);
         let sharded = Self::run_sharded_concurrent(iterations, 16);
         (single, sharded)

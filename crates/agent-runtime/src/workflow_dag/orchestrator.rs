@@ -191,15 +191,7 @@ impl WorkflowOrchestrator {
                         depth,
                         timeline: &mut timeline,
                     };
-                    match execute_node(
-                        self,
-                        workflow,
-                        node,
-                        &current_id,
-                        &mut node_ctx,
-                    )
-                    .await
-                    {
+                    match execute_node(self, workflow, node, &current_id, &mut node_ctx).await {
                         Ok(o) => o,
                         Err(err) => {
                             let err_msg = format!("Lỗi thực thi Node: {}", err);

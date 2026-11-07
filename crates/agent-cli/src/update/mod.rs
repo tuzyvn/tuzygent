@@ -42,6 +42,7 @@ impl Drop for TemporaryDirectory {
 pub enum UpdateStatus {
     AlreadyUpToDate { current: String },
     UpdateAvailable { current: String, latest: String },
+    LatestUnavailable { current: String },
     Updated { from: String, to: String },
 }
 

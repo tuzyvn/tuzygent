@@ -1,15 +1,16 @@
 use agent_domain::{
-    ActionSeverity, AuditLedger, AgentId, EventError, EventFault, EventFaultPolicy,
-    GuardrailError, GuardrailFault, GuardrailFaultPolicy, GuardrailPolicy, InterAgentEvent,
-    Priority, ResilientEventProcessor, ResilientGuardrailEvaluator, SubTask, Task, TaskError,
-    TaskStatus,
+    ActionSeverity, AgentId, AuditLedger, EventError, EventFault, EventFaultPolicy, GuardrailError,
+    GuardrailFault, GuardrailFaultPolicy, GuardrailPolicy, InterAgentEvent, Priority,
+    ResilientEventProcessor, ResilientGuardrailEvaluator, SubTask, Task, TaskError, TaskStatus,
 };
 
 /// Reproduction test for TOPIC-20261105-d9881e / TOPIC-20261105-cae92b:
 /// Chaos Engineering and Fault Injection resilience in agent-domain::event
 #[test]
 fn test_reproduce_and_verify_fault_injection_resilience() {
-    println!("[Reproduction Test] Initializing Chaos Engineering & Fault Injection verification...");
+    println!(
+        "[Reproduction Test] Initializing Chaos Engineering & Fault Injection verification..."
+    );
 
     let agent_sender = AgentId::new("agent-tester");
     let agent_receiver = AgentId::new("agent-worker");
@@ -22,14 +23,20 @@ fn test_reproduce_and_verify_fault_injection_resilience() {
     );
 
     // Verify baseline event integrity
-    assert!(event.validate().is_ok(), "Base event must be structurally valid");
+    assert!(
+        event.validate().is_ok(),
+        "Base event must be structurally valid"
+    );
 
     // Scenario 1: Intermittent Socket Timeout Recovery
     println!("[Reproduction Test] Testing intermittent socket timeout recovery...");
     let timeout_policy = EventFaultPolicy::intermittent(EventFault::SocketTimeout, 2);
     let mut timeout_processor = ResilientEventProcessor::new(timeout_policy, 3);
     let timeout_res = timeout_processor.process_event(event.clone());
-    assert!(timeout_res.is_ok(), "Processor must recover from intermittent socket timeout");
+    assert!(
+        timeout_res.is_ok(),
+        "Processor must recover from intermittent socket timeout"
+    );
     assert_eq!(timeout_processor.processed_count(), 1);
     assert!(timeout_processor.recovered_count() > 0);
 
@@ -38,7 +45,10 @@ fn test_reproduce_and_verify_fault_injection_resilience() {
     let reset_policy = EventFaultPolicy::intermittent(EventFault::ConnectionReset, 2);
     let mut reset_processor = ResilientEventProcessor::new(reset_policy, 3);
     let reset_res = reset_processor.process_event(event.clone());
-    assert!(reset_res.is_ok(), "Processor must recover from intermittent connection reset");
+    assert!(
+        reset_res.is_ok(),
+        "Processor must recover from intermittent connection reset"
+    );
     assert_eq!(reset_processor.processed_count(), 1);
     assert!(reset_processor.recovered_count() > 0);
 
@@ -47,7 +57,10 @@ fn test_reproduce_and_verify_fault_injection_resilience() {
     let corrupted_policy = EventFaultPolicy::always(EventFault::CorruptedPayload);
     let mut corrupted_processor = ResilientEventProcessor::new(corrupted_policy, 3);
     let corrupted_res = corrupted_processor.process_event(event.clone());
-    assert!(matches!(corrupted_res, Err(EventError::CorruptedPayload(_))));
+    assert!(matches!(
+        corrupted_res,
+        Err(EventError::CorruptedPayload(_))
+    ));
 
     // Scenario 4: Deduplication of Repeated Events
     println!("[Reproduction Test] Testing deduplication of duplicate events...");
@@ -60,7 +73,10 @@ fn test_reproduce_and_verify_fault_injection_resilience() {
 
     let second = dedup_processor.process_event(event.clone());
     assert!(second.is_ok());
-    assert!(second.unwrap().is_none(), "Duplicate event must be discarded by deduplication");
+    assert!(
+        second.unwrap().is_none(),
+        "Duplicate event must be discarded by deduplication"
+    );
     assert_eq!(dedup_processor.processed_count(), 1);
 
     // Scenario 5: Dropped Event Handling
@@ -72,7 +88,9 @@ fn test_reproduce_and_verify_fault_injection_resilience() {
     assert_eq!(dropped_res.unwrap(), None);
     assert_eq!(dropped_processor.dropped_count(), 1);
 
-    println!("[Reproduction Test] All chaos fault injection reproduction scenarios passed successfully!");
+    println!(
+        "[Reproduction Test] All chaos fault injection reproduction scenarios passed successfully!"
+    );
 }
 
 /// Reproduction test for TOPIC-20261105-781ba7 / TOPIC-20261105-1d2ebc:
@@ -103,7 +121,10 @@ fn test_reproduce_and_verify_guardrail_chaos_resilience() {
     let mut ledger = AuditLedger::new();
 
     let res = evaluator.evaluate_and_record(&mut ledger, "git diff");
-    assert!(res.is_ok(), "Guardrail evaluator must recover from intermittent socket timeout");
+    assert!(
+        res.is_ok(),
+        "Guardrail evaluator must recover from intermittent socket timeout"
+    );
     assert!(evaluator.recovered_count() > 0);
     assert_eq!(evaluator.evaluated_count(), 1);
     assert!(ledger.verify_integrity().is_ok());
@@ -118,11 +139,19 @@ fn test_reproduce_and_verify_guardrail_chaos_resilience() {
     let fail_policy = GuardrailFaultPolicy::always(GuardrailFault::ServiceUnavailable);
     let mut failing_evaluator = ResilientGuardrailEvaluator::new(policy, fail_policy, 2);
     let res_fail = failing_evaluator.evaluate_and_record(&mut ledger, "cargo build");
-    assert!(matches!(res_fail, Err(GuardrailError::ServiceUnavailable(_))));
-    assert_eq!(ledger.entries().last().unwrap().severity, ActionSeverity::HighImpact);
+    assert!(matches!(
+        res_fail,
+        Err(GuardrailError::ServiceUnavailable(_))
+    ));
+    assert_eq!(
+        ledger.entries().last().unwrap().severity,
+        ActionSeverity::HighImpact
+    );
     assert!(ledger.verify_integrity().is_ok());
 
-    println!("[Reproduction Test] Guardrail chaos fault injection reproduction verified successfully!");
+    println!(
+        "[Reproduction Test] Guardrail chaos fault injection reproduction verified successfully!"
+    );
 }
 
 /// Reproduction test for TOPIC-20261105-0ae8a5:
@@ -171,7 +200,11 @@ fn test_reproduce_and_verify_identity_early_rejection_under_chaos() {
 
     let res = manager.resolve_and_record(&mut ledger, invalid_profile);
     assert!(matches!(res, Err(IdentityError::InvalidIdentity(_))));
-    assert_eq!(manager.recovered_count(), 0, "Must not consume retries or count recoveries for invalid identity");
+    assert_eq!(
+        manager.recovered_count(),
+        0,
+        "Must not consume retries or count recoveries for invalid identity"
+    );
     assert_eq!(manager.rejected_count(), 1);
     assert_eq!(ledger.len(), 1);
     assert_eq!(ledger.entries()[0].action, "COMMAND_BLOCKED");
@@ -185,10 +218,22 @@ fn test_reproduce_and_verify_guardrail_pattern_normalization_and_variants() {
     let policy = GuardrailPolicy::default_enterprise();
 
     // Verify variants of rm -rf and chmod
-    assert!(policy.check_command_safety("rm -fr /data").is_err(), "Must block rm -fr");
-    assert!(policy.check_command_safety("rm   -r   -f   /var").is_err(), "Must block rm -r -f");
-    assert!(policy.check_command_safety("chmod 0777 /etc").is_err(), "Must block chmod 0777");
-    assert!(policy.check_command_safety("chmod a+rwx /tmp").is_err(), "Must block chmod a+rwx");
+    assert!(
+        policy.check_command_safety("rm -fr /data").is_err(),
+        "Must block rm -fr"
+    );
+    assert!(
+        policy.check_command_safety("rm   -r   -f   /var").is_err(),
+        "Must block rm -r -f"
+    );
+    assert!(
+        policy.check_command_safety("chmod 0777 /etc").is_err(),
+        "Must block chmod 0777"
+    );
+    assert!(
+        policy.check_command_safety("chmod a+rwx /tmp").is_err(),
+        "Must block chmod a+rwx"
+    );
 
     // Safe command must pass
     assert!(policy.check_command_safety("cargo check --release").is_ok());
@@ -237,7 +282,10 @@ fn test_reproduce_and_verify_subtask_safe_lookup_and_panic_prevention() {
 
     // Kịch bản 4: Cơ chế tra cứu biến đổi an toàn get_subtask_mut() cho phép cập nhật trạng thái
     let mut_res = task.get_subtask_mut("sub-1");
-    assert!(mut_res.is_ok(), "Existing subtask must resolve mutably to Ok");
+    assert!(
+        mut_res.is_ok(),
+        "Existing subtask must resolve mutably to Ok"
+    );
     mut_res.unwrap().status = TaskStatus::Completed;
 
     // Xác nhận trạng thái đã được cập nhật thành công qua get_subtask
@@ -252,7 +300,9 @@ fn test_reproduce_and_verify_subtask_safe_lookup_and_panic_prevention() {
         "Missing subtask on get_subtask_mut must return TaskError::SubtaskNotFound"
     );
 
-    println!("[Reproduction Test] Subtask safe lookup and zero-panic verification passed successfully!");
+    println!(
+        "[Reproduction Test] Subtask safe lookup and zero-panic verification passed successfully!"
+    );
 }
 
 /// TDD Reproduction and verification test for TOPIC-20261106-b15309 / TOPIC-20261106-036bf1:
@@ -267,7 +317,11 @@ fn test_reproduce_and_verify_subtask_safe_lookup_and_panic_prevention() {
 fn test_reproduce_and_verify_topic_b15309_zero_panic_in_task_rs() {
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let task_rs_path = manifest_dir.join("src/task.rs");
-    assert!(task_rs_path.is_file(), "task.rs must exist at {}", task_rs_path.display());
+    assert!(
+        task_rs_path.is_file(),
+        "task.rs must exist at {}",
+        task_rs_path.display()
+    );
 
     let content = std::fs::read_to_string(&task_rs_path).expect("Failed to read src/task.rs");
 
@@ -320,5 +374,3 @@ fn test_reproduce_and_verify_topic_b15309_zero_panic_in_task_rs() {
         Some(&TaskStatus::Completed)
     );
 }
-
-

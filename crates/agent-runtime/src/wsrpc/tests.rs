@@ -197,10 +197,7 @@ async fn connection_drop_during_call_returns_uncertain_without_panic(
     });
 
     // Nhận request từ channel nhưng không deliver response, thay vào đó detach connection
-    let _request = rx
-        .recv()
-        .await
-        .ok_or("Expected request to be received")?;
+    let _request = rx.recv().await.ok_or("Expected request to be received")?;
 
     // Mô phỏng rớt mạng / detach khiến pending map bị clear và oneshot sender bị drop
     client.detach().await;
@@ -210,7 +207,9 @@ async fn connection_drop_during_call_returns_uncertain_without_panic(
 
     let err = match call_result {
         Err(e) => e,
-        Ok(v) => return Err(format!("Expected uncertain connection drop error, got Ok({:?})", v).into()),
+        Ok(v) => {
+            return Err(format!("Expected uncertain connection drop error, got Ok({:?})", v).into())
+        }
     };
     assert!(
         err.contains("WS RPC uncertain"),

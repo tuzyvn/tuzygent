@@ -105,15 +105,30 @@ async fn test_in_flight_checkpointing_and_safe_resume_from_checkpoint() {
         interrupt_on_step2: true,
     });
 
-    let service = Arc::new(TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true));
+    let service =
+        Arc::new(TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true));
 
-    let mut task = Task::new("Long Running Data Pipeline", "Process data in 3 steps", Priority::High);
-    let mut st1 = SubTask::new("ST-1", "Step 1 Data Extract", "run step1", "file: step1.txt");
+    let mut task = Task::new(
+        "Long Running Data Pipeline",
+        "Process data in 3 steps",
+        Priority::High,
+    );
+    let mut st1 = SubTask::new(
+        "ST-1",
+        "Step 1 Data Extract",
+        "run step1",
+        "file: step1.txt",
+    );
     st1.verification_spec = Some(VerificationSpec::FileExists {
         path: "step1.txt".into(),
         min_bytes: None,
     });
-    let mut st2 = SubTask::new("ST-2", "Step 2 Transformation", "run step2", "file: step2.txt");
+    let mut st2 = SubTask::new(
+        "ST-2",
+        "Step 2 Transformation",
+        "run step2",
+        "file: step2.txt",
+    );
     st2.verification_spec = Some(VerificationSpec::FileExists {
         path: "step2.txt".into(),
         min_bytes: None,
@@ -144,7 +159,10 @@ async fn test_in_flight_checkpointing_and_safe_resume_from_checkpoint() {
         .expect("in-flight checkpoint metadata must exist");
     assert_eq!(in_flight_meta.total_subtasks, 3);
     assert_eq!(in_flight_meta.completed_subtasks, 1);
-    assert_eq!(in_flight_meta.last_completed_subtask_id.as_deref(), Some("ST-1"));
+    assert_eq!(
+        in_flight_meta.last_completed_subtask_id.as_deref(),
+        Some("ST-1")
+    );
     assert_eq!(in_flight_meta.in_flight_subtask_id.as_deref(), Some("ST-2"));
 
     // Simulate abrupt shutdown / kill: cancel the active task to interrupt it
@@ -162,7 +180,10 @@ async fn test_in_flight_checkpointing_and_safe_resume_from_checkpoint() {
         .expect("checkpoint metadata must exist");
 
     assert_eq!(cp_meta.total_subtasks, 3);
-    assert_eq!(cp_meta.completed_subtasks, 1, "Only step 1 was completed before interruption");
+    assert_eq!(
+        cp_meta.completed_subtasks, 1,
+        "Only step 1 was completed before interruption"
+    );
     assert_eq!(cp_meta.last_completed_subtask_id.as_deref(), Some("ST-1"));
 
     // Verify raw checkpoint subtasks
@@ -177,8 +198,12 @@ async fn test_in_flight_checkpointing_and_safe_resume_from_checkpoint() {
     // Simulate server / daemon restart:
     // Create fresh TaskService instance with the same store
     drop(service);
-    let restarted_service = Arc::new(TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true));
-    restarted_service.recover_after_restart().await.expect("recover after restart");
+    let restarted_service =
+        Arc::new(TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true));
+    restarted_service
+        .recover_after_restart()
+        .await
+        .expect("recover after restart");
 
     // Check task status after restart recovery
     let task_after_restart = restarted_service
@@ -187,7 +212,10 @@ async fn test_in_flight_checkpointing_and_safe_resume_from_checkpoint() {
         .expect("get task")
         .expect("task exists");
     assert!(
-        matches!(task_after_restart.status, TaskStatus::WaitingApproval { .. }),
+        matches!(
+            task_after_restart.status,
+            TaskStatus::WaitingApproval { .. }
+        ),
         "Interrupted task should be in WaitingApproval after restart, got: {:?}",
         task_after_restart.status
     );
@@ -210,8 +238,15 @@ async fn test_in_flight_checkpointing_and_safe_resume_from_checkpoint() {
     // Wait for resumed task to complete
     let final_result = tokio::time::timeout(Duration::from_secs(5), async {
         loop {
-            if let Some(res) = restarted_service.get_result(&task_id).await.expect("get result") {
-                if matches!(res.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+            if let Some(res) = restarted_service
+                .get_result(&task_id)
+                .await
+                .expect("get result")
+            {
+                if matches!(
+                    res.status,
+                    TaskStatus::Completed | TaskStatus::Failed { .. }
+                ) {
                     break res;
                 }
             }
@@ -221,11 +256,23 @@ async fn test_in_flight_checkpointing_and_safe_resume_from_checkpoint() {
     .await
     .expect("Resumed task must finish within timeout");
 
-    assert_eq!(final_result.status, TaskStatus::Completed, "Resumed task must complete successfully");
+    assert_eq!(
+        final_result.status,
+        TaskStatus::Completed,
+        "Resumed task must complete successfully"
+    );
 
     // Critical assertion: step 1 was ALREADY completed before interruption, so it must NOT be re-executed!
-    assert_eq!(step1_count.load(Ordering::SeqCst), 1, "Step 1 must execute exactly once (skipped during resume)");
-    assert_eq!(step3_count.load(Ordering::SeqCst), 1, "Step 3 must execute and complete");
+    assert_eq!(
+        step1_count.load(Ordering::SeqCst),
+        1,
+        "Step 1 must execute exactly once (skipped during resume)"
+    );
+    assert_eq!(
+        step3_count.load(Ordering::SeqCst),
+        1,
+        "Step 3 must execute and complete"
+    );
 
     // Check final metadata
     let final_meta = store
@@ -234,13 +281,14 @@ async fn test_in_flight_checkpointing_and_safe_resume_from_checkpoint() {
         .expect("get final metadata")
         .expect("final metadata exists");
     assert_eq!(final_meta.completed_subtasks, 3);
-    assert_eq!(final_meta.last_completed_subtask_id.as_deref(), Some("ST-3"));
+    assert_eq!(
+        final_meta.last_completed_subtask_id.as_deref(),
+        Some("ST-3")
+    );
     assert_eq!(final_meta.in_flight_subtask_id, None);
 
     let _ = std::fs::remove_dir_all(&ws);
 }
-
-
 
 struct CrashOnStep2Engine {
     step1_count: Arc<AtomicUsize>,
@@ -329,9 +377,8 @@ async fn test_crash_abort_mid_flight_and_safe_resume_without_duplicate_execution
         crash_on_step2: true,
     });
 
-    let service = Arc::new(
-        TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true),
-    );
+    let service =
+        Arc::new(TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true));
 
     let mut task = Task::new(
         "Crash Recovery Pipeline",
@@ -413,7 +460,10 @@ async fn test_crash_abort_mid_flight_and_safe_resume_without_duplicate_execution
     let final_result = tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             if let Some(res) = service.get_result(&task_id).await.expect("get result") {
-                if matches!(res.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+                if matches!(
+                    res.status,
+                    TaskStatus::Completed | TaskStatus::Failed { .. }
+                ) {
                     break res;
                 }
             }
@@ -426,9 +476,21 @@ async fn test_crash_abort_mid_flight_and_safe_resume_without_duplicate_execution
     assert_eq!(final_result.status, TaskStatus::Completed);
 
     // Verify execution counts: Step 1 ran once, Step 2 ran twice (1 crash + 1 resume), Step 3 ran once
-    assert_eq!(step1_count.load(Ordering::SeqCst), 1, "Step 1 must not be re-executed");
-    assert_eq!(step2_count.load(Ordering::SeqCst), 2, "Step 2 ran once before crash and once on resume");
-    assert_eq!(step3_count.load(Ordering::SeqCst), 1, "Step 3 ran once on resume");
+    assert_eq!(
+        step1_count.load(Ordering::SeqCst),
+        1,
+        "Step 1 must not be re-executed"
+    );
+    assert_eq!(
+        step2_count.load(Ordering::SeqCst),
+        2,
+        "Step 2 ran once before crash and once on resume"
+    );
+    assert_eq!(
+        step3_count.load(Ordering::SeqCst),
+        1,
+        "Step 3 ran once on resume"
+    );
 
     // Verify data integrity on disk
     assert_eq!(
@@ -446,8 +508,6 @@ async fn test_crash_abort_mid_flight_and_safe_resume_without_duplicate_execution
 
     let _ = std::fs::remove_dir_all(&ws);
 }
-
-
 
 /// Verifies that atomic checkpoint persistence synchronously updates both subtask_checkpoints and tasks table.
 #[tokio::test]
@@ -490,7 +550,10 @@ async fn test_atomic_checkpoint_persistence_syncs_tasks_table() {
     let loaded_after_cp = store.get_task(&task_id).await.unwrap().unwrap();
     assert_eq!(loaded_after_cp.subtasks.len(), 2);
     assert_eq!(loaded_after_cp.subtasks[0].status, TaskStatus::Completed);
-    assert_eq!(loaded_after_cp.subtasks[0].output_excerpt.as_deref(), Some("st1 finished"));
+    assert_eq!(
+        loaded_after_cp.subtasks[0].output_excerpt.as_deref(),
+        Some("st1 finished")
+    );
     assert_eq!(loaded_after_cp.subtasks[1].status, TaskStatus::Executing);
 
     let _ = std::fs::remove_dir_all(&ws);
@@ -515,11 +578,14 @@ async fn test_checkpoint_tampering_fails_integrity_check_and_prevents_unsafe_res
         interrupt_on_step2: false,
     });
 
-    let service = Arc::new(
-        TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true),
-    );
+    let service =
+        Arc::new(TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true));
 
-    let mut task = Task::new("Tamper Pipeline", "Pipeline to test integrity checks", Priority::High);
+    let mut task = Task::new(
+        "Tamper Pipeline",
+        "Pipeline to test integrity checks",
+        Priority::High,
+    );
     let mut st1 = SubTask::new("ST-1", "Step 1", "run step1", "file: step1.txt");
     st1.status = TaskStatus::Completed;
     st1.output_excerpt = Some("step1 output".into());
@@ -555,11 +621,19 @@ async fn test_checkpoint_tampering_fails_integrity_check_and_prevents_unsafe_res
 
     // Check that get_task_checkpoint detects the tamper (ChecksumMismatch) and returns Err
     let cp_err = store.get_task_checkpoint(&task_id).await;
-    assert!(cp_err.is_err(), "Loading tampered checkpoint must fail integrity check");
+    assert!(
+        cp_err.is_err(),
+        "Loading tampered checkpoint must fail integrity check"
+    );
 
     // Check that resume_task_from_checkpoint fails safely and refuses to run
-    let resume_result = service.resume_task_from_checkpoint(&task_id, engine.clone()).await;
-    assert!(resume_result.is_err(), "resume_task_from_checkpoint must reject tampered checkpoint");
+    let resume_result = service
+        .resume_task_from_checkpoint(&task_id, engine.clone())
+        .await;
+    assert!(
+        resume_result.is_err(),
+        "resume_task_from_checkpoint must reject tampered checkpoint"
+    );
     let err_str = resume_result.unwrap_err().to_string();
     assert!(
         err_str.contains("integrity") || err_str.contains("Checksum mismatch"),
@@ -588,7 +662,10 @@ async fn test_checkpoint_tampering_fails_integrity_check_and_prevents_unsafe_res
     let final_result = tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             if let Some(res) = service.get_result(&task_id).await.expect("get result") {
-                if matches!(res.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+                if matches!(
+                    res.status,
+                    TaskStatus::Completed | TaskStatus::Failed { .. }
+                ) {
                     break res;
                 }
             }
@@ -599,7 +676,11 @@ async fn test_checkpoint_tampering_fails_integrity_check_and_prevents_unsafe_res
     .expect("Task must finish");
 
     assert_eq!(final_result.status, TaskStatus::Completed);
-    assert_eq!(step1_count.load(Ordering::SeqCst), 0, "Step 1 was already completed, skipped");
+    assert_eq!(
+        step1_count.load(Ordering::SeqCst),
+        0,
+        "Step 1 was already completed, skipped"
+    );
     assert_eq!(step2_count.load(Ordering::SeqCst), 1);
     assert_eq!(step3_count.load(Ordering::SeqCst), 1);
 
@@ -610,9 +691,8 @@ async fn test_checkpoint_tampering_fails_integrity_check_and_prevents_unsafe_res
 async fn test_task_service_replay_and_fork_from_checkpoint_execution() {
     let ws = unique_temp_dir();
     let store = Arc::new(SqliteTaskStore::new(&ws).expect("store init"));
-    let service = Arc::new(
-        TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true),
-    );
+    let service =
+        Arc::new(TaskService::new(store.clone(), &ws, 2, None, None).with_auto_approve(true));
 
     let mut source_task = Task::new(
         "Completed 3-Step Pipeline",
@@ -632,7 +712,10 @@ async fn test_task_service_replay_and_fork_from_checkpoint_execution() {
     source_task.status = TaskStatus::Completed;
     source_task.subtasks = vec![st1, st2, st3];
     let source_id = source_task.id.clone();
-    store.save_task(&source_task).await.expect("save source task");
+    store
+        .save_task(&source_task)
+        .await
+        .expect("save source task");
     store
         .save_checkpoint(&source_id, &source_task.subtasks)
         .await
@@ -668,8 +751,15 @@ async fn test_task_service_replay_and_fork_from_checkpoint_execution() {
 
     let fork_result = tokio::time::timeout(Duration::from_secs(5), async {
         loop {
-            if let Some(res) = service.get_result(&forked_task.id).await.expect("get fork result") {
-                if matches!(res.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+            if let Some(res) = service
+                .get_result(&forked_task.id)
+                .await
+                .expect("get fork result")
+            {
+                if matches!(
+                    res.status,
+                    TaskStatus::Completed | TaskStatus::Failed { .. }
+                ) {
                     break res;
                 }
             }
@@ -680,9 +770,21 @@ async fn test_task_service_replay_and_fork_from_checkpoint_execution() {
     .expect("Forked task must complete");
 
     assert_eq!(fork_result.status, TaskStatus::Completed);
-    assert_eq!(fork_step1_count.load(Ordering::SeqCst), 0, "Step 1 inherited as Completed, must not re-run");
-    assert_eq!(fork_step2_count.load(Ordering::SeqCst), 1, "Step 2 rewound and executed once");
-    assert_eq!(fork_step3_count.load(Ordering::SeqCst), 1, "Step 3 rewound and executed once");
+    assert_eq!(
+        fork_step1_count.load(Ordering::SeqCst),
+        0,
+        "Step 1 inherited as Completed, must not re-run"
+    );
+    assert_eq!(
+        fork_step2_count.load(Ordering::SeqCst),
+        1,
+        "Step 2 rewound and executed once"
+    );
+    assert_eq!(
+        fork_step3_count.load(Ordering::SeqCst),
+        1,
+        "Step 3 rewound and executed once"
+    );
 
     // Original task must still be intact
     let orig = store.get_task(&source_id).await.unwrap().unwrap();
@@ -708,8 +810,15 @@ async fn test_task_service_replay_and_fork_from_checkpoint_execution() {
 
     let replay_result = tokio::time::timeout(Duration::from_secs(5), async {
         loop {
-            if let Some(res) = service.get_result(&source_id).await.expect("get replay result") {
-                if matches!(res.status, TaskStatus::Completed | TaskStatus::Failed { .. }) {
+            if let Some(res) = service
+                .get_result(&source_id)
+                .await
+                .expect("get replay result")
+            {
+                if matches!(
+                    res.status,
+                    TaskStatus::Completed | TaskStatus::Failed { .. }
+                ) {
                     break res;
                 }
             }
@@ -720,9 +829,21 @@ async fn test_task_service_replay_and_fork_from_checkpoint_execution() {
     .expect("Replayed task must complete");
 
     assert_eq!(replay_result.status, TaskStatus::Completed);
-    assert_eq!(replay_step1_count.load(Ordering::SeqCst), 0, "Step 1 skipped");
-    assert_eq!(replay_step2_count.load(Ordering::SeqCst), 0, "Step 2 skipped");
-    assert_eq!(replay_step3_count.load(Ordering::SeqCst), 1, "Step 3 replayed once");
+    assert_eq!(
+        replay_step1_count.load(Ordering::SeqCst),
+        0,
+        "Step 1 skipped"
+    );
+    assert_eq!(
+        replay_step2_count.load(Ordering::SeqCst),
+        0,
+        "Step 2 skipped"
+    );
+    assert_eq!(
+        replay_step3_count.load(Ordering::SeqCst),
+        1,
+        "Step 3 replayed once"
+    );
 
     let _ = std::fs::remove_dir_all(&ws);
 }

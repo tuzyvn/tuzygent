@@ -70,8 +70,7 @@ async fn test_topic_7fe3cf_workspace_chaos_resilience() {
     assert_eq!(resilient_linker.recovery_count(), 1);
 
     // 4. Permanent failure surfaces correctly when retries exhausted
-    let policy_perm =
-        WorkspaceFaultPolicy::intermittent(WorkspaceFaultKind::CorruptedPath, 5);
+    let policy_perm = WorkspaceFaultPolicy::intermittent(WorkspaceFaultKind::CorruptedPath, 5);
     let mut resilient_perm = ResilientWorkspaceManager::new(
         WorkspaceManager::new(&base_dir, IsolationMode::LocalDirectory),
         policy_perm,
@@ -114,13 +113,19 @@ async fn test_topic_7fe3cf_workspace_benchmark_and_high_load() {
     println!("  Total requests      : {}", stats.total_requests);
     println!("  Successful ops      : {}", stats.successful_operations);
     println!("  Rejected ops        : {}", stats.rejected_count);
-    println!("  Throughput          : {:.2} ops/sec", stats.throughput_ops_per_sec);
+    println!(
+        "  Throughput          : {:.2} ops/sec",
+        stats.throughput_ops_per_sec
+    );
     println!("  P50 Latency         : {:.2} µs", stats.p50_latency_us);
     println!("  P90 Latency         : {:.2} µs", stats.p90_latency_us);
     println!("  P99 Latency         : {:.2} µs", stats.p99_latency_us);
     println!("  Max Latency         : {:.2} µs", stats.max_latency_us);
     println!("  Duration            : {:?}", stats.total_duration);
-    println!("  Memory Allocated    : {} bytes", stats.memory_allocated_bytes);
+    println!(
+        "  Memory Allocated    : {} bytes",
+        stats.memory_allocated_bytes
+    );
 
     assert_eq!(stats.total_requests, 10_000);
     assert_eq!(stats.successful_operations, 9_000);
@@ -183,10 +188,8 @@ async fn test_topic_7fe3cf_workspace_batch_and_fifo_capacity() {
 /// Lock contention comparison: Single Shared Lock vs 16-Way Sharded Concurrency.
 #[tokio::test]
 async fn test_topic_7fe3cf_workspace_lock_contention_comparison() {
-    let single_lock_stats =
-        WorkspaceBenchmarkHarness::run_single_lock_benchmark(10_000, 4).await;
-    let sharded_stats =
-        WorkspaceBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
+    let single_lock_stats = WorkspaceBenchmarkHarness::run_single_lock_benchmark(10_000, 4).await;
+    let sharded_stats = WorkspaceBenchmarkHarness::run_concurrent_benchmark(10_000, 4).await;
 
     println!("\n[Lock Contention Comparison (10,000 requests across 4 workers)]");
     println!(
@@ -242,8 +245,8 @@ fn test_topic_7fe3cf_cargo_workspace_profiles_and_linker_protection() {
         cargo_config_path.exists(),
         ".cargo/config.toml must exist to configure linker flags"
     );
-    let cargo_config = std::fs::read_to_string(&cargo_config_path)
-        .expect("Must read .cargo/config.toml");
+    let cargo_config =
+        std::fs::read_to_string(&cargo_config_path).expect("Must read .cargo/config.toml");
     assert!(
         cargo_config.contains("--no-keep-memory"),
         ".cargo/config.toml must instruct GNU ld to use --no-keep-memory"
@@ -272,19 +275,17 @@ fn test_topic_7fe3cf_cargo_workspace_profiles_and_linker_protection() {
     assert!(is_retryable_workspace_error(
         &WorkspaceError::GitLockContention
     ));
-    assert!(is_retryable_workspace_error(
-        &WorkspaceError::TransientIo("disk busy".into())
-    ));
-    assert!(is_retryable_workspace_error(
-        &WorkspaceError::SocketTimeout
-    ));
+    assert!(is_retryable_workspace_error(&WorkspaceError::TransientIo(
+        "disk busy".into()
+    )));
+    assert!(is_retryable_workspace_error(&WorkspaceError::SocketTimeout));
     assert!(is_retryable_workspace_error(&WorkspaceError::LinkerOom));
-    assert!(!is_retryable_workspace_error(
-        &WorkspaceError::AbruptExit(1)
-    ));
-    assert!(!is_retryable_workspace_error(
-        &WorkspaceError::Permanent("perm".into())
-    ));
+    assert!(!is_retryable_workspace_error(&WorkspaceError::AbruptExit(
+        1
+    )));
+    assert!(!is_retryable_workspace_error(&WorkspaceError::Permanent(
+        "perm".into()
+    )));
 }
 
 /// TDD test case 6 for TOPIC-20261105-7fe3cf:
@@ -308,10 +309,7 @@ async fn test_topic_7fe3cf_workspace_race_condition_and_concurrency_resilience()
         failure_res.is_err(),
         "Non-resilient execution must surface GitLockContention failure"
     );
-    assert_eq!(
-        failure_res.unwrap_err(),
-        WorkspaceError::GitLockContention
-    );
+    assert_eq!(failure_res.unwrap_err(), WorkspaceError::GitLockContention);
 
     // 2. With ResilientWorkspaceManager, concurrent tasks recover from faults automatically
     let policy = WorkspaceFaultPolicy::intermittent(WorkspaceFaultKind::GitIndexLock, 4);

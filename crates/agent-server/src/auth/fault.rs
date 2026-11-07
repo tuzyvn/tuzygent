@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::types::AuthError;
+use serde::{Deserialize, Serialize};
 
 /// Simulated authentication fault injection types for chaos engineering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

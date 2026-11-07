@@ -19,12 +19,15 @@ use agent_server::{build_app, AppState};
 
 fn create_metrics_test_app(service: Option<ResilientMetricsService>) -> Router {
     let bus = InterAgentBus::new(16);
-    let temp_vault =
-        std::env::temp_dir().join(format!("test_vault_metrics_{}", uuid::Uuid::new_v4().simple()));
+    let temp_vault = std::env::temp_dir().join(format!(
+        "test_vault_metrics_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
     let task_store =
         Arc::new(agent_runtime::SqliteTaskStore::memory().expect("sqlite memory store"));
-    let task_service =
-        Arc::new(agent_runtime::TaskService::new(task_store, "/tmp", 2, None, None));
+    let task_service = Arc::new(agent_runtime::TaskService::new(
+        task_store, "/tmp", 2, None, None,
+    ));
     let metrics = Arc::new(service.unwrap_or_default());
 
     build_app(
@@ -40,15 +43,20 @@ fn create_metrics_test_app(service: Option<ResilientMetricsService>) -> Router {
     )
 }
 
-async fn spawn_metrics_test_server(app: Router) -> SocketAddr {
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind ephemeral port");
+async fn spawn_metrics_test_server(app: Router) -> Option<SocketAddr> {
+    let listener = match TcpListener::bind("127.0.0.1:0").await {
+        Ok(listener) => listener,
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+            eprintln!("skipping TCP integration test: binding sockets is not permitted: {error}");
+            return None;
+        }
+        Err(error) => panic!("bind ephemeral port: {error}"),
+    };
     let addr = listener.local_addr().expect("local addr");
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
     });
-    addr
+    Some(addr)
 }
 
 // =========================================================================
@@ -152,8 +160,7 @@ async fn test_metrics_recording_and_formatting() {
 
 #[test]
 fn test_metrics_resilience_transient_recovery() {
-    let recovery_policy =
-        MetricsFaultPolicy::always(MetricsFault::Timeout).with_max_injections(1);
+    let recovery_policy = MetricsFaultPolicy::always(MetricsFault::Timeout).with_max_injections(1);
 
     let service = ResilientMetricsService::new()
         .with_max_retries(3)
@@ -179,9 +186,7 @@ fn test_metrics_resilience_cached_fallback_on_persistent_failure() {
     service.record_task_completed(0.05);
 
     // Initial valid render populates cache
-    let initial = service
-        .render_prometheus_text()
-        .expect("initial render ok");
+    let initial = service.render_prometheus_text().expect("initial render ok");
     assert!(initial.contains("agent_tasks_total 1"));
 
     // Inject permanent corrupted output fault
@@ -250,17 +255,25 @@ async fn test_raw_tcp_metrics_scraping() {
     service.record_ooda_cycle(0.012);
 
     let app = create_metrics_test_app(Some(service));
-    let addr = spawn_metrics_test_server(app).await;
+    let Some(addr) = spawn_metrics_test_server(app).await else {
+        return;
+    };
 
     let mut stream = TcpStream::connect(addr).await.expect("tcp connect");
-    let http_req = format!("GET /metrics HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n", addr);
+    let http_req = format!(
+        "GET /metrics HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
+        addr
+    );
     stream
         .write_all(http_req.as_bytes())
         .await
         .expect("write request");
 
     let mut buffer = Vec::new();
-    stream.read_to_end(&mut buffer).await.expect("read response");
+    stream
+        .read_to_end(&mut buffer)
+        .await
+        .expect("read response");
     let response_str = String::from_utf8_lossy(&buffer);
 
     assert!(response_str.contains("HTTP/1.1 200 OK"));

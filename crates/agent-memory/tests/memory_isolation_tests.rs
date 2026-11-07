@@ -34,7 +34,10 @@ async fn test_structured_and_harness_lessons_coexist_without_data_loss() {
     assert_eq!(loaded[0].id, "struct-1");
 
     // Verify structured_lessons.json exists
-    let struct_file = ws.join("storage").join("harness_memory").join("structured_lessons.json");
+    let struct_file = ws
+        .join("storage")
+        .join("harness_memory")
+        .join("structured_lessons.json");
     assert!(struct_file.exists());
 
     // Clean up
@@ -53,7 +56,10 @@ async fn test_corrupt_json_creates_backup_and_preserves_disk() {
 
     let durable = DurableMemoryStore::new(&ws);
     let res = durable.load_structured_lessons().await;
-    assert!(res.is_err(), "Corrupt JSON must return error instead of silently returning empty vec");
+    assert!(
+        res.is_err(),
+        "Corrupt JSON must return error instead of silently returning empty vec"
+    );
 
     // Verify a backup corrupt file was generated
     let entries = std::fs::read_dir(&storage_dir).unwrap();
@@ -61,7 +67,10 @@ async fn test_corrupt_json_creates_backup_and_preserves_disk() {
         let name = e.file_name().to_string_lossy().to_string();
         name.starts_with("structured_lessons.corrupt.")
     });
-    assert!(has_corrupt_backup, "Corrupt file backup should be preserved");
+    assert!(
+        has_corrupt_backup,
+        "Corrupt file backup should be preserved"
+    );
 
     let _ = std::fs::remove_dir_all(&ws);
 }
@@ -89,9 +98,14 @@ async fn test_task_scoped_scratchpad_isolation() {
 #[test]
 fn test_context_builder_character_bounds() {
     let builder = ContextBuilder::new("Implement high-throughput gateway")
-        .with_lessons(vec!["Lesson 1: Always validate model whitelists".to_string()])
+        .with_lessons(vec![
+            "Lesson 1: Always validate model whitelists".to_string()
+        ])
         .with_recent_logs(vec!["Log: Subtask 1 verified exit 0".to_string()])
-        .add_subtask_step("ST-1".to_string(), "Created initial scaffolding".to_string())
+        .add_subtask_step(
+            "ST-1".to_string(),
+            "Created initial scaffolding".to_string(),
+        )
         .with_artifacts(vec!["target/release/server".to_string()])
         .with_max_total_chars(5000);
 

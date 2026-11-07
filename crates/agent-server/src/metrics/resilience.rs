@@ -96,8 +96,10 @@ impl ResilientMetricsService {
     pub fn record_ooda_cycle(&self, duration_secs: f64) {
         self.ooda_cycles_total.fetch_add(1, Ordering::Relaxed);
         let micros = (duration_secs * 1_000_000.0).max(0.0) as u64;
-        self.ooda_last_duration_micros.store(micros, Ordering::Relaxed);
-        self.ooda_total_duration_micros.fetch_add(micros, Ordering::Relaxed);
+        self.ooda_last_duration_micros
+            .store(micros, Ordering::Relaxed);
+        self.ooda_total_duration_micros
+            .fetch_add(micros, Ordering::Relaxed);
     }
 
     pub fn record_remediation(&self) {

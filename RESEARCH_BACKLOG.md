@@ -3205,109 +3205,402 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261106-7fb00d: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::operator
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:55:21 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::operator` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-3add11: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::processtree
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:57:08 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::processtree` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-ef5301: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::report_queue
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-06 23:58:56 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::report_queue` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-cf7ca4: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::sandbox
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:00:46 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::sandbox` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-2c8497: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::supervisor
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:02:38 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::supervisor` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-de6986: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::supplement
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:04:33 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::supplement` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-8d0f01: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::task_service
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:06:22 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::task_service` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-7d8a2a: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::task_store
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:08:10 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::task_store` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-d2cfb5: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::tournament
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:09:59 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::tournament` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-2b24f4: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::verifier
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:11:50 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::verifier` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-367135: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::watchdog
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:13:40 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::watchdog` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-c69dd9: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::workflow_dag
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:15:29 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::workflow_dag` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-bb570b: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-runtime::wsrpc
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:17:19 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-runtime::wsrpc` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-396037: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-cli::update
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:19:07 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-cli::update` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-80c33c: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::gateway
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:20:58 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::gateway` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-421aae: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::handlers
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:22:47 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::handlers` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-709753: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::metrics
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:24:35 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::metrics` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
 
 ### [P2] TOPIC-20261106-f18326: Benchmark tải cao & Tối ưu hóa độ trễ thực thi cho agent-server::state
 - **Phân loại**: `Feature Expansion / Performance & Scalability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `BLOCKED` ⚠️ (2026-11-07 00:26:28 UTC - Thất bại 2 lần liên tiếp - chuyển sang P0 Bugfix)
 - **Lý do cần nghiên cứu**: Đo lường throughput và memory allocation khi `agent-server::state` chịu tải đồng thời cao, tối ưu hóa các điểm nghẽn lock contention hoặc buffer copying không cần thiết.
 - **Tiêu chuẩn nghiệm thu**: Viết test benchmark đo lường P99 latency và chứng minh không bị rò rỉ bộ nhớ dưới tải cao.
+### [P1] TOPIC-20261107-14da19: Bổ sung kiểm thử cho 13 API công khai chưa được nhắc tới trong test: crates/agent-domain/src/schedule.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 05:05:09 UTC)
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-domain/src/schedule.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `next_after` (L94), `once_at` (L221), `after_delay` (L225), `after_delay_from` (L229), `every_seconds` (L240), `is_recurring` (L250), `initial_run_at` (L254), `next_run_after` (L267).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-domain/src/schedule.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-ae8fc0: Bổ sung kiểm thử cho 9 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/durable/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/durable/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `store_mut` (L90), `fault_policy_mut` (L98), `policy_mut` (L106), `cached_lessons` (L155), `has_lesson` (L159), `record_lesson_cached` (L163), `save_structured_lesson_cached` (L177), `check_fault_injection` (L226).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/durable/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-92e9a8: Bổ sung kiểm thử cho 8 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/update/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/update/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_repository` (L46), `with_branch` (L51), `with_destination` (L56), `runner_mut` (L78), `fetch_repository` (L144), `check_remote_commit` (L168), `build_release` (L192), `run_sync` (L265).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/update/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-21ebd9: Bổ sung kiểm thử cho 8 API công khai chưa được nhắc tới trong test: crates/agent-server/src/gateway/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/gateway/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_history_buffer` (L80), `with_sharded_history_buffer` (L86), `with_buffer` (L92), `with_shared_cache` (L103), `history_buffer` (L112), `sharded_history_buffer` (L116), `check_fault_injection` (L159), `set_fault_policy` (L173).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/gateway/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-bcf49e: Bổ sung kiểm thử cho 8 API công khai chưa được nhắc tới trong test: crates/agent-server/src/gateway/sharded.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/gateway/sharded.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_default_shards` (L38), `with_shared_cache` (L85), `with_history_buffer` (L104), `with_sharded_history_buffer` (L114), `shard_idx` (L124), `shard_for` (L134), `history_buffer` (L146), `sharded_history_buffer` (L150).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/gateway/sharded.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-fba891: Bổ sung kiểm thử cho 7 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `recent_actions` (L106), `is_bounded` (L110), `run_resilient_sync` (L255), `run_batch_operations` (L314), `execute_batch_commands` (L321), `shard_idx` (L374), `shard_for` (L384).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-c76249: Bổ sung kiểm thử cho 7 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/context_builder/builder.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/context_builder/builder.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `recent_logs` (L50), `subtask_history` (L54), `max_total_chars` (L62), `with_persona` (L66), `with_skills` (L71), `with_subtask_history` (L86), `build_safe` (L113).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/context_builder/builder.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-7d862e: Bổ sung kiểm thử cho 7 API công khai chưa được nhắc tới trong test: crates/agent-server/src/handlers/tasks.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/handlers/tasks.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `run_task_handler` (L36), `submit_task_handler` (L117), `list_tasks_handler` (L183), `get_task_handler` (L190), `review_task_handler` (L215), `cancel_task_handler` (L227), `approve_task_handler` (L239).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/handlers/tasks.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-c02169: Bổ sung kiểm thử cho 6 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/api/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/api/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_retry_delay_ms` (L55), `inner_mut` (L105), `set_fault_policy` (L113), `reset_metrics` (L119), `cache_response` (L160), `get_cached` (L181).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/api/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-2b2f12: Bổ sung kiểm thử cho 6 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/cli/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/cli/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_retry_delay_ms` (L48), `inner_mut` (L91), `set_fault_policy` (L99), `reset_metrics` (L105), `cache_response` (L146), `get_cached` (L167).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/cli/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-4fb9e1: Bổ sung kiểm thử cho 6 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/durable/storage.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/durable/storage.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `extract_query_tokens` (L49), `text_matches_keywords` (L78), `parse_lesson_blocks` (L92), `user_file` (L131), `lessons_json_file` (L135), `legacy_lessons_file` (L139).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/durable/storage.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-933672: Bổ sung kiểm thử cho 6 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/watchdog.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/watchdog.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `elapsed_millis` (L28), `mark_activity` (L65), `enter_tool` (L71), `exit_tool` (L77), `is_fired` (L86), `start_monitoring` (L91).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/watchdog.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-c7f262: Kiểm chứng tương thích serialization cho 6 kiểu chưa có test: crates/agent-server/src/metrics/types.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-server/src/metrics/types.rs` chưa được tham chiếu trong Rust test: `MetricType` (L4), `TaskMetrics` (L11), `OodaMetrics` (L18), `RemediationMetrics` (L35), `TestMetrics` (L41), `MetricsSnapshot` (L58); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-server/src/metrics/types.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-1ec261: Bổ sung kiểm thử cho 5 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/accounts/vault/mod.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/accounts/vault/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `default_dir` (L25), `accounts_read` (L46), `accounts_write` (L50), `rr_read` (L54), `rr_write` (L58).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/accounts/vault/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-8f793c: Bổ sung kiểm thử cho 5 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/config/defaults.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/config/defaults.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `default_engine_name` (L3), `default_timeout` (L7), `default_sandbox` (L11), `default_sandbox_image` (L15), `default_true` (L19).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/config/defaults.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-f595f7: Bổ sung kiểm thử cho 5 API công khai chưa được nhắc tới trong test: crates/agent-server/src/auth/validator.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/auth/validator.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `increment_validated` (L118), `increment_rejected` (L122), `fault_policy_mut` (L146), `is_retryable_error` (L150), `validate_request_resilient` (L194).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/auth/validator.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-5172df: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/commands/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/commands/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `runner_mut` (L55), `dispatch_batch_commands` (L106), `shard_idx` (L168), `shard_for` (L178).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/commands/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-ed8abb: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-domain/src/audit_ledger.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-domain/src/audit_ledger.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `compute_hash` (L148), `new_with_actor` (L193), `with_event_type` (L232), `last_entry` (L281).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-domain/src/audit_ledger.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-0069c7: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-domain/src/checkpoint.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-domain/src/checkpoint.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `compute_checksum` (L44), `rewind_to_step` (L118), `rewind_to_subtask` (L157), `fork_for_task` (L171).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-domain/src/checkpoint.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-ec9120: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-domain/src/task.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-domain/src/task.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `new_delayed` (L225), `new_cron` (L256), `with_scheduled_at` (L269), `with_cron_expression` (L277).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-domain/src/task.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-3c43e7: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/accounts/vault/storage.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/accounts/vault/storage.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `load_profiles_from_file` (L9), `save_profiles_to_file` (L19), `metadata_file` (L33), `load_sync` (L37).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/accounts/vault/storage.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-af6512: Kiểm chứng tương thích serialization cho 4 kiểu chưa có test: crates/agent-engine/src/cli/antigravity.rs
+- **Phân loại**: `Source Finding / Serialization Compatibility`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các kiểu có derive Serialize/Deserialize trong `crates/agent-engine/src/cli/antigravity.rs` chưa được tham chiếu trong Rust test: `AntigravityUsage` (L8), `AntigravityStepUpdate` (L20), `AntigravityResultEvent` (L34), `AntigravityStreamEvent` (L47); thay đổi field hoặc enum có thể làm hỏng dữ liệu lưu trữ hay giao tiếp.
+- **Tiêu chuẩn nghiệm thu**: Thêm round-trip và fixture serialization cho các kiểu được liệt kê trong `crates/agent-engine/src/cli/antigravity.rs`, bao gồm dữ liệu thiếu field và giá trị enum không nhận biết nếu schema cho phép.
+
+### [P1] TOPIC-20261107-d8fbc2: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/persona/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/persona/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `policy_mut` (L86), `get_cached_profile` (L143), `record_profile_cached` (L150), `check_fault_injection` (L199).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/persona/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-4a0bb0: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/bus/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/bus/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_auto_reconstitute` (L53), `bus_mut` (L67), `policy_mut` (L75), `reconstitute_bus` (L115).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/bus/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-648b58: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/ooda/context.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/ooda/context.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `publish_event` (L9), `prepare_sandbox_and_brief` (L24), `orient_context` (L52), `record_episode_memory` (L109).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/ooda/context.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-f40825: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/task_store/mod.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/task_store/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `save_schedule` (L129), `list_schedules` (L131), `promote_due_delayed_tasks` (L133), `trigger_due_cron_schedules` (L134).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/task_store/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-aa63ce: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/task_store/schedule.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/task_store/schedule.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `save_schedule` (L8), `list_schedules` (L77), `promote_due_delayed_tasks` (L108), `trigger_due_cron_schedules` (L185).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/task_store/schedule.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-5f6974: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/task_store/schema.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/task_store/schema.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `resolve_storage_dir` (L19), `open_resilient_sqlite` (L46), `init_sqlite_schema` (L102), `init_sqlite_schema_with_options` (L107).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/task_store/schema.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-50e073: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-server/src/dashboard_html/service.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/dashboard_html/service.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_shared_cache` (L86), `rendered_count` (L103), `error_count` (L111), `record_history` (L121).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/dashboard_html/service.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P1] TOPIC-20261107-e397e0: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-server/src/dashboard_html/sharded.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/dashboard_html/sharded.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_default_shards` (L37), `with_shared_cache` (L88), `shard_idx` (L109), `shard_for` (L119).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/dashboard_html/sharded.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P0] TOPIC-20261107-f6b96d: Triệt tiêu lỗi hệ thống lặp lại (scenario_check::cli_update_check)
+- **Phân loại**: `Self-Healing Root Cause / Urgent Bugfix`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 06:28:22 UTC)
+- **Lý do cần nghiên cứu**: Hệ thống ghi nhận lỗi tái diễn 3 lần tại `scenario_check::cli_update_check`: 'Output missing required patterns: ['Checking', 'Installed:', 'Latest:']. Exit 1'. Cần dừng tính năng mới và ưu tiên giải quyết tận gốc lỗi này.
+- **Tiêu chuẩn nghiệm thu**: Phân tích nguyên nhân gốc rễ, refactor mã nguồn hoặc test case liên quan đến cli_update_check để loại bỏ hoàn toàn khả năng phát sinh lỗi trên, bảo đảm benchmark đạt 100%.
+
+### [P0] TOPIC-20261107-5bfa0b: Refactor 28 lệnh unwrap() tại crates/agent-domain/src/schedule.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 28 lệnh unwrap() trong mã sản xuất tại crates/agent-domain/src/schedule.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-domain/src/schedule.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P0] TOPIC-20261107-a6e073: Khử 2 điểm gọi panic!() tường minh trong crates/agent-domain/src/schedule.rs
+- **Phân loại**: `Reliability / Crash Immunity`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 2 lệnh panic!() trong crates/agent-domain/src/schedule.rs. Việc chủ động làm sập tiến trình vi phạm nguyên tắc tự phục hồi (Self-Healing) của AgentCore.
+- **Tiêu chuẩn nghiệm thu**: Chuyển đổi các nhánh panic!() trong crates/agent-domain/src/schedule.rs thành kiểu trả về Result<T, E>.
+
+### [P1] TOPIC-20261107-711eb7: Củng cố và phòng ngừa lỗi (gatekeeper_benchmark::TOPIC-20261107-14da19)
+- **Phân loại**: `Self-Healing Root Cause`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Ghi nhận mẫu lỗi đơn lẻ: 'Benchmark tests or clippy failed after mission completion'. Giải pháp tạm thời: 'Chạy cargo test và cargo clippy để sửa triệt để lỗi hồi quy'. Cần củng cố cấu trúc xử lý lỗi.
+- **Tiêu chuẩn nghiệm thu**: Refactor mã nguồn xử lý TOPIC-20261107-14da19 để tăng cường khả năng tự phục hồi.
+
+### [P2] TOPIC-20261107-5f7e65: Phân tách cấu trúc tệp nguyên khối (454 dòng): crates/agent-runtime/src/task_store/mod.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/task_store/mod.rs có độ dài 454 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/task_store/mod.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-2b3c4c: Phân tách cấu trúc tệp nguyên khối (451 dòng): crates/agent-runtime/src/ooda/execution/runner_tests/verification.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/ooda/execution/runner_tests/verification.rs có độ dài 451 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/ooda/execution/runner_tests/verification.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-258c13: Phân tách cấu trúc tệp nguyên khối (432 dòng): crates/agent-domain/src/event/resilience.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-domain/src/event/resilience.rs có độ dài 432 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-domain/src/event/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-b21902: Phân tách cấu trúc tệp nguyên khối (386 dòng): crates/agent-runtime/src/task_service/dispatch.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/task_service/dispatch.rs có độ dài 386 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/task_service/dispatch.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-fcce0e: Phân tách cấu trúc tệp nguyên khối (385 dòng): crates/agent-runtime/src/ooda/execution/runner_tests/fixtures.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/ooda/execution/runner_tests/fixtures.rs có độ dài 385 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/ooda/execution/runner_tests/fixtures.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-7bf3dd: Phân tách cấu trúc tệp nguyên khối (379 dòng): crates/agent-engine/src/accounts/resilience.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-engine/src/accounts/resilience.rs có độ dài 379 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-engine/src/accounts/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-64d2ed: Phân tách cấu trúc tệp nguyên khối (373 dòng): crates/agent-runtime/src/task_store/lifecycle.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/task_store/lifecycle.rs có độ dài 373 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/task_store/lifecycle.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-c35645: Phân tách cấu trúc tệp nguyên khối (371 dòng): crates/agent-runtime/src/task_service/mod.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/task_service/mod.rs có độ dài 371 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/task_service/mod.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-1f78e7: Phân tách cấu trúc tệp nguyên khối (363 dòng): crates/agent-engine/src/cli/resilience.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-engine/src/cli/resilience.rs có độ dài 363 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-engine/src/cli/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-a2e7c6: Phân tách cấu trúc tệp nguyên khối (363 dòng): crates/agent-runtime/src/task_store/crud.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/task_store/crud.rs có độ dài 363 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/task_store/crud.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-f3c8ae: Phân tách cấu trúc tệp nguyên khối (357 dòng): crates/agent-memory/src/persona/resilience.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-memory/src/persona/resilience.rs có độ dài 357 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-memory/src/persona/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-d0ec70: Phân tách cấu trúc tệp nguyên khối (356 dòng): crates/agent-domain/src/checkpoint.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-domain/src/checkpoint.rs có độ dài 356 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-domain/src/checkpoint.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-c87a7b: Phân tách cấu trúc tệp nguyên khối (351 dòng): crates/agent-runtime/src/execution/resilience.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/execution/resilience.rs có độ dài 351 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/execution/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-3814ea: Phân tách cấu trúc tệp nguyên khối (350 dòng): crates/agent-cli/src/commands/replay.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-cli/src/commands/replay.rs có độ dài 350 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-cli/src/commands/replay.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-2f6e56: Phân tách cấu trúc tệp nguyên khối (350 dòng): crates/agent-engine/src/api/resilience.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-engine/src/api/resilience.rs có độ dài 350 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-engine/src/api/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 

@@ -73,7 +73,10 @@ impl ResilientDurableMemoryStore {
         }
     }
 
-    pub async fn load_relevant_context(&mut self, goal: &str) -> Result<String, DurableMemoryError> {
+    pub async fn load_relevant_context(
+        &mut self,
+        goal: &str,
+    ) -> Result<String, DurableMemoryError> {
         let mut attempt = 0;
         loop {
             attempt += 1;
@@ -93,7 +96,9 @@ impl ResilientDurableMemoryStore {
         }
     }
 
-    pub async fn load_structured_lessons(&mut self) -> Result<Vec<StructuredLesson>, DurableMemoryError> {
+    pub async fn load_structured_lessons(
+        &mut self,
+    ) -> Result<Vec<StructuredLesson>, DurableMemoryError> {
         let mut attempt = 0;
         loop {
             attempt += 1;
