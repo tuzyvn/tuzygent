@@ -13,6 +13,6 @@ pub use benchmark::*;
 pub use fault::*;
 pub use policy::*;
 pub use ranking::*;
-pub use resilience::*;
+pub use resilience::{ResilientDurableMemory, ResilientDurableMemoryStore};
 pub use storage as store;
 pub use storage::*;

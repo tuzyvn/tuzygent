@@ -261,6 +261,44 @@ fn test_simulate_durable_fault_direct() {
     ));
 }
 
+#[test]
+fn test_bounded_lesson_cache_evicts_oldest_and_tracks_save_counts() {
+    let dir = create_temp_dir("bounded_lesson_cache");
+    let store = DurableMemoryStore::new(&dir);
+    let mut resilient =
+        ResilientDurableMemoryStore::new(store, DurableMemoryFaultPolicy::none(), 3)
+            .with_max_capacity(2);
+
+    let make_lesson = |id: &str| StructuredLesson {
+        id: id.to_string(),
+        timestamp: "2026-11-08T00:00:00Z".to_string(),
+        task_title: format!("Lesson {id}"),
+        trigger_error: None,
+        remediation_applied: None,
+        general_insight: format!("Insight for {id}"),
+        success: true,
+    };
+
+    for id in ["oldest", "middle", "newest"] {
+        resilient
+            .save_structured_lesson_cached(&make_lesson(id))
+            .expect("valid lessons should be saved");
+    }
+
+    let cached = resilient.cached_lessons();
+    assert_eq!(cached.len(), 2);
+    assert_eq!(cached[0].id, "middle");
+    assert_eq!(cached[1].id, "newest");
+    assert!(!resilient.has_lesson("oldest"));
+    assert!(resilient.has_lesson("middle"));
+    assert!(resilient.has_lesson("newest"));
+    assert_eq!(resilient.saved_count(), 3);
+    assert_eq!(resilient.recovered_count(), 0);
+    assert_eq!(resilient.rejected_count(), 0);
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[tokio::test]
 async fn test_high_volume_durable_resilience() {
     let dir = create_temp_dir("high_volume");
