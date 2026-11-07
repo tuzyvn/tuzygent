@@ -358,7 +358,7 @@ mod tests {
     }
 
     #[test]
-    fn max_capacity_reports_unbounded_bounded_and_zero_limits() {
+    fn max_capacity_reports_unbounded_bounded_and_zero_limits() -> Result<(), CliExecutionError> {
         assert_eq!(ResilientUpdater::default().max_capacity(), None);
         assert_eq!(
             ResilientUpdater::default()
@@ -374,11 +374,10 @@ mod tests {
         );
 
         let mut zero_capacity = ResilientUpdater::default().with_max_capacity(0);
-        zero_capacity
-            .execute_step("evicted-at-zero", || Ok(()))
-            .unwrap();
+        zero_capacity.execute_step("evicted-at-zero", || Ok(()))?;
         assert!(zero_capacity.runner().ledger().is_empty());
         assert!(zero_capacity.runner().recent_actions().is_empty());
+        Ok(())
     }
 
     #[test]
@@ -404,11 +403,9 @@ mod tests {
     }
 
     #[test]
-    fn reset_counts_clears_counters_but_preserves_audit_history() {
+    fn reset_counts_clears_counters_but_preserves_audit_history() -> Result<(), CliExecutionError> {
         let mut updater = ResilientUpdater::default();
-        updater
-            .execute_step("completed-before-reset", || Ok(()))
-            .unwrap();
+        updater.execute_step("completed-before-reset", || Ok(()))?;
         let ledger_len = updater.runner().ledger().len();
         let recent_len = updater.runner().recent_actions().len();
         assert_eq!(updater.total_executed(), 1);
@@ -422,11 +419,13 @@ mod tests {
         assert_eq!(updater.panics_caught_count(), 0);
         assert_eq!(updater.runner().ledger().len(), ledger_len);
         assert_eq!(updater.runner().recent_actions().len(), recent_len);
+        Ok(())
     }
 
     #[test]
-    fn build_release_returns_error_when_source_has_no_cargo_manifest() {
-        let source = TemporaryDirectory::new(&std::env::temp_dir()).unwrap();
+    fn build_release_returns_error_when_source_has_no_cargo_manifest(
+    ) -> Result<(), CliExecutionError> {
+        let source = TemporaryDirectory::new(&std::env::temp_dir())?;
         let target = source.path().join("target");
         let mut updater = ResilientUpdater::default();
 
@@ -434,5 +433,20 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(updater.failed_count(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn temporary_directory_creation_reports_io_error_for_missing_parent() {
+        let file_parent =
+            std::env::temp_dir().join(format!("agent-cli-file-parent-{}", uuid::Uuid::new_v4()));
+        assert!(std::fs::write(&file_parent, b"not a directory").is_ok());
+        let invalid_parent = file_parent.join("child");
+
+        let result = TemporaryDirectory::new(&invalid_parent);
+        let cleanup = std::fs::remove_file(file_parent);
+
+        assert!(cleanup.is_ok());
+        assert!(matches!(result, Err(CliExecutionError::TransientIo(_))));
     }
 }

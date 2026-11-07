@@ -3618,7 +3618,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-f42f7e: Refactor 3 lệnh unwrap() tại crates/agent-cli/src/update/resilience.rs sang cơ chế xử lý lỗi an toàn
 - **Phân loại**: `Reliability / Panic Prevention`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 17:14:28 UTC)
 - **Lý do cần nghiên cứu**: Phát hiện 3 lệnh unwrap() trong mã sản xuất tại crates/agent-cli/src/update/resilience.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
 - **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-cli/src/update/resilience.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
 
