@@ -432,3 +432,39 @@ fn record_profile_cached_ignores_duplicates_and_evicts_oldest_at_capacity() {
     assert!(resilient.has_persona("RecordSecond"));
     assert!(resilient.has_persona("RecordThird"));
 }
+
+#[test]
+fn resilient_persona_save_recovers_then_rejects_invalid_identity_at_capacity() {
+    let first = create_sample_profile("RetryFirst");
+    let second = create_sample_profile("RetrySecond");
+    let mut resilient = ResilientPersonaLoader::default()
+        .with_max_retries(1)
+        .with_max_capacity(1);
+    *resilient.policy_mut() =
+        PersonaFaultPolicy::always(PersonaFault::TransientIo).with_max_injections(1);
+
+    resilient
+        .save_profile_cached(&first)
+        .expect("save should retry once after a transient I/O fault");
+    resilient
+        .save_profile_cached(&second)
+        .expect("the next save should succeed after the fault injection is exhausted");
+
+    assert_eq!(resilient.recovered_count(), 1);
+    assert_eq!(resilient.saved_count(), 2);
+    assert!(!resilient.has_persona("RetryFirst"));
+    assert!(resilient.has_persona("RetrySecond"));
+    assert_eq!(resilient.cached_profiles().len(), 1);
+    assert_eq!(resilient.cached_profiles()[0].identity.name, "RetrySecond");
+
+    let invalid = create_sample_profile("  ");
+    assert!(matches!(
+        resilient.save_profile_cached(&invalid),
+        Err(PersonaError::InvalidIdentity(_))
+    ));
+
+    assert_eq!(resilient.rejected_count(), 1);
+    assert_eq!(resilient.saved_count(), 2);
+    assert_eq!(resilient.cached_profiles().len(), 1);
+    assert_eq!(resilient.cached_profiles()[0].identity.name, "RetrySecond");
+}
