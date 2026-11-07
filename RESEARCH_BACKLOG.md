@@ -3456,7 +3456,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-648b58: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/ooda/context.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 12:21:49 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/ooda/context.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `publish_event` (L9), `prepare_sandbox_and_brief` (L24), `orient_context` (L52), `record_episode_memory` (L109).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/ooda/context.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
