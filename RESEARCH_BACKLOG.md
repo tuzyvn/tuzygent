@@ -3654,7 +3654,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-8dca91: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-core/src/fault.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 18:19:04 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-core/src/fault.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `record_failure` (L120), `get_fault` (L136), `check_and_inject` (L144).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-core/src/fault.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 

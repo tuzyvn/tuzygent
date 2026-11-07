@@ -114,6 +114,40 @@ fn test_resilient_core_agent_fault_injection_and_circuit_breaker() {
 }
 
 #[test]
+fn test_fault_policy_injected_count_tracks_injected_faults() {
+    let policy = CoreFaultPolicy::new(3);
+
+    assert_eq!(policy.injected_count(), 0);
+    policy.set_fault(CoreFaultKind::SimulateTransientFailure);
+    assert!(matches!(
+        policy.check_and_inject(),
+        Err(CoreExecutionError::TransientEngineFailure(_))
+    ));
+    assert_eq!(policy.injected_count(), 1);
+}
+
+#[test]
+fn test_fault_policy_record_failure_updates_circuit_state() {
+    let policy = CoreFaultPolicy::new(2);
+
+    policy.record_failure();
+    assert_eq!(policy.circuit_state(), CircuitState::HalfOpen);
+    policy.record_failure();
+    assert_eq!(policy.circuit_state(), CircuitState::Open);
+}
+
+#[test]
+fn test_fault_policy_get_fault_returns_configured_fault() {
+    let policy = CoreFaultPolicy::new(3);
+
+    assert_eq!(policy.get_fault(), CoreFaultKind::None);
+    policy.set_fault(CoreFaultKind::SimulateTimeout);
+    assert_eq!(policy.get_fault(), CoreFaultKind::SimulateTimeout);
+    policy.clear_fault();
+    assert_eq!(policy.get_fault(), CoreFaultKind::None);
+}
+
+#[test]
 fn test_resilient_core_agent_retry_with_transient_failure() {
     let agent = ResilientCoreAgent::new();
     let res = agent.execute_with_retry("retry_op", "payload", 3);
