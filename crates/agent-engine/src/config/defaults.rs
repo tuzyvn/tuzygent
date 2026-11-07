@@ -42,3 +42,53 @@ impl Default for DefaultsConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::CredentialMount;
+
+    #[test]
+    fn default_engine_name_is_antigravity() {
+        assert_eq!(default_engine_name(), "antigravity");
+    }
+
+    #[test]
+    fn default_timeout_is_300_seconds() {
+        assert_eq!(default_timeout(), 300);
+    }
+
+    #[test]
+    fn default_sandbox_is_docker() {
+        assert_eq!(default_sandbox(), "docker");
+    }
+
+    #[test]
+    fn default_sandbox_image_is_latest_engine_image() {
+        assert_eq!(default_sandbox_image(), "tuzygent-engine:latest");
+    }
+
+    #[test]
+    fn default_true_is_true_and_is_used_for_missing_readonly() {
+        assert!(default_true());
+
+        let mount: CredentialMount = toml::from_str(
+            r#"
+                source = "/host/credentials"
+                target = "/container/credentials"
+            "#,
+        )
+        .expect("credential mount without readonly should use its default");
+        assert!(mount.readonly);
+    }
+
+    #[test]
+    fn defaults_config_deserialization_fills_missing_values() {
+        let config: DefaultsConfig = toml::from_str("").expect("empty defaults config is valid");
+
+        assert_eq!(config.engine, "antigravity");
+        assert_eq!(config.timeout_seconds, 300);
+        assert_eq!(config.sandbox_driver, "docker");
+        assert_eq!(config.sandbox_image, "tuzygent-engine:latest");
+    }
+}

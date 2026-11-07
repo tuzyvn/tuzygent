@@ -3396,7 +3396,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-8f793c: Bổ sung kiểm thử cho 5 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/config/defaults.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 10:24:22 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/config/defaults.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `default_engine_name` (L3), `default_timeout` (L7), `default_sandbox` (L11), `default_sandbox_image` (L15), `default_true` (L19).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/config/defaults.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
