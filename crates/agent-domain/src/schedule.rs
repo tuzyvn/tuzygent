@@ -459,17 +459,27 @@ mod tests {
     fn after_delay_sets_run_time_near_construction_time() {
         let before = Utc::now();
         let delay = std::time::Duration::from_millis(2_500);
-        let ScheduleSpec::Delayed {
-            delay_ms,
-            run_after,
-        } = ScheduleSpec::after_delay(delay)
-        else {
-            panic!("after_delay must create Delayed");
-        };
+        let spec = ScheduleSpec::after_delay(delay);
         let after = Utc::now();
-        assert_eq!(delay_ms, 2_500);
-        assert!(run_after >= before + Duration::milliseconds(2_500));
-        assert!(run_after <= after + Duration::milliseconds(2_500));
+        assert!(matches!(
+            spec,
+            ScheduleSpec::Delayed {
+                delay_ms: 2_500,
+                run_after,
+            } if run_after >= before + Duration::milliseconds(2_500)
+                && run_after <= after + Duration::milliseconds(2_500)
+        ));
+    }
+
+    #[test]
+    fn after_delay_saturates_unrepresentable_delay() {
+        assert_eq!(
+            ScheduleSpec::after_delay(std::time::Duration::MAX),
+            ScheduleSpec::Delayed {
+                delay_ms: u64::MAX,
+                run_after: DateTime::<Utc>::MAX_UTC,
+            }
+        );
     }
 
     #[test]
@@ -483,15 +493,13 @@ mod tests {
             }
         );
 
-        let ScheduleSpec::Delayed {
-            delay_ms,
-            run_after,
-        } = ScheduleSpec::after_delay_from(now, std::time::Duration::from_secs(u64::MAX))
-        else {
-            panic!("after_delay_from must create Delayed");
-        };
-        assert_eq!(delay_ms, u64::MAX);
-        assert_eq!(run_after, DateTime::<Utc>::MAX_UTC);
+        assert_eq!(
+            ScheduleSpec::after_delay_from(now, std::time::Duration::from_secs(u64::MAX)),
+            ScheduleSpec::Delayed {
+                delay_ms: u64::MAX,
+                run_after: DateTime::<Utc>::MAX_UTC,
+            }
+        );
 
         assert_eq!(
             ScheduleSpec::after_delay_from(now, std::time::Duration::ZERO),
