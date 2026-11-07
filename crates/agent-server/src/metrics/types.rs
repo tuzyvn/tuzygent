@@ -159,47 +159,50 @@ mod serialization_tests {
     use chrono::{TimeZone, Utc};
 
     #[test]
-    fn metric_type_serialization_is_compatible() {
+    fn metric_type_serialization_is_compatible() -> Result<(), Box<dyn std::error::Error>> {
         for (metric_type, expected) in [
             (MetricType::Counter, "Counter"),
             (MetricType::Gauge, "Gauge"),
             (MetricType::Histogram, "Histogram"),
         ] {
-            let value = serde_json::to_value(metric_type).unwrap();
+            let value = serde_json::to_value(metric_type)?;
             assert_eq!(value, expected);
-            assert_eq!(
-                serde_json::from_value::<MetricType>(value).unwrap(),
-                metric_type
-            );
+            assert_eq!(serde_json::from_value::<MetricType>(value)?, metric_type);
         }
+        Ok(())
     }
 
     #[test]
-    fn task_metrics_serialization_is_compatible() {
+    fn invalid_metric_type_is_rejected_without_panicking() {
+        let result = serde_json::from_value::<MetricType>(serde_json::json!("Summary"));
+
+        assert!(result.is_err(), "unknown metric types should be rejected");
+    }
+
+    #[test]
+    fn task_metrics_serialization_is_compatible() -> Result<(), Box<dyn std::error::Error>> {
         let metrics = TaskMetrics {
             total: 12,
             completed: 9,
             failed: 3,
         };
-        let value = serde_json::to_value(&metrics).unwrap();
+        let value = serde_json::to_value(&metrics)?;
         assert_eq!(
             value,
             serde_json::json!({"total": 12, "completed": 9, "failed": 3})
         );
-        assert_eq!(
-            serde_json::from_value::<TaskMetrics>(value).unwrap(),
-            metrics
-        );
+        assert_eq!(serde_json::from_value::<TaskMetrics>(value)?, metrics);
+        Ok(())
     }
 
     #[test]
-    fn ooda_metrics_serialization_is_compatible() {
+    fn ooda_metrics_serialization_is_compatible() -> Result<(), Box<dyn std::error::Error>> {
         let metrics = OodaMetrics {
             total_cycles: 4,
             last_duration_seconds: 1.25,
             total_duration_seconds: 7.5,
         };
-        let value = serde_json::to_value(&metrics).unwrap();
+        let value = serde_json::to_value(&metrics)?;
         assert_eq!(
             value,
             serde_json::json!({
@@ -208,19 +211,17 @@ mod serialization_tests {
                 "total_duration_seconds": 7.5
             })
         );
-        assert_eq!(
-            serde_json::from_value::<OodaMetrics>(value).unwrap(),
-            metrics
-        );
+        assert_eq!(serde_json::from_value::<OodaMetrics>(value)?, metrics);
+        Ok(())
     }
 
     #[test]
-    fn remediation_metrics_serialization_is_compatible() {
+    fn remediation_metrics_serialization_is_compatible() -> Result<(), Box<dyn std::error::Error>> {
         let metrics = RemediationMetrics {
             total_remediations: 6,
             successful_remediations: 5,
         };
-        let value = serde_json::to_value(&metrics).unwrap();
+        let value = serde_json::to_value(&metrics)?;
         assert_eq!(
             value,
             serde_json::json!({
@@ -229,33 +230,35 @@ mod serialization_tests {
             })
         );
         assert_eq!(
-            serde_json::from_value::<RemediationMetrics>(value).unwrap(),
+            serde_json::from_value::<RemediationMetrics>(value)?,
             metrics
         );
+        Ok(())
     }
 
     #[test]
-    fn test_metrics_serialization_is_compatible() {
+    fn test_metrics_serialization_is_compatible() -> Result<(), Box<dyn std::error::Error>> {
         let metrics = TestMetrics {
             total_tests: 20,
             passed_tests: 18,
             failed_tests: 2,
         };
-        let value = serde_json::to_value(&metrics).unwrap();
+        let value = serde_json::to_value(&metrics)?;
         assert_eq!(
             value,
             serde_json::json!({"total_tests": 20, "passed_tests": 18, "failed_tests": 2})
         );
-        assert_eq!(
-            serde_json::from_value::<TestMetrics>(value).unwrap(),
-            metrics
-        );
+        assert_eq!(serde_json::from_value::<TestMetrics>(value)?, metrics);
+        Ok(())
     }
 
     #[test]
-    fn metrics_snapshot_serialization_is_compatible() {
+    fn metrics_snapshot_serialization_is_compatible() -> Result<(), Box<dyn std::error::Error>> {
         let snapshot = MetricsSnapshot {
-            timestamp: Utc.with_ymd_and_hms(2026, 11, 7, 12, 30, 0).unwrap(),
+            timestamp: Utc
+                .with_ymd_and_hms(2026, 11, 7, 12, 30, 0)
+                .single()
+                .ok_or_else(|| std::io::Error::other("invalid snapshot timestamp"))?,
             tasks: TaskMetrics {
                 total: 12,
                 completed: 9,
@@ -278,7 +281,7 @@ mod serialization_tests {
             custom_gauges: vec![("queue_depth".to_owned(), 2.5)],
             custom_counters: vec![("requests_total".to_owned(), 17)],
         };
-        let value = serde_json::to_value(&snapshot).unwrap();
+        let value = serde_json::to_value(&snapshot)?;
         assert_eq!(
             value,
             serde_json::json!({
@@ -298,9 +301,7 @@ mod serialization_tests {
                 "custom_counters": [["requests_total", 17]]
             })
         );
-        assert_eq!(
-            serde_json::from_value::<MetricsSnapshot>(value).unwrap(),
-            snapshot
-        );
+        assert_eq!(serde_json::from_value::<MetricsSnapshot>(value)?, snapshot);
+        Ok(())
     }
 }

@@ -3604,3 +3604,45 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 - **Lý do cần nghiên cứu**: Tệp crates/agent-engine/src/api/resilience.rs có độ dài 350 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-engine/src/api/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
+### [P0] TOPIC-20261107-6855c2: Refactor 13 lệnh unwrap() tại crates/agent-server/src/metrics/types.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 16:52:27 UTC)
+- **Lý do cần nghiên cứu**: Phát hiện 13 lệnh unwrap() trong mã sản xuất tại crates/agent-server/src/metrics/types.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-server/src/metrics/types.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P0] TOPIC-20261107-c5dcec: Khử 1 điểm gọi panic!() tường minh trong crates/agent-engine/src/tmux.rs
+- **Phân loại**: `Reliability / Crash Immunity`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 1 lệnh panic!() trong crates/agent-engine/src/tmux.rs. Việc chủ động làm sập tiến trình vi phạm nguyên tắc tự phục hồi (Self-Healing) của AgentCore.
+- **Tiêu chuẩn nghiệm thu**: Chuyển đổi các nhánh panic!() trong crates/agent-engine/src/tmux.rs thành kiểu trả về Result<T, E>.
+
+### [P1] TOPIC-20261107-f42f7e: Refactor 3 lệnh unwrap() tại crates/agent-cli/src/update/resilience.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 3 lệnh unwrap() trong mã sản xuất tại crates/agent-cli/src/update/resilience.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-cli/src/update/resilience.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P1] TOPIC-20261107-116969: Refactor 2 lệnh unwrap() tại crates/agent-memory/src/durable/resilience.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 2 lệnh unwrap() trong mã sản xuất tại crates/agent-memory/src/durable/resilience.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-memory/src/durable/resilience.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P1] TOPIC-20261107-4c60e0: Refactor 1 lệnh unwrap() tại crates/agent-engine/src/cli/antigravity.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 1 lệnh unwrap() trong mã sản xuất tại crates/agent-engine/src/cli/antigravity.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-engine/src/cli/antigravity.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P2] TOPIC-20261107-4cdc1d: Phân tách cấu trúc tệp nguyên khối (438 dòng): crates/agent-cli/src/update/resilience.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-cli/src/update/resilience.rs có độ dài 438 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-cli/src/update/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261107-12e13b: Phân tách cấu trúc tệp nguyên khối (423 dòng): crates/agent-memory/src/durable/resilience.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-memory/src/durable/resilience.rs có độ dài 423 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-memory/src/durable/resilience.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
