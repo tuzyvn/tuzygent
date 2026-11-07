@@ -202,4 +202,25 @@ mod tests {
         assert!(prompt.contains("[ASSISTANT]:\nHi there!"));
         assert!(prompt.contains("[USER]:\nHow are you?"));
     }
+
+    #[test]
+    fn test_chat_message_json_compatibility() -> Result<(), Box<dyn std::error::Error>> {
+        let expected = serde_json::json!({
+            "role": "user",
+            "content": "hello"
+        });
+        let message = ChatMessage {
+            role: "user".to_string(),
+            content: "hello".to_string(),
+        };
+
+        assert_eq!(serde_json::to_value(&message)?, expected);
+
+        let decoded: ChatMessage = serde_json::from_value(expected.clone())?;
+        assert_eq!(decoded.role, "user");
+        assert_eq!(decoded.content, "hello");
+        assert_eq!(serde_json::to_value(decoded)?, expected);
+
+        Ok(())
+    }
 }
