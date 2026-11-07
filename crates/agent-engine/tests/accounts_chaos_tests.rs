@@ -438,6 +438,43 @@ fn test_account_pool_exhaustion_and_self_healing() {
 }
 
 #[test]
+fn test_resilient_batch_selection_and_counter_reset() {
+    let temp_dir = temp_vault_dir("batch_counter_reset");
+    let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
+    vault
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "batch_account",
+            "Batch Account",
+            HashMap::new(),
+        )
+        .expect("register batch account");
+
+    let mut manager = ResilientAccountManager::with_vault(vault).with_max_capacity(2);
+    let results = manager.select_batch(&[
+        AccountEngineKind::Antigravity,
+        AccountEngineKind::Generic("missing_batch_engine".to_string()),
+    ]);
+
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0].as_ref().unwrap().id, "batch_account");
+    assert!(matches!(
+        results[1],
+        Err(AccountError::NoAvailableAccount(_))
+    ));
+    assert_eq!(manager.resolved_count(), 1);
+    assert_eq!(manager.rejected_count(), 1);
+
+    manager.reset_counts();
+    assert_eq!(manager.resolved_count(), 0);
+    assert_eq!(manager.recovered_count(), 0);
+    assert_eq!(manager.rejected_count(), 0);
+    assert_eq!(manager.cooldown_count(), 0);
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
 fn test_vault_concurrent_chaos_and_lock_poisoning_recovery() {
     let temp_dir = temp_vault_dir("concurrent_chaos");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
