@@ -1,15 +1,15 @@
 {
-  "timestamp": "2026-11-07T19:02:19Z",
+  "timestamp": "2026-11-07T19:10:58Z",
   "overall_status": "PASS",
   "tests": {
     "status": "PASS",
-    "passed": 960,
+    "passed": 963,
     "failed": 0,
-    "duration_sec": 47.53
+    "duration_sec": 71.0
   },
   "clippy": {
     "status": "PASS",
-    "duration_sec": 1.33
+    "duration_sec": 1.21
   },
   "scenarios": [
     {

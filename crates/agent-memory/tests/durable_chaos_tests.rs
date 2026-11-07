@@ -237,6 +237,131 @@ async fn test_durable_audit_ledger_recording() {
     let _ = tokio::fs::remove_dir_all(dir).await;
 }
 
+#[tokio::test]
+async fn test_save_structured_lesson_and_record_success_and_validation_failure() {
+    let dir = create_temp_dir("audit_structured_lesson");
+    let store = DurableMemoryStore::new(&dir);
+    let mut resilient =
+        ResilientDurableMemoryStore::new(store, DurableMemoryFaultPolicy::none(), 3);
+    let mut ledger = AuditLedger::new();
+    let lesson = StructuredLesson {
+        id: "audit-lesson-01".to_string(),
+        timestamp: "2026-11-07T00:00:00Z".to_string(),
+        task_title: "Record structured lesson".to_string(),
+        trigger_error: None,
+        remediation_applied: Some("Validate the persisted result".to_string()),
+        general_insight: "Structured audit writes preserve lesson fields".to_string(),
+        success: true,
+    };
+
+    resilient
+        .save_structured_lesson_and_record(&mut ledger, &lesson)
+        .await
+        .unwrap();
+
+    let persisted = resilient.load_structured_lessons().await.unwrap();
+    assert_eq!(persisted.len(), 1);
+    assert_eq!(persisted[0].id, lesson.id);
+    assert_eq!(persisted[0].task_title, lesson.task_title);
+    assert_eq!(persisted[0].general_insight, lesson.general_insight);
+    assert_eq!(resilient.saved_count(), 1);
+    let allowed = &ledger.entries()[0];
+    assert_eq!(allowed.event_type, AuditEventType::CommandAllowed);
+    assert_eq!(allowed.severity, ActionSeverity::Routine);
+    assert!(allowed.details.contains("audit-lesson-01"));
+
+    let invalid_lesson = StructuredLesson {
+        id: "   ".to_string(),
+        ..lesson
+    };
+    let result = resilient
+        .save_structured_lesson_and_record(&mut ledger, &invalid_lesson)
+        .await;
+    assert!(matches!(result, Err(DurableMemoryError::EmptyContent)));
+    assert_eq!(resilient.rejected_count(), 1);
+    let blocked = ledger.entries().last().unwrap();
+    assert_eq!(blocked.event_type, AuditEventType::CommandBlocked);
+    assert_eq!(blocked.severity, ActionSeverity::Destructive);
+
+    let _ = tokio::fs::remove_dir_all(dir).await;
+}
+
+#[tokio::test]
+async fn test_load_relevant_context_and_record_success_and_store_failure() {
+    let dir = create_temp_dir("audit_relevant_context");
+    let store = DurableMemoryStore::new(&dir);
+    let mut resilient =
+        ResilientDurableMemoryStore::new(store, DurableMemoryFaultPolicy::none(), 3);
+    let mut ledger = AuditLedger::new();
+    resilient
+        .save_lesson("Persisted context for the audit loading scenario")
+        .await
+        .unwrap();
+
+    let context = resilient
+        .load_relevant_context_and_record(&mut ledger, "audit loading scenario")
+        .await
+        .unwrap();
+    assert!(context.contains("Persisted context for the audit loading scenario"));
+    assert_eq!(resilient.loaded_count(), 1);
+    let allowed = &ledger.entries()[0];
+    assert_eq!(allowed.event_type, AuditEventType::CommandAllowed);
+    assert_eq!(allowed.severity, ActionSeverity::Routine);
+    assert!(allowed.details.contains("audit loading scenario"));
+
+    let failing_dir = create_temp_dir("audit_relevant_context_failure");
+    let failing_store = DurableMemoryStore::new(&failing_dir);
+    let policy = DurableMemoryFaultPolicy::always(DurableMemoryFault::ConnectionReset);
+    let mut failing_resilient = ResilientDurableMemoryStore::new(failing_store, policy, 1);
+    let result = failing_resilient
+        .load_relevant_context_and_record(&mut ledger, "unavailable context")
+        .await;
+    assert!(matches!(result, Err(DurableMemoryError::ConnectionReset)));
+    let exception = ledger.entries().last().unwrap();
+    assert_eq!(exception.event_type, AuditEventType::CommandException);
+    assert_eq!(exception.severity, ActionSeverity::HighImpact);
+    assert!(exception.details.contains("Connection reset"));
+
+    let _ = tokio::fs::remove_dir_all(dir).await;
+    let _ = tokio::fs::remove_dir_all(failing_dir).await;
+}
+
+#[tokio::test]
+async fn test_save_user_directive_and_record_success_and_validation_failure() {
+    let dir = create_temp_dir("audit_user_directive");
+    let store = DurableMemoryStore::new(&dir);
+    let mut resilient =
+        ResilientDurableMemoryStore::new(store, DurableMemoryFaultPolicy::none(), 3);
+    let mut ledger = AuditLedger::new();
+
+    resilient
+        .save_user_directive_and_record(&mut ledger, "  Keep audit records immutable.  ")
+        .await
+        .unwrap();
+
+    let context = resilient
+        .load_relevant_context("audit records")
+        .await
+        .unwrap();
+    assert!(context.contains("Keep audit records immutable."));
+    assert_eq!(resilient.saved_count(), 1);
+    let allowed = &ledger.entries()[0];
+    assert_eq!(allowed.event_type, AuditEventType::CommandAllowed);
+    assert_eq!(allowed.severity, ActionSeverity::Routine);
+    assert!(allowed.details.contains("Keep audit records immutable."));
+
+    let result = resilient
+        .save_user_directive_and_record(&mut ledger, " \n ")
+        .await;
+    assert!(matches!(result, Err(DurableMemoryError::EmptyContent)));
+    assert_eq!(resilient.rejected_count(), 1);
+    let blocked = ledger.entries().last().unwrap();
+    assert_eq!(blocked.event_type, AuditEventType::CommandBlocked);
+    assert_eq!(blocked.severity, ActionSeverity::Destructive);
+
+    let _ = tokio::fs::remove_dir_all(dir).await;
+}
+
 #[test]
 fn test_simulate_durable_fault_direct() {
     assert_eq!(
