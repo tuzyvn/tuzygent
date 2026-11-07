@@ -317,3 +317,118 @@ async fn test_resilient_persona_alias_and_builders() {
     persona.set_policy(PersonaFaultPolicy::none());
     assert_eq!(persona.policy().injected_count(), 0);
 }
+
+#[test]
+fn policy_mut_changes_fault_recovery_behavior() {
+    let mut resilient = ResilientPersonaLoader::default().with_max_retries(2);
+    *resilient.policy_mut() = PersonaFaultPolicy::always(PersonaFault::TransientIo)
+        .with_max_injections(2);
+
+    resilient
+        .save_profile_cached(&create_sample_profile("MutablePolicy"))
+        .expect("mutable policy should inject recoverable faults before saving");
+
+    assert_eq!(resilient.policy().injected_count(), 2);
+    assert_eq!(resilient.recovered_count(), 2);
+    assert_eq!(resilient.saved_count(), 1);
+}
+
+#[tokio::test]
+async fn reset_counts_clears_all_counters_and_profile_cache() {
+    let profile = create_sample_profile("Resettable");
+    let dir = create_temp_dir("reset_counts");
+    let mut resilient = ResilientPersonaLoader::default()
+        .with_max_retries(1)
+        .with_max_capacity(4);
+    *resilient.policy_mut() = PersonaFaultPolicy::always(PersonaFault::TransientIo)
+        .with_max_injections(1);
+
+    resilient
+        .save_profile_cached(&profile)
+        .expect("save should recover from the injected transient fault");
+    assert!(matches!(
+        resilient.save_profile_cached(&create_sample_profile(" ")),
+        Err(PersonaError::InvalidIdentity(_))
+    ));
+    resilient.set_policy(PersonaFaultPolicy::none());
+    resilient
+        .export_to_dir(&profile, &dir)
+        .await
+        .expect("profile should export successfully");
+    resilient
+        .load_from_dir(&dir)
+        .await
+        .expect("exported profile should load successfully");
+
+    assert_eq!(resilient.saved_count(), 2);
+    assert_eq!(resilient.loaded_count(), 1);
+    assert_eq!(resilient.recovered_count(), 1);
+    assert_eq!(resilient.rejected_count(), 1);
+    assert!(resilient.get_cached_profile("Resettable").is_some());
+
+    resilient.reset_counts();
+
+    assert_eq!(resilient.saved_count(), 0);
+    assert_eq!(resilient.loaded_count(), 0);
+    assert_eq!(resilient.recovered_count(), 0);
+    assert_eq!(resilient.rejected_count(), 0);
+    assert!(resilient.cached_profiles().is_empty());
+    assert!(resilient.get_cached_profile("Resettable").is_none());
+    assert!(!resilient.has_persona("Resettable"));
+
+    resilient
+        .save_profile_cached(&profile)
+        .expect("loader should remain usable after resetting");
+    assert_eq!(resilient.saved_count(), 1);
+
+    let _ = tokio::fs::remove_dir_all(&dir).await;
+}
+
+#[test]
+fn get_cached_profile_returns_matching_cached_profile_or_none() {
+    let first = create_sample_profile("CacheFirst");
+    let second = create_sample_profile("CacheSecond");
+    let mut resilient = ResilientPersonaLoader::default().with_max_capacity(2);
+
+    resilient.record_profile_cached(&first);
+    resilient.record_profile_cached(&second);
+
+    assert_eq!(
+        resilient
+            .get_cached_profile("CacheFirst")
+            .map(|profile| profile.identity.name.as_str()),
+        Some("CacheFirst")
+    );
+    assert!(resilient.get_cached_profile("Unknown").is_none());
+
+    resilient.record_profile_cached(&create_sample_profile("CacheThird"));
+
+    assert!(resilient.get_cached_profile("CacheFirst").is_none());
+    assert!(resilient.has_persona("CacheSecond"));
+    assert!(resilient.get_cached_profile("CacheSecond").is_some());
+}
+
+#[test]
+fn record_profile_cached_ignores_duplicates_and_evicts_oldest_at_capacity() {
+    let first = create_sample_profile("RecordFirst");
+    let second = create_sample_profile("RecordSecond");
+    let third = create_sample_profile("RecordThird");
+    let mut resilient = ResilientPersonaLoader::default().with_max_capacity(2);
+
+    resilient.record_profile_cached(&first);
+    resilient.record_profile_cached(&second);
+    resilient.record_profile_cached(&create_sample_profile("RecordFirst"));
+
+    assert_eq!(resilient.cached_profiles().len(), 2);
+    assert_eq!(resilient.cached_profiles()[0].identity.name, "RecordFirst");
+    assert_eq!(resilient.cached_profiles()[1].identity.name, "RecordSecond");
+
+    resilient.record_profile_cached(&third);
+
+    assert_eq!(resilient.cached_profiles().len(), 2);
+    assert_eq!(resilient.cached_profiles()[0].identity.name, "RecordSecond");
+    assert_eq!(resilient.cached_profiles()[1].identity.name, "RecordThird");
+    assert!(!resilient.has_persona("RecordFirst"));
+    assert!(resilient.has_persona("RecordSecond"));
+    assert!(resilient.has_persona("RecordThird"));
+}
