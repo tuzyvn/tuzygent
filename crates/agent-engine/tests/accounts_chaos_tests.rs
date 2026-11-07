@@ -32,6 +32,64 @@ fn create_sample_profile(id: &str, name: &str, engine: AccountEngineKind) -> Acc
 }
 
 #[test]
+fn test_account_engine_kind_name_parsing() {
+    assert_eq!(
+        AccountEngineKind::from_str_name("AGY"),
+        AccountEngineKind::Antigravity
+    );
+    assert_eq!(
+        AccountEngineKind::from_str_name("Claude-Code"),
+        AccountEngineKind::Claude
+    );
+    assert_eq!(
+        AccountEngineKind::from_str_name("MyCustomEngine"),
+        AccountEngineKind::Generic("mycustomengine".to_string())
+    );
+}
+
+#[test]
+fn test_account_profile_safe_projection_hides_environment_values() {
+    let mut profile = create_sample_profile("safe_1", "Safe Account", AccountEngineKind::Codex);
+    profile.extra_env.insert(
+        "OPENAI_API_KEY".to_string(),
+        "secret-token-value".to_string(),
+    );
+    profile
+        .extra_env
+        .insert("REGION".to_string(), "us-east-1".to_string());
+
+    let safe = profile.to_safe();
+
+    assert_eq!(safe.id, profile.id);
+    assert_eq!(safe.name, profile.name);
+    assert_eq!(safe.engine, profile.engine);
+    assert_eq!(safe.home_dir, profile.home_dir);
+    assert_eq!(safe.status, profile.status);
+    assert_eq!(safe.requests_count, profile.requests_count);
+    assert_eq!(safe.failure_count, profile.failure_count);
+    assert_eq!(safe.last_used_at, profile.last_used_at);
+    assert_eq!(safe.extra_env_keys.len(), 2);
+    assert!(safe.extra_env_keys.contains(&"OPENAI_API_KEY".to_string()));
+    assert!(safe.extra_env_keys.contains(&"REGION".to_string()));
+    let serialized = serde_json::to_string(&safe).expect("safe profile serializes");
+    assert!(!serialized.contains("secret-token-value"));
+    assert!(!serialized.contains("us-east-1"));
+}
+
+#[test]
+fn test_account_profile_estimated_size_tracks_heap_data() {
+    let profile = create_sample_profile("id", "name", AccountEngineKind::Codex);
+    let initial_size = profile.estimated_size_bytes();
+
+    let mut expanded = profile;
+    expanded
+        .extra_env
+        .insert("TOKEN".to_string(), "secret".to_string());
+
+    assert_eq!(expanded.estimated_size_bytes() - initial_size, 11);
+}
+
+#[test]
 fn test_account_validation_and_integrity() {
     let valid_profile =
         create_sample_profile("acc_1", "Primary Account", AccountEngineKind::Antigravity);
