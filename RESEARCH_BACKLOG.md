@@ -3552,7 +3552,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261107-64d2ed: Phân tách cấu trúc tệp nguyên khối (373 dòng): crates/agent-runtime/src/task_store/lifecycle.rs
 - **Phân loại**: `Modularity & Maintainability`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 15:06:33 UTC)
 - **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/task_store/lifecycle.rs có độ dài 373 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/task_store/lifecycle.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 

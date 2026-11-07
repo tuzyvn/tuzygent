@@ -46,3 +46,41 @@ async fn task_store_public_api_persists_and_claims_queued_task() {
     drop(store);
     std::fs::remove_dir_all(workspace).expect("remove temporary task store");
 }
+
+#[tokio::test]
+async fn claiming_queued_task_persists_executing_status() {
+    let workspace = std::env::temp_dir().join(format!(
+        "agent-runtime-task-store-claim-lifecycle-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let task = Task::new("claim lifecycle", "persist claimed state", Priority::Normal);
+    let task_id = task.id.clone();
+
+    {
+        let store = SqliteTaskStore::new(&workspace).expect("open task store");
+        TaskStore::save_task(&store, &task)
+            .await
+            .expect("save queued task");
+
+        let claimed = TaskStore::claim_queued(&store, &task_id)
+            .await
+            .expect("claim queued task")
+            .expect("queued task should be claimable");
+        assert_eq!(claimed.id, task_id);
+        assert_eq!(claimed.status, TaskStatus::Executing);
+    }
+
+    let store = SqliteTaskStore::new(&workspace).expect("reopen task store");
+    let persisted = TaskStore::get_task(&store, &task_id)
+        .await
+        .expect("read persisted task")
+        .expect("claimed task should still exist");
+    assert_eq!(persisted.status, TaskStatus::Executing);
+    assert!(TaskStore::claim_queued(&store, &task_id)
+        .await
+        .expect("claim already executing task")
+        .is_none());
+
+    drop(store);
+    std::fs::remove_dir_all(workspace).expect("remove temporary task store");
+}
