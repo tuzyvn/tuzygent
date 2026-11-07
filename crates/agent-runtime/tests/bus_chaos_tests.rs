@@ -17,6 +17,62 @@ fn create_sample_event(source: &str, target: Option<&str>, event_type: &str) -> 
 }
 
 #[test]
+fn auto_reconstitution_can_be_enabled_or_disabled_for_closed_channel_faults() {
+    let mut disabled =
+        ResilientInterAgentBus::new(8, BusFaultPolicy::none(), 1).with_auto_reconstitute(false);
+    disabled.bus_mut().close();
+    let result = disabled.publish_resilient(create_sample_event("a", None, "test"));
+    assert_eq!(result, Err(BusError::ChannelClosed));
+    assert_eq!(disabled.reconstituted_count(), 0);
+
+    let mut enabled =
+        ResilientInterAgentBus::new(8, BusFaultPolicy::none(), 1).with_auto_reconstitute(true);
+    enabled.bus_mut().close();
+    let result = enabled.publish_resilient(create_sample_event("a", None, "test"));
+    assert_eq!(result, Ok(0));
+    assert_eq!(enabled.reconstituted_count(), 1);
+}
+
+#[test]
+fn reconstitute_bus_preserves_or_updates_capacity_and_normalizes_zero() {
+    let mut bus = ResilientInterAgentBus::new(8, BusFaultPolicy::none(), 0);
+    bus.bus().close();
+
+    assert_eq!(bus.reconstitute_bus(None), 8);
+    assert!(!bus.bus().is_closed());
+    assert_eq!(bus.reconstituted_count(), 1);
+
+    assert_eq!(bus.reconstitute_bus(Some(3)), 3);
+    assert_eq!(bus.bus().capacity(), 3);
+    assert_eq!(bus.reconstituted_count(), 2);
+
+    assert_eq!(bus.reconstitute_bus(Some(0)), 1);
+    assert_eq!(bus.bus().capacity(), 1);
+    assert_eq!(bus.reconstituted_count(), 3);
+}
+
+#[test]
+fn bus_mut_changes_the_underlying_bus() {
+    let mut bus = ResilientInterAgentBus::new(8, BusFaultPolicy::none(), 0);
+    bus.bus_mut().set_max_payload_bytes(Some(1));
+    let result = bus.publish_resilient(create_sample_event("a", None, "test"));
+
+    assert!(matches!(result, Err(BusError::CapacityOverload(_))));
+    assert_eq!(bus.failed_count(), 1);
+}
+
+#[test]
+fn policy_mut_replaces_the_fault_policy() {
+    let mut bus = ResilientInterAgentBus::new(8, BusFaultPolicy::none(), 1);
+    *bus.policy_mut() = BusFaultPolicy::always(BusFault::SocketTimeout);
+
+    let result = bus.publish_resilient(create_sample_event("a", None, "test"));
+    assert_eq!(result, Err(BusError::MaxRetriesExceeded(1)));
+    assert_eq!(bus.policy().injected_count(), 2);
+    assert_eq!(bus.recovered_count(), 1);
+}
+
+#[test]
 fn test_bus_fault_simulation_direct() {
     let faults = vec![
         (BusFault::SocketTimeout, BusError::SocketTimeout),
