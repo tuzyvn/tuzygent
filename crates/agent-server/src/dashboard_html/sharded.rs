@@ -193,3 +193,7 @@ impl ShardedResilientDashboardService {
         guard.get_asset(name).await
     }
 }
+
+#[cfg(test)]
+#[path = "sharded_tests.rs"]
+mod tests;
