@@ -89,7 +89,10 @@ fn test_audit_entry_with_event_type_updates_type_without_invalidating_hash() {
     let original_hash = entry.hash.clone();
 
     let updated = entry.with_event_type(AuditEventType::Custom("INGESTED".to_string()));
-    assert_eq!(updated.event_type, AuditEventType::Custom("INGESTED".to_string()));
+    assert_eq!(
+        updated.event_type,
+        AuditEventType::Custom("INGESTED".to_string())
+    );
     assert_eq!(updated.hash, original_hash);
     assert!(updated.verify_hash());
 }
@@ -104,8 +107,14 @@ fn test_audit_ledger_last_entry_for_empty_and_populated_ledger() {
     assert_eq!(last.sequence, 0);
     assert_eq!(last.action, "COMMAND_ALLOWED");
 
-    ledger.record("COMMAND_BLOCKED", ActionSeverity::Destructive, "unsafe action");
-    let last = ledger.last_entry().expect("second recorded entry should be last");
+    ledger.record(
+        "COMMAND_BLOCKED",
+        ActionSeverity::Destructive,
+        "unsafe action",
+    );
+    let last = ledger
+        .last_entry()
+        .expect("second recorded entry should be last");
     assert_eq!(last.sequence, 1);
     assert_eq!(last.action, "COMMAND_BLOCKED");
 }

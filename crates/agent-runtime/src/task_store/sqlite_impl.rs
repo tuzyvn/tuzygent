@@ -1,4 +1,17 @@
 use super::*;
+use agent_domain::{SubTask, Task, TaskId, TaskResult, TaskScheduleRecord};
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use rusqlite::Connection;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
+#[derive(Clone)]
+pub struct SqliteTaskStore {
+    pub(super) db_path: PathBuf,
+    pub(super) conn: Arc<Mutex<Connection>>,
+}
 
 impl SqliteTaskStore {
     pub fn new(workspace_dir: impl AsRef<Path>) -> Result<Self> {

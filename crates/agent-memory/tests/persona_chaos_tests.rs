@@ -321,8 +321,8 @@ async fn test_resilient_persona_alias_and_builders() {
 #[test]
 fn policy_mut_changes_fault_recovery_behavior() {
     let mut resilient = ResilientPersonaLoader::default().with_max_retries(2);
-    *resilient.policy_mut() = PersonaFaultPolicy::always(PersonaFault::TransientIo)
-        .with_max_injections(2);
+    *resilient.policy_mut() =
+        PersonaFaultPolicy::always(PersonaFault::TransientIo).with_max_injections(2);
 
     resilient
         .save_profile_cached(&create_sample_profile("MutablePolicy"))
@@ -340,8 +340,8 @@ async fn reset_counts_clears_all_counters_and_profile_cache() {
     let mut resilient = ResilientPersonaLoader::default()
         .with_max_retries(1)
         .with_max_capacity(4);
-    *resilient.policy_mut() = PersonaFaultPolicy::always(PersonaFault::TransientIo)
-        .with_max_injections(1);
+    *resilient.policy_mut() =
+        PersonaFaultPolicy::always(PersonaFault::TransientIo).with_max_injections(1);
 
     resilient
         .save_profile_cached(&profile)

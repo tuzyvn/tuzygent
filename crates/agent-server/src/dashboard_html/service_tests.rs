@@ -7,8 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 fn custom_template_dir() -> std::path::PathBuf {
-    static NEXT_DIR: std::sync::atomic::AtomicUsize =
-        std::sync::atomic::AtomicUsize::new(0);
+    static NEXT_DIR: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let dir = std::env::temp_dir().join(format!(
         "agent-server-dashboard-test-{}-{}",
         std::process::id(),
@@ -41,7 +40,10 @@ fn retry_backoff_and_custom_asset_builders_store_their_values() {
 
     assert_eq!(service.max_retries, 7);
     assert_eq!(service.backoff, Duration::from_millis(23));
-    assert_eq!(service.custom_asset_dir.as_deref(), Some(directory.as_path()));
+    assert_eq!(
+        service.custom_asset_dir.as_deref(),
+        Some(directory.as_path())
+    );
 }
 
 #[test]
@@ -137,9 +139,8 @@ async fn render_dashboard_with_fallback_returns_html_and_status() {
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("<!DOCTYPE html>"));
 
-    let failing = ResilientDashboardService::new().with_fault_policy(
-        DashboardFaultPolicy::always(DashboardFault::MissingAsset),
-    );
+    let failing = ResilientDashboardService::new()
+        .with_fault_policy(DashboardFaultPolicy::always(DashboardFault::MissingAsset));
     let (fallback_html, fallback_status) = failing
         .render_dashboard_with_fallback(&DashboardContext::new())
         .await;
@@ -175,7 +176,9 @@ async fn get_asset_serves_embedded_asset_and_reports_missing_asset() {
     let (missing, content_type, status) = service.get_asset("no-such-asset").await;
     assert_eq!(content_type, "text/plain; charset=utf-8");
     assert_eq!(status, StatusCode::NOT_FOUND);
-    assert!(String::from_utf8(missing).unwrap().contains("Missing asset"));
+    assert!(String::from_utf8(missing)
+        .unwrap()
+        .contains("Missing asset"));
 }
 
 #[test]
@@ -197,7 +200,11 @@ fn record_history_keeps_only_the_newest_entries_within_capacity() {
     service.record_history("third".to_string());
 
     assert_eq!(
-        service.history.iter().map(String::as_str).collect::<Vec<_>>(),
+        service
+            .history
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
         ["second", "third"]
     );
 }
@@ -225,6 +232,9 @@ fn with_shared_cache_uses_the_supplied_cache() {
     let cache = Arc::new(ShardedDashboardCache::new(2, 8));
     let service = ResilientDashboardService::new().with_shared_cache(cache.clone());
 
-    assert!(Arc::ptr_eq(service.cache().expect("cache configured"), &cache));
+    assert!(Arc::ptr_eq(
+        service.cache().expect("cache configured"),
+        &cache
+    ));
     assert!(service.cache_stats().is_some());
 }

@@ -56,24 +56,20 @@ fn test_vault_public_storage_and_copy_helpers() {
         "{\"token\":\"secret\"}"
     );
     assert!(!wrapper_destination.join("notes.txt").exists());
-    assert!(
-        copy_dir_recursive(
-            &temp_dir.join("missing-source"),
-            &temp_dir.join("failed-copy")
-        )
-        .is_err()
-    );
+    assert!(copy_dir_recursive(
+        &temp_dir.join("missing-source"),
+        &temp_dir.join("failed-copy")
+    )
+    .is_err());
 
     let base_dir = temp_dir.join("metadata");
     let vault = AccountVault::new_with_dir(base_dir.clone());
     let metadata_file = base_dir.join("accounts.json");
     assert_eq!(vault.metadata_file(), metadata_file);
 
-    assert!(
-        load_profiles_from_file(&metadata_file)
-            .expect("missing metadata should load as empty")
-            .is_empty()
-    );
+    assert!(load_profiles_from_file(&metadata_file)
+        .expect("missing metadata should load as empty")
+        .is_empty());
     let profile = AccountProfile {
         id: "saved-account".to_string(),
         name: "Saved account".to_string(),
@@ -236,8 +232,14 @@ fn test_vault_clears_account_lock_poison_after_recovery() {
             .expect("poison simulation should acquire accounts write lock");
         panic!("simulate a worker panic while holding accounts lock");
     });
-    assert!(handle.join().is_err(), "worker should panic and poison lock");
-    assert!(vault.accounts.is_poisoned(), "lock should be poisoned initially");
+    assert!(
+        handle.join().is_err(),
+        "worker should panic and poison lock"
+    );
+    assert!(
+        vault.accounts.is_poisoned(),
+        "lock should be poisoned initially"
+    );
 
     // A normal vault operation recovers the poisoned guard. Recovery should also
     // clear the poison marker so later callers do not inherit stale poison state.
@@ -382,10 +384,8 @@ fn test_get_account_non_existent_returns_none() {
 
 #[test]
 fn test_save_sync_persists_current_profile_state() {
-    let temp_dir = std::env::temp_dir().join(format!(
-        "vault_save_sync_{}",
-        uuid::Uuid::new_v4().simple()
-    ));
+    let temp_dir =
+        std::env::temp_dir().join(format!("vault_save_sync_{}", uuid::Uuid::new_v4().simple()));
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     vault
         .register_account(
@@ -433,9 +433,9 @@ fn test_select_next_account_releases_expired_cooldown() {
         .get_mut(&AccountEngineKind::Antigravity)
         .expect("registered engine exists")[0]
         .status = AccountStatus::Cooldown {
-            until: chrono::Utc::now() - chrono::Duration::seconds(1),
-            reason: "expired test cooldown".to_string(),
-        };
+        until: chrono::Utc::now() - chrono::Duration::seconds(1),
+        reason: "expired test cooldown".to_string(),
+    };
 
     let selected = vault
         .select_next_account(&AccountEngineKind::Antigravity)

@@ -556,7 +556,10 @@ mod tests {
         let future = now + chrono::Duration::minutes(5);
         let scheduled = Task::new_delayed("future", "run later", Priority::High, future);
 
-        assert_eq!(scheduled.status, TaskStatus::Scheduled { run_after: future });
+        assert_eq!(
+            scheduled.status,
+            TaskStatus::Scheduled { run_after: future }
+        );
         assert_eq!(scheduled.run_after, Some(future));
         assert_eq!(scheduled.scheduled_at, Some(future));
         assert_eq!(
@@ -598,10 +601,15 @@ mod tests {
     #[test]
     fn with_scheduled_at_sets_schedule_fields_and_scheduled_status() {
         let timestamp = chrono::Utc::now() - chrono::Duration::seconds(1);
-        let task = Task::new("scheduled", "builder schedule", Priority::High)
-            .with_scheduled_at(timestamp);
+        let task =
+            Task::new("scheduled", "builder schedule", Priority::High).with_scheduled_at(timestamp);
 
-        assert_eq!(task.status, TaskStatus::Scheduled { run_after: timestamp });
+        assert_eq!(
+            task.status,
+            TaskStatus::Scheduled {
+                run_after: timestamp
+            }
+        );
         assert_eq!(task.run_after, Some(timestamp));
         assert_eq!(task.scheduled_at, Some(timestamp));
         assert_eq!(
@@ -615,8 +623,8 @@ mod tests {
     #[test]
     fn with_cron_expression_stores_expression_without_validating_it() {
         let expression = "this is not parsed as cron";
-        let task = Task::new("cron", "builder cron", Priority::Normal)
-            .with_cron_expression(expression);
+        let task =
+            Task::new("cron", "builder cron", Priority::Normal).with_cron_expression(expression);
 
         assert_eq!(task.status, TaskStatus::Queued);
         assert_eq!(task.cron_expression.as_deref(), Some(expression));

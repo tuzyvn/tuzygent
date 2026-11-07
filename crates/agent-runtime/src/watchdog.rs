@@ -140,8 +140,7 @@ mod tests {
 
     #[tokio::test]
     async fn new_watchdog_starts_unfired_and_monitor_reports_idle_timeout() {
-        let (watchdog, mut shutdown_rx) =
-            IdleWatchdog::new(Duration::ZERO, Duration::from_secs(1));
+        let (watchdog, mut shutdown_rx) = IdleWatchdog::new(Duration::ZERO, Duration::from_secs(1));
         assert!(!watchdog.is_fired());
         assert!(!*shutdown_rx.borrow());
 

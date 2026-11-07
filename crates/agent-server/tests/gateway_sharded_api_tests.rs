@@ -173,11 +173,9 @@ async fn execute_async_resilient_retries_retryable_failures() {
 
 #[test]
 fn cache_stats_is_none_without_cache_and_reports_empty_cache_when_enabled() {
-    assert!(
-        ShardedResilientGatewayService::new(2)
-            .cache_stats()
-            .is_none()
-    );
+    assert!(ShardedResilientGatewayService::new(2)
+        .cache_stats()
+        .is_none());
 
     let service = ShardedResilientGatewayService::new(2).with_cache(8);
     let stats = service.cache_stats().unwrap();

@@ -4,10 +4,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use std::path::PathBuf;
 
 fn temp_workspace(label: &str) -> PathBuf {
-    std::env::temp_dir().join(format!(
-        "agent-runtime-{label}-{}",
-        uuid::Uuid::new_v4()
-    ))
+    std::env::temp_dir().join(format!("agent-runtime-{label}-{}", uuid::Uuid::new_v4()))
 }
 
 fn table_exists(conn: &rusqlite::Connection, table: &str) -> bool {
@@ -33,7 +30,10 @@ fn resolve_storage_dir_creates_storage_and_quarantines_a_file_at_that_path() {
     assert!(std::fs::read_dir(&workspace)
         .expect("list workspace")
         .filter_map(Result::ok)
-        .any(|entry| entry.file_name().to_string_lossy().starts_with("storage_file_corrupt_")));
+        .any(|entry| entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with("storage_file_corrupt_")));
     std::fs::remove_dir_all(workspace).expect("clean workspace");
 }
 
@@ -102,8 +102,8 @@ fn init_sqlite_schema_creates_expected_tables_and_is_repeatable() {
 fn init_sqlite_schema_with_options_applies_timeout_and_journal_mode() {
     let workspace = temp_workspace("schema-options");
     std::fs::create_dir_all(&workspace).expect("create workspace");
-    let conn = rusqlite::Connection::open(workspace.join("tasks.db"))
-        .expect("open file-backed database");
+    let conn =
+        rusqlite::Connection::open(workspace.join("tasks.db")).expect("open file-backed database");
 
     super::schema::init_sqlite_schema_with_options(&conn, true, 1_250, false)
         .expect("initialize schema with custom options");

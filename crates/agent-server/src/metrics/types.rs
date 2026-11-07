@@ -167,7 +167,10 @@ mod serialization_tests {
         ] {
             let value = serde_json::to_value(metric_type).unwrap();
             assert_eq!(value, expected);
-            assert_eq!(serde_json::from_value::<MetricType>(value).unwrap(), metric_type);
+            assert_eq!(
+                serde_json::from_value::<MetricType>(value).unwrap(),
+                metric_type
+            );
         }
     }
 
@@ -183,7 +186,10 @@ mod serialization_tests {
             value,
             serde_json::json!({"total": 12, "completed": 9, "failed": 3})
         );
-        assert_eq!(serde_json::from_value::<TaskMetrics>(value).unwrap(), metrics);
+        assert_eq!(
+            serde_json::from_value::<TaskMetrics>(value).unwrap(),
+            metrics
+        );
     }
 
     #[test]
@@ -202,7 +208,10 @@ mod serialization_tests {
                 "total_duration_seconds": 7.5
             })
         );
-        assert_eq!(serde_json::from_value::<OodaMetrics>(value).unwrap(), metrics);
+        assert_eq!(
+            serde_json::from_value::<OodaMetrics>(value).unwrap(),
+            metrics
+        );
     }
 
     #[test]
@@ -237,7 +246,10 @@ mod serialization_tests {
             value,
             serde_json::json!({"total_tests": 20, "passed_tests": 18, "failed_tests": 2})
         );
-        assert_eq!(serde_json::from_value::<TestMetrics>(value).unwrap(), metrics);
+        assert_eq!(
+            serde_json::from_value::<TestMetrics>(value).unwrap(),
+            metrics
+        );
     }
 
     #[test]

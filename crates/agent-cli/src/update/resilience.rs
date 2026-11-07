@@ -361,16 +361,22 @@ mod tests {
     fn max_capacity_reports_unbounded_bounded_and_zero_limits() {
         assert_eq!(ResilientUpdater::default().max_capacity(), None);
         assert_eq!(
-            ResilientUpdater::default().with_max_capacity(3).max_capacity(),
+            ResilientUpdater::default()
+                .with_max_capacity(3)
+                .max_capacity(),
             Some(3)
         );
         assert_eq!(
-            ResilientUpdater::default().with_max_capacity(0).max_capacity(),
+            ResilientUpdater::default()
+                .with_max_capacity(0)
+                .max_capacity(),
             Some(0)
         );
 
         let mut zero_capacity = ResilientUpdater::default().with_max_capacity(0);
-        zero_capacity.execute_step("evicted-at-zero", || Ok(())).unwrap();
+        zero_capacity
+            .execute_step("evicted-at-zero", || Ok(()))
+            .unwrap();
         assert!(zero_capacity.runner().ledger().is_empty());
         assert!(zero_capacity.runner().recent_actions().is_empty());
     }
@@ -400,7 +406,9 @@ mod tests {
     #[test]
     fn reset_counts_clears_counters_but_preserves_audit_history() {
         let mut updater = ResilientUpdater::default();
-        updater.execute_step("completed-before-reset", || Ok(())).unwrap();
+        updater
+            .execute_step("completed-before-reset", || Ok(()))
+            .unwrap();
         let ledger_len = updater.runner().ledger().len();
         let recent_len = updater.runner().recent_actions().len();
         assert_eq!(updater.total_executed(), 1);

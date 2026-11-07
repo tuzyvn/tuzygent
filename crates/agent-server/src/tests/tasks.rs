@@ -2,7 +2,7 @@
 #[tokio::test]
 async fn authenticated_task_delegates_to_codex_via_rest() -> Result<(), Box<dyn std::error::Error>>
 {
-    use crate::{AppState, AuthState, build_app};
+    use crate::{build_app, AppState, AuthState};
     use agent_core::prelude::*;
     use axum::{body::Body, http::Request, http::StatusCode};
     use std::os::unix::fs::PermissionsExt;
@@ -162,7 +162,7 @@ async fn idempotency_key_replays_and_rejects_conflicting_requests() {
 
 #[tokio::test]
 async fn manual_review_endpoint_requires_auth_and_current_revision() {
-    use crate::{AppState, AuthState, build_app};
+    use crate::{build_app, AppState, AuthState};
     use agent_core::prelude::*;
     use agent_runtime::TaskStore;
     use axum::{
@@ -254,7 +254,7 @@ async fn manual_review_endpoint_requires_auth_and_current_revision() {
 
 #[tokio::test]
 async fn cancel_task_endpoint_cancels_queued_task_and_requires_auth() {
-    use crate::{AppState, AuthState, build_app};
+    use crate::{build_app, AppState, AuthState};
     use agent_core::prelude::*;
     use agent_runtime::TaskStore;
     use axum::{
@@ -522,7 +522,7 @@ async fn approve_task_handler_returns_not_found_for_an_unknown_task() {
 
 #[tokio::test]
 async fn approve_task_handler_rejects_a_task_that_is_not_waiting_for_approval() {
-    use crate::{AppState, AuthState, build_app};
+    use crate::{build_app, AppState, AuthState};
     use agent_core::prelude::*;
     use agent_runtime::TaskStore;
     use axum::{
@@ -577,10 +577,8 @@ async fn approve_task_handler_rejects_a_task_that_is_not_waiting_for_approval() 
             .unwrap(),
     )
     .unwrap();
-    assert!(
-        body["error"]
-            .as_str()
-            .unwrap()
-            .contains("not in WaitingApproval status")
-    );
+    assert!(body["error"]
+        .as_str()
+        .unwrap()
+        .contains("not in WaitingApproval status"));
 }
