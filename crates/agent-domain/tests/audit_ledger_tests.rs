@@ -39,6 +39,99 @@ fn test_audit_entry_construction_and_verification() {
 }
 
 #[test]
+fn test_audit_entry_new_with_actor_sets_fields_and_hashes_payload() {
+    let timestamp = Utc::now();
+    let entry = AuditEntry::new_with_actor(
+        7,
+        timestamp,
+        AuditEventType::SecurityAlert,
+        "CUSTOM_SECURITY_ACTION",
+        ActionSeverity::HighImpact,
+        "suspicious login",
+        Some("security-monitor".to_string()),
+        "previous-hash",
+    );
+
+    assert_eq!(entry.sequence, 7);
+    assert_eq!(entry.timestamp, timestamp);
+    assert_eq!(entry.event_type, AuditEventType::SecurityAlert);
+    assert_eq!(entry.action, "CUSTOM_SECURITY_ACTION");
+    assert_eq!(entry.severity, ActionSeverity::HighImpact);
+    assert_eq!(entry.details, "suspicious login");
+    assert_eq!(entry.actor.as_deref(), Some("security-monitor"));
+    assert_eq!(entry.prev_hash, "previous-hash");
+    assert!(entry.verify_hash());
+
+    let without_actor = AuditEntry::new_with_actor(
+        8,
+        timestamp,
+        AuditEventType::CommandAllowed,
+        "COMMAND_ALLOWED",
+        ActionSeverity::Routine,
+        "safe command",
+        None,
+        entry.hash.clone(),
+    );
+    assert_eq!(without_actor.actor, None);
+    assert!(without_actor.verify_hash());
+}
+
+#[test]
+fn test_audit_entry_with_event_type_updates_type_without_invalidating_hash() {
+    let entry = AuditEntry::new(
+        0,
+        Utc::now(),
+        "UNRECOGNIZED_ACTION",
+        ActionSeverity::Routine,
+        "details",
+        GENESIS_HASH,
+    );
+    let original_hash = entry.hash.clone();
+
+    let updated = entry.with_event_type(AuditEventType::Custom("INGESTED".to_string()));
+    assert_eq!(updated.event_type, AuditEventType::Custom("INGESTED".to_string()));
+    assert_eq!(updated.hash, original_hash);
+    assert!(updated.verify_hash());
+}
+
+#[test]
+fn test_audit_ledger_last_entry_for_empty_and_populated_ledger() {
+    let mut ledger = AuditLedger::new();
+    assert!(ledger.last_entry().is_none());
+
+    ledger.record("COMMAND_ALLOWED", ActionSeverity::Routine, "cargo check");
+    let last = ledger.last_entry().expect("recorded entry should be last");
+    assert_eq!(last.sequence, 0);
+    assert_eq!(last.action, "COMMAND_ALLOWED");
+
+    ledger.record("COMMAND_BLOCKED", ActionSeverity::Destructive, "unsafe action");
+    let last = ledger.last_entry().expect("second recorded entry should be last");
+    assert_eq!(last.sequence, 1);
+    assert_eq!(last.action, "COMMAND_BLOCKED");
+}
+
+#[test]
+fn test_audit_event_type_default_and_missing_serialized_field() {
+    let expected = AuditEventType::Custom("UNKNOWN".to_string());
+    assert_eq!(AuditEventType::default(), expected);
+
+    let mut value = serde_json::to_value(AuditEntry::new(
+        0,
+        Utc::now(),
+        "CUSTOM_ACTION",
+        ActionSeverity::Routine,
+        "details",
+        GENESIS_HASH,
+    ))
+    .unwrap();
+    value.as_object_mut().unwrap().remove("event_type");
+
+    let deserialized: AuditEntry = serde_json::from_value(value).unwrap();
+    assert_eq!(deserialized.event_type, expected);
+    assert!(deserialized.verify_hash());
+}
+
+#[test]
 fn test_audit_ledger_record_and_hash_chaining() {
     let mut ledger = AuditLedger::new();
 
