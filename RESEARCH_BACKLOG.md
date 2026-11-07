@@ -3432,7 +3432,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261107-3c43e7: Bổ sung kiểm thử cho 4 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/accounts/vault/storage.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-07 11:40:02 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/accounts/vault/storage.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `load_profiles_from_file` (L9), `save_profiles_to_file` (L19), `metadata_file` (L33), `load_sync` (L37).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/accounts/vault/storage.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
