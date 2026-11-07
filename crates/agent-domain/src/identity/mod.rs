@@ -13,6 +13,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_voice_engine_type_json_compatibility() {
+        let cases = [
+            (VoiceEngineType::VieNeu, "vieneu"),
+            (VoiceEngineType::CosyVoice, "cosyvoice"),
+            (VoiceEngineType::OmniVoice, "omnivoice"),
+            (VoiceEngineType::EdgeNeural, "edge"),
+            (VoiceEngineType::SherpaOnnx, "sherpa_onnx"),
+            (VoiceEngineType::Custom("local-engine".to_string()), "local-engine"),
+        ];
+
+        for (engine, expected) in cases {
+            let expected_json = format!("\"{expected}\"");
+            let serialized = serde_json::to_string(&engine).expect("engine type serializes");
+            assert_eq!(serialized, expected_json);
+
+            let restored: VoiceEngineType =
+                serde_json::from_str(&expected_json).expect("current JSON fixture deserializes");
+            assert_eq!(restored, engine);
+            assert_eq!(
+                serde_json::to_string(&restored).expect("restored engine type serializes"),
+                expected_json
+            );
+        }
+    }
+
+    #[test]
     fn test_backward_compatible_deserialization() {
         let legacy_json = r#"{
             "persona": "Nghiêm túc, kỷ luật",
