@@ -472,3 +472,77 @@ async fn test_agent_ctl_cli_binary_replay_list_and_fork_end_to_end() {
 
     let _ = std::fs::remove_dir_all(&ws);
 }
+
+#[tokio::test]
+async fn test_agent_ctl_replay_table_output_formats_checkpoint_list_and_outcome() {
+    let ws = unique_test_workspace("cli_bin_replay_table_output");
+    let seeded = seed_three_step_task(&ws).await;
+    let source_id = seeded.id.0.clone();
+
+    let list_out = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
+        .args([
+            "replay",
+            &source_id,
+            "--list",
+            "--workspace",
+            ws.to_str().unwrap(),
+            "--format",
+            "table",
+        ])
+        .output()
+        .expect("run agent-ctl replay --list in table format");
+    assert!(
+        list_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&list_out.stderr)
+    );
+    let list_stdout = String::from_utf8(list_out.stdout).expect("table output is UTF-8");
+    assert!(list_stdout.contains(&format!(
+        "CHECKPOINT STEPS FOR TASK: {source_id} (Database Migration Pipeline)"
+    )));
+    assert!(list_stdout.contains("Completed: 2/3 | Last Completed: Some(\"ST-2\")"));
+    let list_step_1 = list_stdout
+        .find("[Step 1] ST-1 | Completed | Backup & Schema Alter")
+        .unwrap();
+    let list_step_2 = list_stdout
+        .find("[Step 2] ST-2 | Completed | Transform Records")
+        .unwrap();
+    let list_step_3 = list_stdout.find("[Step 3] ST-3 | Failed").unwrap();
+    assert!(list_step_1 < list_step_2 && list_step_2 < list_step_3);
+
+    let outcome_out = Command::new(env!("CARGO_BIN_EXE_agent-ctl"))
+        .args([
+            "fork",
+            &source_id,
+            "--from-step",
+            "2",
+            "--workspace",
+            ws.to_str().unwrap(),
+            "--format",
+            "table",
+        ])
+        .output()
+        .expect("run agent-ctl fork in table format");
+    assert!(
+        outcome_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&outcome_out.stderr)
+    );
+    let outcome_stdout = String::from_utf8(outcome_out.stdout).expect("table output is UTF-8");
+    assert!(outcome_stdout.contains(&format!(
+        "ACTION: FORK | SOURCE: {source_id} -> TARGET TASK:"
+    )));
+    assert!(outcome_stdout.contains("| STATUS: Queued"));
+    let outcome_step_1 = outcome_stdout
+        .find("[Step 1] ST-1 | Completed | Backup & Schema Alter")
+        .unwrap();
+    let outcome_step_2 = outcome_stdout
+        .find("[Step 2] ST-2 | Queued | Transform Records")
+        .unwrap();
+    let outcome_step_3 = outcome_stdout
+        .find("[Step 3] ST-3 | Queued | Verify Checksums")
+        .unwrap();
+    assert!(outcome_step_1 < outcome_step_2 && outcome_step_2 < outcome_step_3);
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
