@@ -4072,3 +4072,9 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 - **Lý do cần nghiên cứu**: Tệp crates/agent-server/src/auth/validator.rs có độ dài 376 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-server/src/auth/validator.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
+### [P2] TOPIC-20261108-d07638: Phân tách cấu trúc tệp nguyên khối (391 dòng): crates/agent-runtime/src/operator/mod.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 10:27:39 UTC)
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/operator/mod.rs có độ dài 391 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/operator/mod.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
