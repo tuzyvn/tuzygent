@@ -295,6 +295,41 @@ fn test_bus_event_validation_and_filter() {
     assert!(!filter_mismatch.matches(&valid_event));
 }
 
+#[test]
+fn test_bus_event_filter_agent_constraints() {
+    use agent_runtime::bus::BusEventFilter;
+
+    let event = InterAgentEvent::new(
+        AgentId::from_str("agent-alpha"),
+        Some(AgentId::from_str("agent-beta")),
+        "task.handoff",
+        serde_json::json!({ "data": 42 }),
+    );
+    let event_without_recipient = InterAgentEvent::new(
+        AgentId::from_str("agent-alpha"),
+        None,
+        "task.handoff",
+        serde_json::json!({ "data": 42 }),
+    );
+
+    assert!(BusEventFilter::new()
+        .with_from_agent("agent-alpha")
+        .matches(&event));
+    assert!(!BusEventFilter::new()
+        .with_from_agent("agent-gamma")
+        .matches(&event));
+
+    assert!(BusEventFilter::new()
+        .with_to_agent("agent-beta")
+        .matches(&event));
+    assert!(!BusEventFilter::new()
+        .with_to_agent("agent-gamma")
+        .matches(&event));
+    assert!(!BusEventFilter::new()
+        .with_to_agent("agent-beta")
+        .matches(&event_without_recipient));
+}
+
 #[tokio::test]
 async fn test_sharded_bus_queue_concurrency_and_lock_isolation() {
     use agent_runtime::bus::ShardedBusQueue;
