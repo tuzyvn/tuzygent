@@ -203,6 +203,64 @@ fn test_account_max_retries_exceeded_on_persistent_timeout() {
 }
 
 #[test]
+fn test_resilient_manager_fault_policy_mut_replaces_policy() {
+    let temp_dir = temp_vault_dir("mutable_fault_policy");
+    let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
+    vault
+        .register_account(
+            AccountEngineKind::Codex,
+            "mutable_policy_account",
+            "Mutable Policy Account",
+            HashMap::new(),
+        )
+        .expect("registration should succeed");
+
+    let mut manager = ResilientAccountManager::new(vault, AccountFaultPolicy::none(), 0);
+    *manager.fault_policy_mut() =
+        AccountFaultPolicy::always(AccountFault::SocketTimeout).with_max_injections(1);
+
+    assert_eq!(manager.fault_policy().injected_count(), 0);
+
+    assert_eq!(
+        manager.select_account(&AccountEngineKind::Codex),
+        Err(AccountError::SocketTimeout)
+    );
+    assert_eq!(manager.fault_policy().injected_count(), 1);
+    assert!(manager.select_account(&AccountEngineKind::Codex).is_ok());
+    assert_eq!(manager.fault_policy().injected_count(), 1);
+    assert_eq!(manager.resolved_count(), 1);
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_resilient_manager_vault_returns_shared_vault() {
+    let temp_dir = temp_vault_dir("vault_accessor");
+    let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
+    vault
+        .register_account(
+            AccountEngineKind::Codex,
+            "vault_accessor_account",
+            "Vault Accessor Account",
+            HashMap::new(),
+        )
+        .expect("registration should succeed");
+
+    let manager = ResilientAccountManager::with_vault(vault.clone());
+    let manager_vault = manager.vault();
+
+    assert!(Arc::ptr_eq(manager_vault, &vault));
+    assert_eq!(
+        manager_vault
+            .list_accounts(Some(&AccountEngineKind::Codex))
+            .len(),
+        1
+    );
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
 fn test_account_connection_reset_recovery() {
     let temp_dir = temp_vault_dir("conn_reset");
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
