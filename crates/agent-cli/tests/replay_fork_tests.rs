@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use agent_cli::cli::{Cli, Commands, OutputFormat};
+use agent_cli::commands::replay::{handle, handle_fork};
 use agent_cli::{
     execute_replay_or_fork, inspect_checkpoints, CheckpointListPayload, ForkArgs, ReplayArgs,
     ReplayOutcomePayload,
@@ -378,6 +379,129 @@ async fn test_fork_task_from_checkpoint_creates_independent_task_inheriting_stat
         forked_cp.metadata.last_completed_subtask_id.as_deref(),
         Some("ST-1")
     );
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
+
+#[tokio::test]
+async fn test_handle_fork_converts_args_and_persists_forked_task() {
+    let ws = unique_test_workspace("handle_fork");
+    let seeded = seed_three_step_task(&ws).await;
+    let source_id = seeded.id.0.clone();
+
+    let args = ForkArgs {
+        task_id: Some(source_id.clone()),
+        flag_id: None,
+        from_step: Some(2),
+        subtask_id: None,
+        title: Some("Fork created through handler".to_string()),
+        goal: None,
+        prompt: None,
+        workspace: ws.clone(),
+        format: OutputFormat::Json,
+    };
+
+    handle_fork(args).await.expect("handle fork command");
+
+    let store = SqliteTaskStore::new(&ws).expect("open store");
+    let tasks = store.list_tasks(100, 0).await.expect("list tasks");
+    let forked = tasks
+        .iter()
+        .find(|task| task.id != seeded.id)
+        .expect("handler persists a forked task");
+    assert_eq!(forked.title, "Fork created through handler");
+    assert_eq!(forked.subtasks[0].status, TaskStatus::Completed);
+    assert_eq!(forked.subtasks[1].status, TaskStatus::Queued);
+    assert_eq!(forked.subtasks[2].status, TaskStatus::Queued);
+
+    let source = store
+        .get_task(&seeded.id)
+        .await
+        .expect("get source task")
+        .expect("source task remains stored");
+    assert_eq!(source.status, seeded.status);
+    assert_eq!(source.subtasks, seeded.subtasks);
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
+
+#[tokio::test]
+async fn test_handle_replay_persists_rewound_task() {
+    let ws = unique_test_workspace("handle_replay");
+    let seeded = seed_three_step_task(&ws).await;
+    let task_id = seeded.id.0.clone();
+
+    let args = ReplayArgs {
+        task_id: Some(task_id),
+        flag_id: None,
+        list: false,
+        from_step: Some(2),
+        subtask_id: None,
+        fork: false,
+        title: None,
+        goal: None,
+        prompt: None,
+        workspace: ws.clone(),
+        format: OutputFormat::Json,
+    };
+
+    handle(args).await.expect("handle replay command");
+
+    let store = SqliteTaskStore::new(&ws).expect("open store");
+    let replayed = store
+        .get_task(&seeded.id)
+        .await
+        .expect("get replayed task")
+        .expect("replayed task remains stored");
+    assert_eq!(replayed.id, seeded.id);
+    assert_eq!(replayed.status, TaskStatus::Queued);
+    assert_eq!(replayed.failure_count, 0);
+    assert_eq!(replayed.subtasks[0].status, TaskStatus::Completed);
+    assert_eq!(replayed.subtasks[1].status, TaskStatus::Queued);
+    assert_eq!(replayed.subtasks[2].status, TaskStatus::Queued);
+
+    let checkpoint = store
+        .get_task_checkpoint(&seeded.id)
+        .await
+        .expect("get replayed checkpoint")
+        .expect("replayed checkpoint remains stored");
+    assert_eq!(checkpoint.metadata.completed_subtasks, 1);
+    assert_eq!(
+        checkpoint.metadata.last_completed_subtask_id.as_deref(),
+        Some("ST-1")
+    );
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
+
+#[tokio::test]
+async fn test_handle_lists_checkpoints_without_mutating_task() {
+    let ws = unique_test_workspace("handle_replay_list");
+    let seeded = seed_three_step_task(&ws).await;
+    let args = ReplayArgs {
+        task_id: Some(seeded.id.0.clone()),
+        flag_id: None,
+        list: true,
+        from_step: None,
+        subtask_id: None,
+        fork: false,
+        title: None,
+        goal: None,
+        prompt: None,
+        workspace: ws.clone(),
+        format: OutputFormat::Json,
+    };
+
+    handle(args).await.expect("list replay checkpoints");
+
+    let store = SqliteTaskStore::new(&ws).expect("open store");
+    let listed_task = store
+        .get_task(&seeded.id)
+        .await
+        .expect("get listed task")
+        .expect("task remains stored");
+    assert_eq!(listed_task.status, seeded.status);
+    assert_eq!(listed_task.subtasks, seeded.subtasks);
 
     let _ = std::fs::remove_dir_all(&ws);
 }
