@@ -101,6 +101,33 @@ fn test_context_builder_policy_mut_changes_fault_behavior() {
 }
 
 #[test]
+fn test_context_builder_reset_counts_clears_all_counters() {
+    let mut resilient = ResilientContextBuilder::new(
+        ContextBuilder::new("Count reset goal"),
+        ContextBuilderFaultPolicy::intermittent(ContextBuilderFault::SocketTimeout, 2),
+        1,
+    );
+
+    assert!(resilient.build().is_ok());
+    assert_eq!(resilient.built_count(), 1);
+    assert_eq!(resilient.recovered_count(), 1);
+
+    *resilient.policy_mut() =
+        ContextBuilderFaultPolicy::always(ContextBuilderFault::CorruptedContext);
+    assert!(matches!(
+        resilient.build(),
+        Err(ContextBuilderError::CorruptedContext(_))
+    ));
+    assert_eq!(resilient.rejected_count(), 1);
+
+    resilient.reset_counts();
+
+    assert_eq!(resilient.built_count(), 0);
+    assert_eq!(resilient.recovered_count(), 0);
+    assert_eq!(resilient.rejected_count(), 0);
+}
+
+#[test]
 fn test_context_builder_persistent_timeout_exceeds_retries() {
     let builder = ContextBuilder::new("Mission impossible");
     let policy = ContextBuilderFaultPolicy::always(ContextBuilderFault::SocketTimeout);
