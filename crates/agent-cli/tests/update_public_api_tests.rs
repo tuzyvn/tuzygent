@@ -4,7 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::sync::Mutex;
 
 use agent_cli::update::{
-    run, run_resilient_command, TemporaryDirectory, UpdateStatus, DEFAULT_BRANCH,
+    run, run_resilient_command, ResilientUpdater, TemporaryDirectory, UpdateStatus, DEFAULT_BRANCH,
     DEFAULT_REPOSITORY,
 };
 
@@ -71,6 +71,22 @@ fn resilient_command_check_reports_latest_unavailable() {
     let (_temp, _restore) = install_failing_git();
 
     let result = futures::executor::block_on(run_resilient_command(true));
+
+    assert_eq!(
+        result,
+        Ok(UpdateStatus::LatestUnavailable {
+            current: env!("AGENTCTL_COMMIT").to_string(),
+        })
+    );
+}
+
+#[test]
+fn resilient_updater_check_reports_latest_unavailable_when_fetch_fails() {
+    let _lock = PATH_LOCK.lock().expect("PATH lock should not be poisoned");
+    let (_temp, _restore) = install_failing_git();
+    let mut updater = ResilientUpdater::default();
+
+    let result = futures::executor::block_on(updater.run_resilient(true));
 
     assert_eq!(
         result,
