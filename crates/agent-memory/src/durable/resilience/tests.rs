@@ -159,6 +159,57 @@ fn set_policy_and_set_max_retries_change_fault_recovery_behavior() {
     assert!(resilient.has_lesson("recovered"));
 }
 
+#[test]
+fn check_fault_injection_handles_retryable_exhausted_and_corrupted_faults() {
+    let mut resilient = ResilientDurableMemoryStore::with_store(store("fault_injection"));
+    resilient.set_max_retries(1);
+
+    assert_eq!(resilient.check_fault_injection(1), Ok(None));
+
+    resilient.set_policy(DurableMemoryFaultPolicy::always(
+        DurableMemoryFault::TransientIo,
+    ));
+    assert_eq!(resilient.check_fault_injection(1), Ok(Some(())));
+    assert_eq!(resilient.recovered_count(), 1);
+    assert_eq!(
+        resilient.check_fault_injection(2),
+        Err(DurableMemoryError::TransientIo(
+            "Simulated transient I/O failure during durable memory operation".to_string()
+        ))
+    );
+    assert_eq!(resilient.recovered_count(), 1);
+
+    resilient.set_policy(DurableMemoryFaultPolicy::always(
+        DurableMemoryFault::CorruptedState,
+    ));
+    assert!(matches!(
+        resilient.check_fault_injection(0),
+        Err(DurableMemoryError::CorruptedState(_))
+    ));
+    assert_eq!(resilient.rejected_count(), 1);
+}
+
+#[test]
+fn handle_transient_error_recovers_through_retry_limit_then_converts_io_error() {
+    let mut resilient = ResilientDurableMemoryStore::with_store(store("transient_error"));
+    resilient.set_max_retries(1);
+
+    assert_eq!(
+        resilient.handle_transient_error(1, std::io::Error::other("temporary failure"),),
+        Ok(())
+    );
+    assert_eq!(resilient.recovered_count(), 1);
+
+    assert_eq!(
+        resilient.handle_transient_error(
+            2,
+            std::io::Error::new(std::io::ErrorKind::TimedOut, "retry limit reached"),
+        ),
+        Err(DurableMemoryError::SocketTimeout)
+    );
+    assert_eq!(resilient.recovered_count(), 1);
+}
+
 #[tokio::test]
 async fn reset_counts_clears_counters_and_lesson_indexes() -> anyhow::Result<()> {
     let mut resilient = ResilientDurableMemoryStore::with_store(store("reset"));

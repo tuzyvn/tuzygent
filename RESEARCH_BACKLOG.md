@@ -3900,7 +3900,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261108-df81c2: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/durable/resilience/recovery.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 01:45:46 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/durable/resilience/recovery.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `check_fault_injection` (L5), `handle_transient_error` (L32).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/durable/resilience/recovery.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
