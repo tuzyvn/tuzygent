@@ -13,6 +13,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn default_policy_has_expected_limits_and_no_red_lines() {
+        let policy = GuardrailPolicy::default();
+
+        assert!(policy.red_lines.is_empty());
+        assert_eq!(policy.max_subtasks_per_goal, 30);
+        assert_eq!(policy.max_retries_on_error, 3);
+        assert!(policy.allow_shell_execution);
+        assert_eq!(policy.max_output_bytes, 10 * 1024 * 1024);
+    }
+
+    #[test]
     fn blocks_each_alternative_and_normalizes_whitespace_and_case() {
         let policy = GuardrailPolicy::default_enterprise();
         for command in [
