@@ -9,6 +9,36 @@ use agent_memory::{DurableMemoryStore, ScratchpadManager};
 use std::sync::Arc;
 
 #[test]
+fn test_is_auth_or_quota_message_recognizes_fatal_markers_case_insensitively() {
+    let fatal_messages = [
+        "Quota exhausted",
+        "quota exceeded",
+        "Rate limit reached",
+        "rate_limit_error",
+        "401 Unauthorized",
+        "403 forbidden",
+        "Invalid API key",
+        "request unauthorized",
+        "insufficient_quota",
+        "RESOURCE_EXHAUSTED",
+        "402 payment required",
+        "Model not found",
+        "model_not_found",
+        "billing_not_active",
+        "credit balance is too low",
+    ];
+
+    for message in fatal_messages {
+        assert!(
+            is_auth_or_quota_message(message),
+            "expected fatal marker to be recognized: {message}"
+        );
+    }
+
+    assert!(!is_auth_or_quota_message("The request timed out"));
+}
+
+#[test]
 fn test_step_action_from_remediation_outcome() {
     let inserted = RemediationOutcome::BacktrackingInserted;
     assert_eq!(StepAction::from(inserted), StepAction::Backtrack);
@@ -21,6 +51,36 @@ fn test_step_action_from_remediation_outcome() {
         StepAction::Halt(QueueExecutionOutcome::Failed {
             error: "max retries reached".to_string(),
         })
+    );
+}
+
+#[test]
+fn test_queue_execution_outcome_clone_and_equality_preserve_variants() {
+    let outcomes = [
+        QueueExecutionOutcome::Completed,
+        QueueExecutionOutcome::BlockedWaitingApproval {
+            reason: "approval required".to_string(),
+        },
+        QueueExecutionOutcome::Canceled {
+            reason: "canceled by user".to_string(),
+        },
+        QueueExecutionOutcome::Failed {
+            error: "execution failed".to_string(),
+        },
+    ];
+
+    for outcome in outcomes {
+        let cloned = outcome.clone();
+        assert_eq!(cloned, outcome);
+    }
+
+    assert_ne!(
+        QueueExecutionOutcome::BlockedWaitingApproval {
+            reason: "same text".to_string(),
+        },
+        QueueExecutionOutcome::Canceled {
+            reason: "same text".to_string(),
+        }
     );
 }
 
