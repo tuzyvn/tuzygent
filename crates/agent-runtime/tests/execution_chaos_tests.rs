@@ -9,9 +9,9 @@ use agent_engine::{
 };
 use agent_memory::{DurableMemoryStore, ScratchpadManager};
 use agent_runtime::{
-    simulate_execution_fault, AutonomousOodaLoop, ExecutionFault, ExecutionFaultPolicy,
-    ExecutionService, GoalDecomposer, InFlightSupplementController, ResilientExecutionService,
-    SubtaskExecutor,
+    is_retryable_execution_error, simulate_execution_fault, AutonomousOodaLoop, ExecutionFault,
+    ExecutionFaultPolicy, ExecutionService, GoalDecomposer, InFlightSupplementController,
+    ResilientExecutionService, SubtaskExecutor,
 };
 
 /// Mock engine for chaos testing that records invocations and can simulate failures
@@ -103,6 +103,51 @@ fn test_execution_fault_simulation_direct() {
             format!("{:?}", simulate_execution_fault(&fault).unwrap_err())
         );
     }
+}
+
+#[test]
+fn test_execution_fault_transience_classification() {
+    let transient_faults = [
+        ExecutionFault::SocketTimeout,
+        ExecutionFault::ConnectionReset,
+        ExecutionFault::TransientIo,
+        ExecutionFault::ServiceUnavailable,
+        ExecutionFault::WorkerCrash,
+        ExecutionFault::CapacityOverload,
+    ];
+    let permanent_faults = [ExecutionFault::CorruptedOutput, ExecutionFault::Panic];
+
+    for fault in transient_faults {
+        assert!(fault.is_transient(), "{fault:?} should be transient");
+    }
+    for fault in permanent_faults {
+        assert!(!fault.is_transient(), "{fault:?} should not be transient");
+    }
+}
+
+#[test]
+fn test_execution_error_retryability_classification() {
+    assert!(!is_retryable_execution_error(&EngineError::PolicyRejected(
+        "unsafe command".into()
+    )));
+    assert!(!is_retryable_execution_error(&EngineError::ProcessFailed(
+        "execution canceled by user".into()
+    )));
+
+    // Other process failures and non-policy engine errors remain retryable.
+    assert!(is_retryable_execution_error(&EngineError::ProcessFailed(
+        "worker exited unexpectedly".into()
+    )));
+    assert!(is_retryable_execution_error(&EngineError::ProcessFailed(
+        "operation cancelled".into()
+    )));
+    assert!(is_retryable_execution_error(&EngineError::CliNotFound(
+        "engine unavailable".into()
+    )));
+    assert!(is_retryable_execution_error(&EngineError::ApiRequestFailed(
+        "temporary server error".into()
+    )));
+    assert!(is_retryable_execution_error(&EngineError::Timeout));
 }
 
 #[tokio::test]

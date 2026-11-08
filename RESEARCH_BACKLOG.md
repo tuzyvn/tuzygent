@@ -3918,7 +3918,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261108-4cb484: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/execution/fault.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 02:16:19 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/execution/fault.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `is_transient` (L45), `is_retryable_execution_error` (L146).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/execution/fault.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
