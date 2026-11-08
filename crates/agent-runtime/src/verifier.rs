@@ -320,6 +320,69 @@ fn take_tail_chars(s: &str, n: usize) -> String {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_parse_specs_recognizes_supported_verification_descriptions() {
+        let temp_dir = std::env::temp_dir();
+        let verifier = TaskVerifier::new(&temp_dir);
+        let specs = verifier.parse_specs(
+            "- command: cargo check\n* file_exists: report.txt\n• json: data.json\ncontains: report.txt | finished\npytest tests/\nReview deployment manually",
+        );
+
+        assert_eq!(
+            specs,
+            vec![
+                VerificationSpec::Command {
+                    command: "cargo check".into(),
+                    expected_exit_code: 0,
+                },
+                VerificationSpec::FileExists {
+                    path: "report.txt".into(),
+                    min_bytes: Some(1),
+                },
+                VerificationSpec::JsonValid {
+                    path: "data.json".into(),
+                },
+                VerificationSpec::ContentContains {
+                    path: "report.txt".into(),
+                    pattern: "finished".into(),
+                },
+                VerificationSpec::Command {
+                    command: "pytest tests/".into(),
+                    expected_exit_code: 0,
+                },
+                VerificationSpec::Custom {
+                    description: "Review deployment manually".into(),
+                },
+            ]
+        );
+        assert!(verifier.parse_specs(" \n ").is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_verify_all_aggregates_results_and_rejects_empty_specs() {
+        let workspace = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let verifier = TaskVerifier::new(workspace);
+        let specs = vec![
+            VerificationSpec::FileExists {
+                path: "Cargo.toml".into(),
+                min_bytes: Some(1),
+            },
+            VerificationSpec::Custom {
+                description: "manual review required".into(),
+            },
+        ];
+
+        let (passed, results) = verifier.verify_all(&specs).await;
+        assert!(!passed);
+        assert_eq!(results.len(), 2);
+        assert!(results[0].passed);
+        assert!(!results[1].passed);
+
+        let (empty_passed, empty_results) = verifier.verify_all(&[]).await;
+        assert!(!empty_passed);
+        assert!(empty_results.is_empty());
+    }
+
     #[tokio::test]
     async fn test_verify_command_spec_failure_handled_gracefully() {
         let temp_dir = std::env::temp_dir();
