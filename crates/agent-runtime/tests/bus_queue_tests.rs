@@ -62,3 +62,27 @@ async fn publish_delivers_to_event_shard_and_reports_boundary_results() {
     queue.close_all();
     assert!(queue.publish(event).is_err());
 }
+
+#[tokio::test]
+async fn publish_batch_routes_events_and_counts_recipients() {
+    let queue = ShardedBusQueue::new(4, 3);
+    let empty: Vec<InterAgentEvent> = Vec::new();
+    assert_eq!(queue.publish_batch(empty).unwrap(), 0);
+
+    let first = event("sender-a", Some("recipient-a"), "task.created");
+    let second = event("sender-b", Some("recipient-b"), "task.updated");
+    let first_shard = queue.shard_for_event(&first);
+    let second_shard = queue.shard_for_event(&second);
+    let mut receivers: Vec<_> = (0..queue.shard_count())
+        .map(|shard| queue.subscribe_shard(shard).unwrap())
+        .collect();
+
+    assert_eq!(
+        queue
+            .publish_batch(vec![first.clone(), second.clone()])
+            .unwrap(),
+        2
+    );
+    assert_eq!(receivers[first_shard].recv().await.unwrap(), first);
+    assert_eq!(receivers[second_shard].recv().await.unwrap(), second);
+}
