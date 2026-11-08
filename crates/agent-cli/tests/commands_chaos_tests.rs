@@ -348,6 +348,18 @@ async fn execute_high_load_concurrency_benchmark() {
     assert!(sharded_stats.throughput_ops_per_sec > 200.0);
 }
 
+#[test]
+fn commands_benchmark_action_builds_valid_and_invalid_actions() {
+    assert_eq!(
+        CommandsBenchmarkHarness::make_benchmark_action(7, false),
+        ("valid_cmd_action_7".to_string(), false)
+    );
+    assert_eq!(
+        CommandsBenchmarkHarness::make_benchmark_action(12, true),
+        ("invalid_cmd_arg_12".to_string(), true)
+    );
+}
+
 /// TDD test case for TOPIC-20261105-ed30f7 & TOPIC-20261105-d26a5b:
 /// High-load concurrency benchmark (10,000 requests) & lock contention isolation
 /// for agent-cli::commands with P50/P90/P99 latency profiling and bounded memory verification.
