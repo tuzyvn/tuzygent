@@ -847,3 +847,177 @@ async fn test_task_service_replay_and_fork_from_checkpoint_execution() {
 
     let _ = std::fs::remove_dir_all(&ws);
 }
+
+#[tokio::test]
+async fn test_prepare_replay_from_checkpoint_persists_rewound_task_without_dispatch() {
+    let ws = unique_temp_dir();
+    let store = Arc::new(SqliteTaskStore::new(&ws).expect("store init"));
+    let service = TaskService::new(store.clone(), &ws, 2, None, None);
+
+    let mut task = Task::new("Replay source", "Prepare a replay", Priority::High);
+    let mut completed = SubTask::new("ST-1", "Completed", "run step1", "none");
+    completed.status = TaskStatus::Completed;
+    completed.output_excerpt = Some("cached output".into());
+    let mut executing = SubTask::new("ST-2", "In flight", "run step2", "none");
+    executing.status = TaskStatus::Executing;
+    executing.output_excerpt = Some("partial output".into());
+    let mut failed = SubTask::new("ST-3", "Failed", "run step3", "none");
+    failed.status = TaskStatus::Failed {
+        error: "previous failure".into(),
+    };
+    failed.retry_count = 2;
+    task.subtasks = vec![completed, executing, failed];
+    task.status = TaskStatus::Failed {
+        error: "task failed".into(),
+    };
+    task.failure_count = 3;
+    let task_id = task.id.clone();
+    store.save_task(&task).await.expect("save task");
+
+    // With no checkpoint, the API builds one from task subtasks, rewinds from step 2,
+    // and persists the prepared state without dispatching execution.
+    let prepared = service
+        .prepare_replay_from_checkpoint(&task_id, Some(2))
+        .await
+        .expect("prepare replay");
+    assert_eq!(prepared.id, task_id);
+    assert_eq!(prepared.status, TaskStatus::Queued);
+    assert_eq!(prepared.failure_count, 0);
+    assert_eq!(prepared.subtasks[0].status, TaskStatus::Completed);
+    assert_eq!(
+        prepared.subtasks[0].output_excerpt.as_deref(),
+        Some("cached output")
+    );
+    for subtask in &prepared.subtasks[1..] {
+        assert_eq!(subtask.status, TaskStatus::Queued);
+        assert_eq!(subtask.output_excerpt, None);
+        assert_eq!(subtask.retry_count, 0);
+    }
+
+    let stored_task = store
+        .get_task(&task_id)
+        .await
+        .expect("load prepared task")
+        .expect("prepared task persisted");
+    assert_eq!(stored_task.id, prepared.id);
+    assert_eq!(stored_task.status, prepared.status);
+    assert_eq!(stored_task.failure_count, prepared.failure_count);
+    assert_eq!(stored_task.subtasks, prepared.subtasks);
+    let checkpoint = store
+        .get_task_checkpoint(&task_id)
+        .await
+        .expect("load generated checkpoint")
+        .expect("checkpoint persisted");
+    assert_eq!(checkpoint.subtasks, prepared.subtasks);
+    assert!(checkpoint.verify_integrity_for_task(&task_id).is_ok());
+
+    let missing_id = TaskId::new();
+    let missing_error = service
+        .prepare_replay_from_checkpoint(&missing_id, None)
+        .await
+        .expect_err("missing task should fail");
+    assert!(missing_error.to_string().contains("Task not found"));
+
+    let invalid_step = service
+        .prepare_replay_from_checkpoint(&task_id, Some(4))
+        .await
+        .expect_err("out of range replay step should fail");
+    assert!(invalid_step.to_string().contains("out of bounds"));
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
+
+#[tokio::test]
+async fn test_fork_task_from_checkpoint_persists_independent_fork_and_rejects_errors() {
+    let ws = unique_temp_dir();
+    let store = Arc::new(SqliteTaskStore::new(&ws).expect("store init"));
+    let service = TaskService::new(store.clone(), &ws, 2, None, None);
+
+    let mut source = Task::new("Original title", "Original goal", Priority::High);
+    let mut completed = SubTask::new("ST-1", "Completed", "run step1", "none");
+    completed.status = TaskStatus::Completed;
+    completed.output_excerpt = Some("keep this result".into());
+    let mut in_flight = SubTask::new("ST-2", "In flight", "run step2", "none");
+    in_flight.status = TaskStatus::Executing;
+    let queued = SubTask::new("ST-3", "Queued", "run step3", "none");
+    source.subtasks = vec![completed, in_flight, queued];
+    source.status = TaskStatus::Completed;
+    let source_id = source.id.clone();
+    store.save_task(&source).await.expect("save source");
+    store
+        .save_checkpoint(&source_id, &source.subtasks)
+        .await
+        .expect("save source checkpoint");
+
+    let forked = service
+        .fork_task_from_checkpoint(
+            &source_id,
+            Some(2),
+            Some("Forked title".into()),
+            Some("Forked goal".into()),
+        )
+        .await
+        .expect("fork task");
+    assert_ne!(forked.id, source_id);
+    assert_eq!(forked.title, "Forked title");
+    assert_eq!(forked.goal_description, "Forked goal");
+    assert_eq!(forked.status, TaskStatus::Queued);
+    assert_eq!(forked.failure_count, 0);
+    assert_eq!(forked.subtasks[0].status, TaskStatus::Completed);
+    assert_eq!(
+        forked.subtasks[0].output_excerpt.as_deref(),
+        Some("keep this result")
+    );
+    assert_eq!(forked.subtasks[1].status, TaskStatus::Queued);
+    assert_eq!(forked.subtasks[2].status, TaskStatus::Queued);
+
+    let stored_fork = store
+        .get_task(&forked.id)
+        .await
+        .expect("load fork")
+        .expect("fork persisted");
+    assert_eq!(stored_fork.id, forked.id);
+    assert_eq!(stored_fork.title, forked.title);
+    assert_eq!(stored_fork.goal_description, forked.goal_description);
+    assert_eq!(stored_fork.status, forked.status);
+    assert_eq!(stored_fork.subtasks, forked.subtasks);
+    let fork_checkpoint = store
+        .get_task_checkpoint(&forked.id)
+        .await
+        .expect("load fork checkpoint")
+        .expect("fork checkpoint persisted");
+    assert_eq!(fork_checkpoint.subtasks, forked.subtasks);
+    assert!(fork_checkpoint
+        .verify_integrity_for_task(&forked.id)
+        .is_ok());
+
+    let stored_source = store
+        .get_task(&source_id)
+        .await
+        .expect("load source")
+        .expect("source still exists");
+    assert_eq!(stored_source.id, source.id);
+    assert_eq!(stored_source.status, source.status);
+    assert_eq!(stored_source.subtasks, source.subtasks);
+    let source_checkpoint = store
+        .get_task_checkpoint(&source_id)
+        .await
+        .expect("load source checkpoint")
+        .expect("source checkpoint remains");
+    assert_eq!(source_checkpoint.subtasks, source.subtasks);
+
+    let missing_id = TaskId::new();
+    let missing_error = service
+        .fork_task_from_checkpoint(&missing_id, None, None, None)
+        .await
+        .expect_err("missing source should fail");
+    assert!(missing_error.to_string().contains("Source task not found"));
+
+    let invalid_step = service
+        .fork_task_from_checkpoint(&source_id, Some(0), None, None)
+        .await
+        .expect_err("invalid fork step should fail");
+    assert!(invalid_step.to_string().contains("Step index must be >= 1"));
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
