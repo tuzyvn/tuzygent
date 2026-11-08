@@ -98,6 +98,47 @@ async fn policy_rejects_before_engine_is_called() -> Result<(), Box<dyn std::err
 }
 
 #[tokio::test]
+async fn execute_cancellable_rejects_pre_cancelled_per_call_token() {
+    let engine = Arc::new(RecordingEngine(Mutex::new(None)));
+    let service = ExecutionService::new("/tmp", None, None);
+    let token = Arc::new(AtomicBool::new(true));
+
+    let result = service
+        .execute_cancellable(engine.clone(), &EngineInput::new("echo hello", "/tmp"), Some(&token))
+        .await;
+
+    assert!(matches!(
+        result,
+        Err(EngineError::ProcessFailed(message)) if message == "Execution canceled before start"
+    ));
+    let guard = engine.0.lock().expect("recording engine mutex should not be poisoned");
+    assert!(guard.is_none(), "canceled execution must not call the engine");
+}
+
+#[tokio::test]
+async fn execute_uses_pre_cancelled_service_token() {
+    let engine = Arc::new(RecordingEngine(Mutex::new(None)));
+    let token = Arc::new(AtomicBool::new(true));
+    let service = ExecutionService::new("/tmp", None, None)
+        .with_cancellation_token(token.clone());
+
+    let result = service
+        .execute(engine.clone(), &EngineInput::new("echo hello", "/tmp"))
+        .await;
+
+    assert!(matches!(
+        result,
+        Err(EngineError::ProcessFailed(message)) if message == "Execution canceled before start"
+    ));
+    assert!(Arc::ptr_eq(
+        service.cancellation_token().expect("service token should be configured"),
+        &token
+    ));
+    let guard = engine.0.lock().expect("recording engine mutex should not be poisoned");
+    assert!(guard.is_none(), "canceled execution must not call the engine");
+}
+
+#[tokio::test]
 async fn recording_engine_handles_poisoned_mutex_gracefully() {
     let engine = Arc::new(RecordingEngine(Mutex::new(None)));
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
