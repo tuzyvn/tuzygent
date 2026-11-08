@@ -67,6 +67,40 @@ fn test_context_builder_transient_io_recovery() {
 }
 
 #[test]
+fn test_context_builder_mut_updates_builder_used_by_build() {
+    let mut resilient = ResilientContextBuilder::new(
+        ContextBuilder::new("Original goal"),
+        ContextBuilderFaultPolicy::none(),
+        3,
+    );
+
+    *resilient.builder_mut() = ContextBuilder::new("Updated goal")
+        .with_recent_logs(vec!["Updated activity".to_string()]);
+
+    let (system_context, working_context) = resilient.build().unwrap();
+    assert!(system_context.contains("Updated goal"));
+    assert!(!system_context.contains("Original goal"));
+    assert!(working_context.contains("Updated activity"));
+    assert_eq!(resilient.built_count(), 1);
+}
+
+#[test]
+fn test_context_builder_policy_mut_changes_fault_behavior() {
+    let mut resilient = ResilientContextBuilder::new(
+        ContextBuilder::new("Policy mutation goal"),
+        ContextBuilderFaultPolicy::none(),
+        2,
+    );
+    *resilient.policy_mut() =
+        ContextBuilderFaultPolicy::intermittent(ContextBuilderFault::SocketTimeout, 2);
+
+    assert!(resilient.build().is_ok());
+    assert_eq!(resilient.policy().injected_count(), 1);
+    assert_eq!(resilient.recovered_count(), 1);
+    assert_eq!(resilient.built_count(), 1);
+}
+
+#[test]
 fn test_context_builder_persistent_timeout_exceeds_retries() {
     let builder = ContextBuilder::new("Mission impossible");
     let policy = ContextBuilderFaultPolicy::always(ContextBuilderFault::SocketTimeout);

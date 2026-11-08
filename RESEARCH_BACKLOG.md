@@ -3888,7 +3888,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261108-f5de80: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/context_builder/resilience.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 01:19:43 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/context_builder/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `builder_mut` (L60), `build_with` (L114).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/context_builder/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
