@@ -296,3 +296,26 @@ async fn test_subagent_scoped_scratchpad_permissions_isolation_anti_snooping_and
 
     let _ = std::fs::remove_dir_all(&ws);
 }
+
+#[tokio::test]
+async fn test_scoped_scratchpad_isolated_child_blocks_parent_reads() {
+    let ws = unique_temp_dir();
+    let parent = ScopedScratchpad::new(&ws, "parent-agent", ScopeAccess::ReadWrite);
+    parent.write("parent-only context").await.unwrap();
+
+    let child = parent.isolated_child("isolated-worker");
+    assert_eq!(child.scope_id(), "isolated-worker");
+    assert_eq!(child.parent_scope_id(), Some("parent-agent"));
+    assert_eq!(child.parent_path(), Some(parent.file_path()));
+    assert_eq!(child.access(), ScopeAccess::Isolated);
+    assert_eq!(
+        child.read_parent().await.unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
+
+    child.write("private child context").await.unwrap();
+    assert_eq!(child.read().await.unwrap(), "private child context");
+    assert_eq!(parent.read().await.unwrap(), "parent-only context");
+
+    let _ = std::fs::remove_dir_all(&ws);
+}
