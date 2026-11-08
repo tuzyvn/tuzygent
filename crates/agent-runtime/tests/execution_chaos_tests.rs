@@ -106,6 +106,25 @@ fn test_execution_fault_simulation_direct() {
 }
 
 #[test]
+fn resilient_execution_service_exposes_and_forwards_backoff_policy() {
+    let service = ExecutionService::new("/tmp", None, None);
+    let resilient = ResilientExecutionService::new(service, ExecutionFaultPolicy::none(), 3);
+
+    assert_eq!(resilient.backoff_policy(), None);
+
+    let policy = BackoffPolicy::new(
+        Duration::from_millis(25),
+        Duration::from_millis(200),
+        2.0,
+        false,
+    );
+    let resilient = resilient.with_backoff_policy(policy.clone());
+
+    assert_eq!(resilient.backoff_policy(), Some(&policy));
+    assert_eq!(resilient.service().backoff_policy(), Some(&policy));
+}
+
+#[test]
 fn test_execution_fault_transience_classification() {
     let transient_faults = [
         ExecutionFault::SocketTimeout,
