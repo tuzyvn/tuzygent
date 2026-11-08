@@ -270,6 +270,52 @@ mod tests {
     }
 
     #[test]
+    fn increment_validated_counts_calls_without_changing_other_counters() {
+        let mut validator = validator();
+
+        validator.increment_validated();
+        validator.increment_validated();
+
+        assert_eq!(validator.validated_count(), 2);
+        assert_eq!(validator.rejected_count(), 0);
+        assert_eq!(validator.recovered_count(), 0);
+        assert_eq!(validator.fallback_count(), 0);
+    }
+
+    #[test]
+    fn increment_validated_saturates_at_usize_max() {
+        let mut validator = validator();
+        validator.validated_count = usize::MAX;
+
+        validator.increment_validated();
+
+        assert_eq!(validator.validated_count(), usize::MAX);
+    }
+
+    #[test]
+    fn increment_rejected_counts_calls_without_changing_other_counters() {
+        let mut validator = validator();
+
+        validator.increment_rejected();
+        validator.increment_rejected();
+
+        assert_eq!(validator.rejected_count(), 2);
+        assert_eq!(validator.validated_count(), 0);
+        assert_eq!(validator.recovered_count(), 0);
+        assert_eq!(validator.fallback_count(), 0);
+    }
+
+    #[test]
+    fn increment_rejected_saturates_at_usize_max() {
+        let mut validator = validator();
+        validator.rejected_count = usize::MAX;
+
+        validator.increment_rejected();
+
+        assert_eq!(validator.rejected_count(), usize::MAX);
+    }
+
+    #[test]
     fn reset_counts_clears_validation_and_rejection_counters() {
         let mut validator = validator().with_fallback_token(Arc::new("fallback-token".into()));
         assert_eq!(
