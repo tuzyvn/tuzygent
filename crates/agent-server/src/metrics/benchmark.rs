@@ -140,3 +140,32 @@ impl MetricsBenchmarkHarness {
         (single, sharded)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::MetricsBenchmarkHarness;
+
+    fn assert_valid_report(report: &super::MetricsBenchmarkReport, expected_requests: usize) {
+        assert_eq!(report.total_requests, expected_requests);
+        assert!(report.p50_latency_micros >= 0.0);
+        assert!(report.p50_latency_micros <= report.p90_latency_micros);
+        assert!(report.p90_latency_micros <= report.p99_latency_micros);
+        assert!(report.throughput_ops_per_sec >= 0.0);
+    }
+
+    #[test]
+    fn run_single_thread_returns_valid_report() {
+        let report = MetricsBenchmarkHarness::run_single_thread(128);
+
+        assert_valid_report(&report, 128);
+    }
+
+    #[test]
+    fn run_sharded_concurrent_returns_valid_report() {
+        let iterations = 128;
+        let shards_count = 8;
+        let report = MetricsBenchmarkHarness::run_sharded_concurrent(iterations, shards_count);
+
+        assert_valid_report(&report, iterations);
+    }
+}

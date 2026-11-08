@@ -3990,7 +3990,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261108-5ffa8d: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-server/src/metrics/benchmark.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 08:08:16 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/metrics/benchmark.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `run_single_thread` (L30), `run_sharded_concurrent` (L71).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/metrics/benchmark.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
