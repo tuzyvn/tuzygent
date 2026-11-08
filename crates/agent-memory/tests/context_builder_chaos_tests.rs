@@ -74,8 +74,8 @@ fn test_context_builder_mut_updates_builder_used_by_build() {
         3,
     );
 
-    *resilient.builder_mut() = ContextBuilder::new("Updated goal")
-        .with_recent_logs(vec!["Updated activity".to_string()]);
+    *resilient.builder_mut() =
+        ContextBuilder::new("Updated goal").with_recent_logs(vec!["Updated activity".to_string()]);
 
     let (system_context, working_context) = resilient.build().unwrap();
     assert!(system_context.contains("Updated goal"));

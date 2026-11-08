@@ -144,9 +144,9 @@ fn test_execution_error_retryability_classification() {
     assert!(is_retryable_execution_error(&EngineError::CliNotFound(
         "engine unavailable".into()
     )));
-    assert!(is_retryable_execution_error(&EngineError::ApiRequestFailed(
-        "temporary server error".into()
-    )));
+    assert!(is_retryable_execution_error(
+        &EngineError::ApiRequestFailed("temporary server error".into())
+    ));
     assert!(is_retryable_execution_error(&EngineError::Timeout));
 }
 

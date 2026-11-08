@@ -20,7 +20,10 @@ mod tests {
             (VoiceEngineType::OmniVoice, "omnivoice"),
             (VoiceEngineType::EdgeNeural, "edge"),
             (VoiceEngineType::SherpaOnnx, "sherpa_onnx"),
-            (VoiceEngineType::Custom("local-engine".to_string()), "local-engine"),
+            (
+                VoiceEngineType::Custom("local-engine".to_string()),
+                "local-engine",
+            ),
         ];
 
         for (engine, expected) in cases {

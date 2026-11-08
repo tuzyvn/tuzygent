@@ -12,7 +12,9 @@ fn test_default_dir_uses_home_directory_and_accounts_suffix() {
 
     assert_eq!(
         AccountVault::default_dir(),
-        std::path::Path::new(&home).join(".agentcore").join("accounts")
+        std::path::Path::new(&home)
+            .join(".agentcore")
+            .join("accounts")
     );
 }
 
@@ -29,7 +31,9 @@ fn test_new_and_default_use_default_directory() {
 
 #[test]
 fn test_base_dir_preserves_the_configured_path() {
-    let configured_dir = std::path::PathBuf::from("vault-data").join("..").join("accounts");
+    let configured_dir = std::path::PathBuf::from("vault-data")
+        .join("..")
+        .join("accounts");
     let vault = AccountVault::new_with_dir(configured_dir.clone());
 
     assert_eq!(vault.base_dir(), configured_dir.as_path());
@@ -64,10 +68,8 @@ fn test_accounts_read_returns_registered_profiles() {
 
 #[test]
 fn test_rr_read_observes_round_robin_index() {
-    let temp_dir = std::env::temp_dir().join(format!(
-        "vault_rr_read_{}",
-        uuid::Uuid::new_v4().simple()
-    ));
+    let temp_dir =
+        std::env::temp_dir().join(format!("vault_rr_read_{}", uuid::Uuid::new_v4().simple()));
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     let engine = AccountEngineKind::Codex;
     {
@@ -90,10 +92,8 @@ fn test_rr_read_observes_round_robin_index() {
 
 #[test]
 fn test_rr_write_updates_round_robin_index() {
-    let temp_dir = std::env::temp_dir().join(format!(
-        "vault_rr_write_{}",
-        uuid::Uuid::new_v4().simple()
-    ));
+    let temp_dir =
+        std::env::temp_dir().join(format!("vault_rr_write_{}", uuid::Uuid::new_v4().simple()));
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     let engine = AccountEngineKind::Claude;
     {

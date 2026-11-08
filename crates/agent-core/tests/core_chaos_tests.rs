@@ -283,7 +283,10 @@ fn test_sharded_benchmark_reports_successes_rejections_and_empty_run() {
     assert_eq!(empty.p99_latency_us, 0.0);
     assert_eq!(empty.max_latency_us, 0.0);
     assert_eq!(empty.throughput_ops_per_sec, 0.0);
-    assert_eq!(empty.memory_allocated_bytes, rejected.memory_allocated_bytes);
+    assert_eq!(
+        empty.memory_allocated_bytes,
+        rejected.memory_allocated_bytes
+    );
 }
 
 #[test]

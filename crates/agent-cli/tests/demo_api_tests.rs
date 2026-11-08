@@ -2,9 +2,12 @@ use agent_cli::commands::demo::{comedy_show, multi_agent};
 
 #[tokio::test]
 async fn multi_agent_reports_an_unknown_engine() {
-    let error = multi_agent("definitely-not-a-configured-engine".to_string(), ".".to_string())
-        .await
-        .expect_err("an unknown engine should be rejected before starting the demo");
+    let error = multi_agent(
+        "definitely-not-a-configured-engine".to_string(),
+        ".".to_string(),
+    )
+    .await
+    .expect_err("an unknown engine should be rejected before starting the demo");
 
     assert!(error
         .to_string()

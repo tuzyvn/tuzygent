@@ -23,7 +23,10 @@ fn try_recv_resilient_reports_event_empty_and_closed_states() {
     assert_eq!(subscriber.try_recv_resilient(), Ok(Some(expected)));
 
     drop(sender);
-    assert_eq!(subscriber.try_recv_resilient(), Err(BusError::ChannelClosed));
+    assert_eq!(
+        subscriber.try_recv_resilient(),
+        Err(BusError::ChannelClosed)
+    );
 }
 
 #[test]

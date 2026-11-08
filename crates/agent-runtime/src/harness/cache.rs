@@ -36,7 +36,7 @@ impl HarnessLessonCache {
 
     pub fn evict_if_needed(&mut self) {
         if let Some(max) = self.max_capacity {
-            while self.order.len() >= max && max > 0 {
+            while self.order.len() > max {
                 if let Some(old_id) = self.order.pop_front() {
                     self.cache.remove(&old_id);
                 }
@@ -45,20 +45,22 @@ impl HarnessLessonCache {
     }
 
     pub fn insert(&mut self, lesson: &HarnessLesson) {
-        if let Some(max) = self.max_capacity {
-            if max == 0 {
-                return;
-            }
-            while self.order.len() >= max {
-                if let Some(old_id) = self.order.pop_front() {
-                    self.cache.remove(&old_id);
+        if self.max_capacity == Some(0) {
+            return;
+        }
+
+        if !self.cache.contains_key(&lesson.id) {
+            if let Some(max) = self.max_capacity {
+                while self.order.len() >= max {
+                    if let Some(old_id) = self.order.pop_front() {
+                        self.cache.remove(&old_id);
+                    }
                 }
             }
-            if !self.cache.contains_key(&lesson.id) {
-                self.order.push_back(lesson.id.clone());
-            }
-            self.cache.insert(lesson.id.clone(), lesson.clone());
+            self.order.push_back(lesson.id.clone());
         }
+
+        self.cache.insert(lesson.id.clone(), lesson.clone());
     }
 
     pub fn get(&self, id: &str) -> Option<&HarnessLesson> {

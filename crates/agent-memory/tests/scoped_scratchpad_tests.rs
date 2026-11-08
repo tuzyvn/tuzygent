@@ -32,14 +32,23 @@ async fn test_read_recent_entries_returns_latest_nonempty_lines_in_order() {
     let ws = unique_temp_dir();
     let scope = ScopedScratchpad::new(&ws, "recent-log", ScopeAccess::ReadWrite);
 
-    assert_eq!(scope.read_recent_entries(3).await.unwrap(), Vec::<String>::new());
-    scope.write("  first  \n\n second \nthird\nfourth  \n").await.unwrap();
+    assert_eq!(
+        scope.read_recent_entries(3).await.unwrap(),
+        Vec::<String>::new()
+    );
+    scope
+        .write("  first  \n\n second \nthird\nfourth  \n")
+        .await
+        .unwrap();
 
     assert_eq!(
         scope.read_recent_entries(2).await.unwrap(),
         vec!["third".to_string(), "fourth".to_string()]
     );
-    assert_eq!(scope.read_recent_entries(0).await.unwrap(), Vec::<String>::new());
+    assert_eq!(
+        scope.read_recent_entries(0).await.unwrap(),
+        Vec::<String>::new()
+    );
     assert_eq!(
         scope.read_recent_entries(10).await.unwrap(),
         vec![

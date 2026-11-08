@@ -422,9 +422,15 @@ fn workflow_definition_serialization_round_trip_preserves_json_shape() {
     assert_eq!(serialized, round_tripped_json);
     assert_eq!(serialized["nodes"][0]["type"], "buildNode");
     assert_eq!(serialized["nodes"][0]["data"]["personaId"], "release-bot");
-    assert_eq!(serialized["nodes"][0]["data"]["promptTemplate"], "Build {{project}}");
+    assert_eq!(
+        serialized["nodes"][0]["data"]["promptTemplate"],
+        "Build {{project}}"
+    );
     assert_eq!(serialized["nodes"][0]["data"]["requiredVotes"], 2);
-    assert_eq!(serialized["nodes"][0]["data"]["reviewers"], serde_json::json!(["alice", "bob"]));
+    assert_eq!(
+        serialized["nodes"][0]["data"]["reviewers"],
+        serde_json::json!(["alice", "bob"])
+    );
     assert_eq!(serialized["nodes"][0]["data"]["quorumThreshold"], 0.75);
     assert_eq!(serialized["edges"][0]["sourceHandle"], "success");
 }
@@ -476,7 +482,13 @@ fn workflow_run_report_serialization_round_trip_preserves_json_shape() {
     assert_eq!(serialized, round_tripped_json);
     assert_eq!(serialized["run_id"], "run-2026-11-07-001");
     assert_eq!(serialized["duration_ms"], 4000);
-    assert_eq!(serialized["node_results"]["build"]["input"]["project"], "tuzygent");
-    assert_eq!(serialized["node_results"]["build"]["output"]["artifact"], "agent-cli");
+    assert_eq!(
+        serialized["node_results"]["build"]["input"]["project"],
+        "tuzygent"
+    );
+    assert_eq!(
+        serialized["node_results"]["build"]["output"]["artifact"],
+        "agent-cli"
+    );
     assert_eq!(serialized["timeline"][0]["message"], "Run started");
 }

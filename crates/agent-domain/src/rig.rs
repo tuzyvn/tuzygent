@@ -242,7 +242,8 @@ channels:
         assert_eq!(serialized, expected_json);
 
         let serialized = serde_json::to_string(&expected_json).expect("Must encode JSON fixture");
-        let deserialized = RigSnapshot::from_json(&serialized).expect("Must deserialize RigSnapshot");
+        let deserialized =
+            RigSnapshot::from_json(&serialized).expect("Must deserialize RigSnapshot");
         assert_eq!(deserialized, snapshot);
     }
 
@@ -257,7 +258,9 @@ channels:
             spec_yaml: "rig: {}\n".to_string(),
         };
 
-        let json = snapshot.to_json().expect("Must serialize RigSnapshot as JSON");
+        let json = snapshot
+            .to_json()
+            .expect("Must serialize RigSnapshot as JSON");
 
         assert!(json.contains("\n  \"snapshot_id\""));
         let deserialized = RigSnapshot::from_json(&json).expect("Must parse generated JSON");

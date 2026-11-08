@@ -884,7 +884,12 @@ fn test_api_error_retry_classifier_handles_retryable_and_permanent_messages() {
         );
     }
 
-    for message in ["invalid API key", "400 Bad Request", "permanent validation error", ""] {
+    for message in [
+        "invalid API key",
+        "400 Bad Request",
+        "permanent validation error",
+        "",
+    ] {
         assert!(
             !is_retryable_api_error_message(message),
             "expected non-retryable message: {message}"
