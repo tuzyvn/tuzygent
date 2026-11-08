@@ -17,10 +17,7 @@ fn default_branch_is_main() {
 
 #[test]
 fn default_repository_points_to_the_project_repository() {
-    assert_eq!(
-        DEFAULT_REPOSITORY,
-        "https://github.com/tuzyvn/tuzygent.git"
-    );
+    assert_eq!(DEFAULT_REPOSITORY, "https://github.com/tuzyvn/tuzygent.git");
 }
 
 struct PathRestore(Option<std::ffi::OsString>);

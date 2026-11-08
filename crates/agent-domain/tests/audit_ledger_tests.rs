@@ -480,7 +480,10 @@ fn test_audit_event_type_classification_and_serde() {
 fn test_audit_event_type_from_owned_string_preserves_custom_event() {
     let event_type = AuditEventType::from(String::from("FILE_ENCRYPTED"));
 
-    assert_eq!(event_type, AuditEventType::Custom("FILE_ENCRYPTED".to_string()));
+    assert_eq!(
+        event_type,
+        AuditEventType::Custom("FILE_ENCRYPTED".to_string())
+    );
     assert_eq!(event_type.as_str(), "FILE_ENCRYPTED");
 }
 

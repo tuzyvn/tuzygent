@@ -210,7 +210,8 @@ mod tests {
 
     #[test]
     fn test_list_rig_sessions_filters_and_normalizes_rig_id() {
-        let sessions = "other_session\nrig_alpha_seat_1\n rig_alpha_team_seat_2 \nrig_beta_seat_3\n";
+        let sessions =
+            "other_session\nrig_alpha_seat_1\n rig_alpha_team_seat_2 \nrig_beta_seat_3\n";
 
         assert_eq!(
             TmuxSessionManager::filter_rig_sessions(Some("alpha/team"), sessions),
@@ -218,7 +219,11 @@ mod tests {
         );
         assert_eq!(
             TmuxSessionManager::filter_rig_sessions(None, sessions),
-            vec!["rig_alpha_seat_1", "rig_alpha_team_seat_2", "rig_beta_seat_3"]
+            vec![
+                "rig_alpha_seat_1",
+                "rig_alpha_team_seat_2",
+                "rig_beta_seat_3"
+            ]
         );
     }
 

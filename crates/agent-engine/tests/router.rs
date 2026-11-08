@@ -26,10 +26,7 @@ async fn dispatch_uses_explicitly_preferred_engine() {
     router.register(Arc::new(MockEngine::new("preferred")));
 
     let output = router
-        .dispatch(
-            Some(EngineKind::Mock),
-            &EngineInput::new("task", "."),
-        )
+        .dispatch(Some(EngineKind::Mock), &EngineInput::new("task", "."))
         .await
         .unwrap();
 
@@ -91,5 +88,8 @@ async fn configured_engine_builds_the_engine_kind_declared_in_config() {
         .unwrap();
 
     assert_eq!(output.engine_used, EngineKind::Mock);
-    assert_eq!(output.stdout_content, "Mock completed task: configured task");
+    assert_eq!(
+        output.stdout_content,
+        "Mock completed task: configured task"
+    );
 }

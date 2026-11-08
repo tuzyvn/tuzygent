@@ -1,5 +1,5 @@
 use agent_memory::skills::{
-    frontmatter::{parse_frontmatter, validate_frontmatter},
+    frontmatter::{parse_frontmatter, validate_frontmatter, validate_skill_file},
     loader::{scan_and_validate_skills, scan_available_skills},
     registry::SkillRegistry,
     types::{SkillFrontmatter, SkillMetadata, SkillValidationError},
@@ -75,6 +75,42 @@ async fn test_skills_submodule_structure_and_direct_exports(
     assert_eq!(err, SkillValidationError::MissingFrontmatter);
 
     Ok(())
+}
+
+#[tokio::test]
+async fn test_validate_skill_file_reads_and_validates_frontmatter(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let temp = TempDirGuard::new("validate_file");
+    let skill_file = temp.path().join("SKILL.md");
+    fs::write(
+        &skill_file,
+        "---\nname: File Skill\ndescription: Validates frontmatter from disk\nversion: 1.2.3\nauthor: Test Author\ntags:\n  - testing\n  - skills\n---\n# Instructions\n",
+    )
+    .await?;
+
+    let frontmatter = validate_skill_file(&skill_file).await?;
+
+    assert_eq!(frontmatter.name, "File Skill");
+    assert_eq!(frontmatter.description, "Validates frontmatter from disk");
+    assert_eq!(frontmatter.version.as_deref(), Some("1.2.3"));
+    assert_eq!(frontmatter.author.as_deref(), Some("Test Author"));
+    assert_eq!(frontmatter.tags, vec!["testing", "skills"]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_validate_skill_file_reports_read_error_for_missing_path() {
+    let temp = TempDirGuard::new("validate_file_missing");
+    let missing_file = temp.path().join("missing-SKILL.md");
+
+    let error = validate_skill_file(&missing_file)
+        .await
+        .expect_err("a missing skill file should fail to read");
+
+    assert!(
+        matches!(error, SkillValidationError::InvalidYaml(ref message) if !message.is_empty()),
+        "read failures should be reported as InvalidYaml with the I/O error: {error:?}"
+    );
 }
 
 #[test]

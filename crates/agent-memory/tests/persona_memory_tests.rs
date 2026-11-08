@@ -62,9 +62,15 @@ fn isolation_publication_deletion_and_no_profile_mutation() {
 fn publishing_active_procedure_twice_creates_distinct_project_knowledge() {
     let w = Workspace::new();
     let m = w.store("p", "a");
-    let episode = m.record_episode("task", "verified migration", true).unwrap();
+    let episode = m
+        .record_episode("task", "verified migration", true)
+        .unwrap();
     let procedure = m
-        .propose_lesson("use a transaction for migrations", "when changing schema", &episode)
+        .propose_lesson(
+            "use a transaction for migrations",
+            "when changing schema",
+            &episode,
+        )
         .unwrap();
     m.activate(&procedure).unwrap();
 
