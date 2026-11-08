@@ -91,3 +91,42 @@ pub fn load_hierarchical(workspace_path: Option<&Path>) -> EnginesConfig {
 pub fn merge_toml(config: &mut EnginesConfig, content: &str) -> Result<(), String> {
     config.merge_toml(content)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{dirs_home, load_hierarchical};
+    use std::path::PathBuf;
+
+    #[test]
+    fn dirs_home_prefers_home_then_userprofile() {
+        let expected = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .ok()
+            .map(PathBuf::from);
+
+        assert_eq!(dirs_home(), expected);
+    }
+
+    #[test]
+    fn free_load_hierarchical_applies_workspace_config() {
+        let workspace = std::env::temp_dir().join(format!(
+            "agent-engine-load-hierarchical-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock should be after the Unix epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&workspace).expect("create temporary workspace");
+        std::fs::write(
+            workspace.join("tuzygent.toml"),
+            "[defaults]\nengine = \"workspace-engine\"\n",
+        )
+        .expect("write workspace config");
+
+        let config = load_hierarchical(Some(&workspace));
+
+        let _ = std::fs::remove_dir_all(&workspace);
+        assert_eq!(config.defaults.engine, "workspace-engine");
+    }
+}
