@@ -3942,7 +3942,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261108-e3c0d7: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/operator/snapshot.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 03:04:23 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/operator/snapshot.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `save_snapshot` (L56), `load_snapshot` (L81).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/operator/snapshot.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 

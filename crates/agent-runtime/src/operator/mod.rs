@@ -113,6 +113,82 @@ mod tests {
     use super::*;
     use agent_domain::{RigChannelConfig, RigMetadata, RigOperatorConfig, RigSeatConfig};
 
+    struct TestSnapshotFile(std::path::PathBuf);
+
+    impl TestSnapshotFile {
+        fn new(label: &str) -> Self {
+            Self(std::env::temp_dir().join(format!(
+                "agent-runtime-snapshot-{label}-{}.json",
+                uuid::Uuid::new_v4()
+            )))
+        }
+
+        fn as_str(&self) -> &str {
+            self.0.to_str().expect("temporary path must be valid UTF-8")
+        }
+    }
+
+    impl Drop for TestSnapshotFile {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+
+    fn snapshot_test_operator() -> KernelOperator {
+        KernelOperator::new(
+            RigSpec {
+                rig: RigMetadata {
+                    id: "snapshot-test-rig".to_string(),
+                    name: "Snapshot test rig".to_string(),
+                    description: None,
+                    version: None,
+                },
+                operator: RigOperatorConfig {
+                    agent_id: "snapshot-test-operator".to_string(),
+                    name: None,
+                    role: None,
+                    persona_path: None,
+                    engine: None,
+                    model: None,
+                },
+                seats: vec![],
+                channels: vec![],
+            },
+            ".",
+        )
+    }
+
+    #[test]
+    fn test_save_snapshot_to_custom_path_and_load_it_back() {
+        let operator = snapshot_test_operator();
+        let snapshot = operator.create_snapshot().expect("Must create snapshot");
+        let snapshot_file = TestSnapshotFile::new("roundtrip");
+
+        let saved_path = operator
+            .save_snapshot(&snapshot, Some(snapshot_file.as_str()))
+            .expect("Must save snapshot to custom path");
+
+        assert_eq!(saved_path, snapshot_file.as_str());
+        assert!(snapshot_file.0.is_file());
+        assert_eq!(
+            KernelOperator::load_snapshot(snapshot_file.as_str())
+                .expect("Must load saved snapshot"),
+            snapshot
+        );
+    }
+
+    #[test]
+    fn test_load_snapshot_returns_error_for_missing_or_invalid_json_file() {
+        let missing_file = TestSnapshotFile::new("missing");
+        assert!(!missing_file.0.exists());
+        assert!(KernelOperator::load_snapshot(missing_file.as_str()).is_err());
+
+        let invalid_file = TestSnapshotFile::new("invalid");
+        std::fs::write(&invalid_file.0, "{ this is not valid JSON")
+            .expect("Must write invalid JSON fixture");
+        assert!(KernelOperator::load_snapshot(invalid_file.as_str()).is_err());
+    }
+
     #[test]
     fn test_boot_and_shutdown_process_seats() {
         let spec = RigSpec {
