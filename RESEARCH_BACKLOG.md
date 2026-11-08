@@ -4176,7 +4176,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261108-9e1324: Bổ sung kiểm thử cho 1 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/scratchpad.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 14:21:38 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/scratchpad.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `scoped_child_for_task` (L100).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/scratchpad.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 

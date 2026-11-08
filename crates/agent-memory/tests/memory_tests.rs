@@ -160,6 +160,20 @@ async fn test_scratchpad_append_and_recent_entries() {
 }
 
 #[tokio::test]
+async fn test_scratchpad_write_creates_parent_and_replaces_contents() {
+    let temp_dir = create_temp_dir("scratchpad_write");
+    let scratchpad = ScratchpadManager::new(&temp_dir);
+
+    scratchpad.write("first version").await.unwrap();
+    assert_eq!(scratchpad.read().await.unwrap(), "first version");
+
+    scratchpad.write("replacement").await.unwrap();
+    assert_eq!(scratchpad.read().await.unwrap(), "replacement");
+
+    let _ = tokio::fs::remove_dir_all(temp_dir).await;
+}
+
+#[tokio::test]
 async fn test_skill_registry_security_and_frontmatter() {
     let temp_dir = create_temp_dir("skills");
     let registry = SkillRegistry::new(&temp_dir);
