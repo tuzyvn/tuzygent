@@ -567,6 +567,61 @@ fn test_select_next_account_releases_expired_cooldown() {
 }
 
 #[test]
+fn test_select_next_account_skips_disabled_accounts() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "vault_disabled_account_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let vault = AccountVault::new_with_dir(temp_dir.clone());
+    vault
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "disabled-account",
+            "Disabled account",
+            HashMap::new(),
+        )
+        .expect("register disabled account");
+    vault
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "ready-account",
+            "Ready account",
+            HashMap::new(),
+        )
+        .expect("register ready account");
+
+    vault
+        .accounts_write()
+        .get_mut(&AccountEngineKind::Antigravity)
+        .expect("registered engine exists")[0]
+        .status = AccountStatus::Disabled;
+
+    let selected = vault
+        .select_next_account(&AccountEngineKind::Antigravity)
+        .expect("ready account should be selected");
+    assert_eq!(selected.id, "ready-account");
+    assert_eq!(selected.requests_count, 1);
+    assert_eq!(
+        vault
+            .get_account(&AccountEngineKind::Antigravity, "disabled-account")
+            .expect("disabled account remains registered")
+            .requests_count,
+        0
+    );
+
+    vault
+        .accounts_write()
+        .get_mut(&AccountEngineKind::Antigravity)
+        .expect("registered engine exists")[1]
+        .status = AccountStatus::Disabled;
+    assert!(vault
+        .select_next_account(&AccountEngineKind::Antigravity)
+        .is_none());
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
 fn test_record_success_clears_failure_state() {
     let temp_dir = std::env::temp_dir().join(format!(
         "vault_record_success_{}",
@@ -600,6 +655,52 @@ fn test_record_success_clears_failure_state() {
 }
 
 #[test]
+fn test_mark_cooldown_updates_and_persists_failure_state() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "vault_mark_cooldown_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let vault = AccountVault::new_with_dir(temp_dir.clone());
+    vault
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "limited-account",
+            "Limited account",
+            HashMap::new(),
+        )
+        .expect("register account");
+
+    vault.mark_cooldown(
+        &AccountEngineKind::Antigravity,
+        "limited-account",
+        60,
+        "rate limited",
+    );
+
+    let profile = vault
+        .get_account(&AccountEngineKind::Antigravity, "limited-account")
+        .expect("account remains in vault");
+    assert_eq!(profile.failure_count, 1);
+    assert!(matches!(
+        &profile.status,
+        AccountStatus::Cooldown { until, reason }
+            if *until > chrono::Utc::now() && reason == "rate limited"
+    ));
+
+    let reloaded = AccountVault::new_with_dir(temp_dir.clone());
+    let persisted = reloaded
+        .get_account(&AccountEngineKind::Antigravity, "limited-account")
+        .expect("cooldown state should be persisted");
+    assert_eq!(persisted.failure_count, 1);
+    assert!(matches!(
+        &persisted.status,
+        AccountStatus::Cooldown { reason, .. } if reason == "rate limited"
+    ));
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
 fn test_reset_cooldown_returns_false_for_unknown_account() {
     let temp_dir = std::env::temp_dir().join(format!(
         "vault_reset_missing_{}",
@@ -628,6 +729,40 @@ fn test_reset_cooldown_returns_false_for_unknown_account() {
         .expect("unknown reset requests must leave the real account untouched");
     assert_eq!(profile.failure_count, 1);
     assert!(matches!(profile.status, AccountStatus::Cooldown { .. }));
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_reset_cooldown_clears_failure_state_and_persists_it() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "vault_reset_cooldown_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let vault = AccountVault::new_with_dir(temp_dir.clone());
+    vault
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "cooldown-account",
+            "Cooldown account",
+            HashMap::new(),
+        )
+        .expect("register account");
+    vault.mark_cooldown(
+        &AccountEngineKind::Antigravity,
+        "cooldown-account",
+        60,
+        "rate limited",
+    );
+
+    assert!(vault.reset_cooldown(&AccountEngineKind::Antigravity, "cooldown-account"));
+
+    let reloaded = AccountVault::new_with_dir(temp_dir.clone());
+    let profile = reloaded
+        .get_account(&AccountEngineKind::Antigravity, "cooldown-account")
+        .expect("reset profile should be persisted");
+    assert_eq!(profile.status, AccountStatus::Ready);
+    assert_eq!(profile.failure_count, 0);
 
     let _ = std::fs::remove_dir_all(temp_dir);
 }
