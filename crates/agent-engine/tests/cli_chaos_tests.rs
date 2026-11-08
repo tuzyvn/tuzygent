@@ -340,6 +340,19 @@ fn test_cli_fault_policy_intermittent_and_max_injections() {
     assert_eq!(policy.injected_count(), 0);
 }
 
+#[test]
+fn test_cli_fault_policy_fault_accessor_reports_configured_fault() {
+    let empty_policy = CliFaultPolicy::none();
+    assert_eq!(empty_policy.fault(), None);
+
+    let mut policy = CliFaultPolicy::always(CliFault::BrokenPipe);
+    assert_eq!(policy.fault(), Some(&CliFault::BrokenPipe));
+
+    assert_eq!(policy.should_inject(), Some(CliFault::BrokenPipe));
+    policy.reset();
+    assert_eq!(policy.fault(), Some(&CliFault::BrokenPipe));
+}
+
 #[tokio::test]
 async fn test_generic_cli_baseline_success() {
     let engine = GenericCliEngine::new(
