@@ -4258,3 +4258,15 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/ooda/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `wait_for_cancellation` (L25).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/ooda/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
+### [P2] TOPIC-20261108-1138b1: Phân tách cấu trúc tệp nguyên khối (400 dòng): crates/agent-runtime/src/mcp_gateway/types.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/mcp_gateway/types.rs có độ dài 400 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/mcp_gateway/types.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261108-73897a: Phân tách cấu trúc tệp nguyên khối (392 dòng): crates/agent-runtime/src/ooda/decomposition.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/ooda/decomposition.rs có độ dài 392 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/ooda/decomposition.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
