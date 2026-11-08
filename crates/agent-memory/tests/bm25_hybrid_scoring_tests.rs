@@ -1,8 +1,8 @@
 use agent_memory::{
     compute_bm25_score, compute_bm25_score_with_params, compute_bm25_term_score, compute_idf,
     compute_recency_weight, rank_lesson_blocks, rank_structured_lessons, score_lesson_hybrid,
-    score_lesson_relevance, Bm25Params, DurableMemoryStore, MemoryService,
-    ResilientDurableMemoryStore, StructuredLesson,
+    score_lesson_relevance, tokenize_document, tokens_match, Bm25Params, DurableMemoryStore,
+    MemoryService, ResilientDurableMemoryStore, StructuredLesson,
 };
 use chrono::{Duration, Utc};
 use std::path::{Path, PathBuf};
@@ -31,6 +31,26 @@ impl Drop for TempWorkspace {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
+}
+
+#[test]
+fn test_tokenize_document_normalizes_and_preserves_compound_tokens() {
+    assert_eq!(
+        tokenize_document("__Rust_tokio-cache!! naïve___queue-"),
+        vec!["rust_tokio-cache", "naïve___queue"]
+    );
+    assert!(tokenize_document(" !!! \n\t ").is_empty());
+}
+
+#[test]
+fn test_tokens_match_supports_compounds_and_short_prefix_variants() {
+    assert!(tokens_match("tokio-runtime", "tokio"));
+    assert!(tokens_match("workers", "worker"));
+    assert!(tokens_match("worker", "workers"));
+    assert!(!tokens_match("worker", "database"));
+    assert!(!tokens_match("worker", "workership"));
+    assert!(!tokens_match("", "worker"));
+    assert!(!tokens_match("worker", ""));
 }
 
 #[test]
