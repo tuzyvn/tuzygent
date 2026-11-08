@@ -2,7 +2,23 @@ use super::*;
 use crate::{
     AntigravityEngine, ClaudeCodeEngine, ComputeEngine, EngineError, EngineInput, GenericCliEngine,
 };
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
+
+#[tokio::test]
+async fn run_process_captures_stdout_stderr_and_exit_status() {
+    let mut command = tokio::process::Command::new("sh");
+    command
+        .arg("-c")
+        .arg("printf 'stdout output'; printf 'stderr output' >&2; exit 7");
+
+    let output = run_process(command, Duration::from_secs(2), None)
+        .await
+        .expect("run_process should return completed process output");
+
+    assert_eq!(output.status.code(), Some(7));
+    assert_eq!(output.stdout, b"stdout output");
+    assert_eq!(output.stderr, b"stderr output");
+}
 
 #[tokio::test]
 async fn oversized_unterminated_line_returns_error() {
@@ -11,6 +27,38 @@ async fn oversized_unterminated_line_returns_error() {
     let result = run_process_with_limit(command, Duration::from_secs(2), None, 8).await;
     assert!(
         matches!(result, Err(EngineError::ProcessFailed(message)) if message.contains("output line exceeds"))
+    );
+}
+
+#[tokio::test]
+async fn run_simple_command_rejects_empty_binary() {
+    let result = run_simple_command("  ", &[]).await;
+
+    assert!(matches!(
+        result,
+        Err(EngineError::ProcessFailed(message)) if message == "Command binary cannot be empty"
+    ));
+}
+
+#[tokio::test]
+async fn run_command_passes_arguments_environment_and_working_directory() {
+    let input = EngineInput::new("", "/tmp");
+    let args = vec![
+        "-c".to_string(),
+        "printf '%s:%s:%s' \"$1\" \"$RUNNER_TEST_VALUE\" \"$PWD\"".to_string(),
+        "runner-test".to_string(),
+        "argument value".to_string(),
+    ];
+    let env = HashMap::from([("RUNNER_TEST_VALUE".to_string(), "from-env".to_string())]);
+
+    let output = run_command(&input, "sh", &args, &env, None)
+        .await
+        .expect("run_command should execute the requested command");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "argument value:from-env:/tmp"
     );
 }
 
