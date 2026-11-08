@@ -187,3 +187,105 @@ impl AutonomousOodaLoop {
         self.scratchpad.isolated_child(sub_agent_or_subtask_id)
     }
 }
+
+#[cfg(test)]
+mod public_api_tests {
+    use super::AutonomousOodaLoop;
+    use agent_domain::{
+        AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul,
+        AutonomyLevel, GuardrailPolicy,
+    };
+    use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
+    use agent_memory::{DurableMemoryStore, ScratchpadManager};
+    use async_trait::async_trait;
+    use std::sync::Arc;
+
+    struct UnusedEngine;
+
+    #[async_trait]
+    impl ComputeEngine for UnusedEngine {
+        async fn execute(&self, _input: &EngineInput) -> Result<EngineOutput, EngineError> {
+            panic!("the public API tests do not execute the engine")
+        }
+
+        fn engine_kind(&self) -> EngineKind {
+            EngineKind::Mock
+        }
+    }
+
+    fn test_loop() -> AutonomousOodaLoop {
+        let workspace = std::env::temp_dir().join(format!(
+            "agent_runtime_ooda_public_api_{}",
+            uuid::Uuid::new_v4()
+        ));
+        AutonomousOodaLoop::new(
+            Arc::new(UnusedEngine),
+            GuardrailPolicy::default_enterprise(),
+            ScratchpadManager::new(&workspace),
+            DurableMemoryStore::new(&workspace),
+            workspace.to_str().unwrap(),
+        )
+    }
+
+    fn persona(id: &str) -> AgentPersonaProfile {
+        AgentPersonaProfile {
+            identity: AgentIdentity {
+                id: AgentId::from_str(id),
+                name: "Test persona".into(),
+                description: String::new(),
+                autonomy_level: AutonomyLevel::Supervised,
+                created_at: chrono::Utc::now(),
+            },
+            role: AgentRole {
+                role_code: "TEST".into(),
+                title: "Tester".into(),
+                primary_domain: "Testing".into(),
+                capabilities: vec![],
+            },
+            soul: AgentSoul {
+                persona: "Careful".into(),
+                tone_of_voice: "Direct".into(),
+                core_values: vec![],
+                voice_profile: None,
+            },
+            mission: AgentMission {
+                high_level_objective: "Test API behavior".into(),
+                kpis: vec![],
+                constraints: vec![],
+            },
+        }
+    }
+
+    #[test]
+    fn with_persona_stores_the_last_profile_and_accepts_an_empty_profile() {
+        let first = persona("first");
+        let replacement = persona("");
+
+        let configured = test_loop()
+            .with_persona(first)
+            .with_persona(replacement.clone());
+
+        assert_eq!(configured.persona, Some(replacement));
+    }
+
+    #[tokio::test]
+    async fn supplement_controller_clones_share_the_mailbox() {
+        let ooda = test_loop();
+        let controller = ooda.supplement_controller();
+        let another_clone = ooda.supplement_controller();
+
+        assert!(another_clone.try_recv().await.is_none());
+        controller
+            .inject(crate::supplement::InFlightSupplement::new(
+                "reviewer",
+                "Keep the original objective",
+            ))
+            .await
+            .unwrap();
+
+        let received = another_clone.try_recv().await.unwrap();
+        assert_eq!(received.author_name, "reviewer");
+        assert_eq!(received.content, "Keep the original objective");
+        assert!(controller.try_recv().await.is_none());
+    }
+}
