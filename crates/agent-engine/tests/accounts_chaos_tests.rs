@@ -48,6 +48,41 @@ fn test_account_engine_kind_name_parsing() {
 }
 
 #[test]
+fn test_resilient_account_manager_max_retries_getter() {
+    let vault = Arc::new(AccountVault::new_with_dir(temp_vault_dir("max_retries")));
+    let manager = ResilientAccountManager::new(vault, AccountFaultPolicy::none(), 7);
+
+    assert_eq!(manager.max_retries(), 7);
+}
+
+#[test]
+fn test_resilient_account_manager_memory_usage_includes_cached_profile() {
+    let temp_dir = temp_vault_dir("memory_usage_cache");
+    let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
+    vault
+        .register_account(
+            AccountEngineKind::Codex,
+            "memory_account",
+            "Memory Account",
+            HashMap::new(),
+        )
+        .expect("register account for cache");
+    let mut manager = ResilientAccountManager::with_vault(vault).with_max_capacity(1);
+
+    let before_cache = manager.memory_usage_bytes();
+    manager
+        .select_account(&AccountEngineKind::Codex)
+        .expect("account selection should populate the cache");
+
+    assert!(
+        manager.memory_usage_bytes() > before_cache,
+        "caching a resolved profile should increase estimated memory usage"
+    );
+
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
 fn test_account_profile_safe_projection_hides_environment_values() {
     let mut profile = create_sample_profile("safe_1", "Safe Account", AccountEngineKind::Codex);
     profile.extra_env.insert(
