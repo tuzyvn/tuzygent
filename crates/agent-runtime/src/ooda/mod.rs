@@ -220,12 +220,13 @@ mod public_api_tests {
             "agent_runtime_ooda_public_api_{}",
             uuid::Uuid::new_v4()
         ));
+        let workspace_dir = workspace.to_string_lossy();
         AutonomousOodaLoop::new(
             Arc::new(UnusedEngine),
             GuardrailPolicy::default_enterprise(),
             ScratchpadManager::new(&workspace),
             DurableMemoryStore::new(&workspace),
-            workspace.to_str().unwrap(),
+            &workspace_dir,
         )
     }
 
@@ -284,7 +285,7 @@ mod public_api_tests {
     }
 
     #[tokio::test]
-    async fn supplement_controller_clones_share_the_mailbox() {
+    async fn supplement_controller_clones_share_the_mailbox() -> Result<(), String> {
         let ooda = test_loop();
         let controller = ooda.supplement_controller();
         let another_clone = ooda.supplement_controller();
@@ -295,12 +296,24 @@ mod public_api_tests {
                 "reviewer",
                 "Keep the original objective",
             ))
-            .await
-            .unwrap();
+            .await?;
 
-        let received = another_clone.try_recv().await.unwrap();
+        let received = another_clone
+            .try_recv()
+            .await
+            .ok_or_else(|| "expected the injected supplement to be available".to_owned())?;
         assert_eq!(received.author_name, "reviewer");
         assert_eq!(received.content, "Keep the original objective");
         assert!(controller.try_recv().await.is_none());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn try_recv_reports_missing_supplement_without_panicking() {
+        let ooda = test_loop();
+
+        let missing = ooda.supplement_controller().try_recv().await;
+
+        assert!(missing.is_none());
     }
 }

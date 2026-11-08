@@ -4038,7 +4038,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P1] TOPIC-20261108-ff0e02: Refactor 3 lệnh unwrap() tại crates/agent-runtime/src/ooda/mod.rs sang cơ chế xử lý lỗi an toàn
 - **Phân loại**: `Reliability / Panic Prevention`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 04:58:16 UTC)
 - **Lý do cần nghiên cứu**: Phát hiện 3 lệnh unwrap() trong mã sản xuất tại crates/agent-runtime/src/ooda/mod.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
 - **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-runtime/src/ooda/mod.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
 
