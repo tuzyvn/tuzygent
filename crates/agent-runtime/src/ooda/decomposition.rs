@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
-use tracing::{info, info_span, warn, Instrument};
+use tracing::{Instrument, info, info_span, warn};
 
 /// Dynamic goal planning and subtask decomposition.
 #[derive(Clone)]
@@ -251,6 +251,27 @@ impl GoalDecomposer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use agent_engine::{EngineKind, EngineOutput};
+    use async_trait::async_trait;
+
+    struct StaticPlanningEngine(&'static str);
+
+    #[async_trait]
+    impl ComputeEngine for StaticPlanningEngine {
+        async fn execute(&self, _input: &EngineInput) -> Result<EngineOutput, EngineError> {
+            Ok(EngineOutput {
+                session_id: None,
+                stdout_content: self.0.to_string(),
+                exit_code: 0,
+                execution_duration_ms: 0,
+                engine_used: EngineKind::Mock,
+            })
+        }
+
+        fn engine_kind(&self) -> EngineKind {
+            EngineKind::Mock
+        }
+    }
 
     #[test]
     fn test_parse_subtasks_json_codeblock() {
@@ -335,5 +356,37 @@ Done!"#;
     fn test_parse_subtasks_json_invalid() {
         let raw = "Not json at all";
         assert!(GoalDecomposer::parse_subtasks_json(raw).is_none());
+    }
+
+    #[tokio::test]
+    async fn decompose_goal_limits_subtasks_and_repairs_duplicate_or_empty_ids() {
+        let output = r#"[
+            {"id":"ST-SHARED","title":"First","command":"one"},
+            {"id":"ST-SHARED","title":"Second","command":"two"},
+            {"id":"","title":"Third","command":"three"},
+            {"id":"ST-4","title":"Fourth","command":"four"}
+        ]"#;
+        let engine = Arc::new(StaticPlanningEngine(output));
+        let guardrail = GuardrailPolicy {
+            max_subtasks_per_goal: 3,
+            ..GuardrailPolicy::default()
+        };
+        let decomposer = GoalDecomposer::new(engine, guardrail, "/tmp", None, 30);
+
+        let subtasks = decomposer
+            .decompose_goal("Plan", "Do the work", Path::new("/tmp"), "")
+            .await;
+
+        assert_eq!(subtasks.len(), 3);
+        assert_eq!(
+            subtasks
+                .iter()
+                .map(|task| task.id.as_str())
+                .collect::<Vec<_>>(),
+            ["ST-SHARED", "ST-2", "ST-3"]
+        );
+        assert_eq!(subtasks[0].command_or_prompt, "one");
+        assert_eq!(subtasks[1].command_or_prompt, "two");
+        assert_eq!(subtasks[2].command_or_prompt, "three");
     }
 }
