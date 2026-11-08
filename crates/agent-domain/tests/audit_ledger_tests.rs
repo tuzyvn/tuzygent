@@ -39,6 +39,31 @@ fn test_audit_entry_construction_and_verification() {
 }
 
 #[test]
+fn test_audit_entry_compute_hash_matches_entry_hash() {
+    let timestamp = Utc::now();
+    let entry = AuditEntry::new(
+        3,
+        timestamp,
+        "COMMAND_ALLOWED",
+        ActionSeverity::Routine,
+        "cargo check",
+        "previous-hash",
+    );
+
+    let computed = AuditEntry::compute_hash(
+        entry.sequence,
+        &entry.timestamp,
+        &entry.action,
+        &entry.severity,
+        &entry.details,
+        &entry.prev_hash,
+    );
+
+    assert_eq!(computed, entry.hash);
+    assert_eq!(computed, entry.calculate_hash());
+}
+
+#[test]
 fn test_audit_entry_new_with_actor_sets_fields_and_hashes_payload() {
     let timestamp = Utc::now();
     let entry = AuditEntry::new_with_actor(
@@ -449,6 +474,14 @@ fn test_audit_event_type_classification_and_serde() {
     assert_eq!(custom_json, "\"FILE_ENCRYPTED\"");
     let deserialized_custom: AuditEventType = serde_json::from_str(&custom_json).unwrap();
     assert_eq!(deserialized_custom, custom);
+}
+
+#[test]
+fn test_audit_event_type_from_owned_string_preserves_custom_event() {
+    let event_type = AuditEventType::from(String::from("FILE_ENCRYPTED"));
+
+    assert_eq!(event_type, AuditEventType::Custom("FILE_ENCRYPTED".to_string()));
+    assert_eq!(event_type.as_str(), "FILE_ENCRYPTED");
 }
 
 #[test]
