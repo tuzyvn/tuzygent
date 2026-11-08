@@ -1394,3 +1394,19 @@ async fn test_topic_395f34_resilient_api_exponential_backoff_and_jitter() {
 
     println!("[Reproduction & TDD Test] TOPIC-20261106-395f34 verified successfully!");
 }
+
+#[test]
+fn backoff_policy_clamps_subunit_multipliers() {
+    let initial = Duration::from_millis(20);
+    let max = Duration::from_millis(500);
+    let expected = BackoffPolicy::new(initial, max, 0.5, false);
+
+    assert_eq!(expected.multiplier(), 1.0);
+    for attempt in 1..=5 {
+        assert_eq!(expected.calculate_max_delay(attempt), initial);
+    }
+
+    let configured = BackoffPolicy::fixed(initial).with_multiplier(0.0);
+    assert_eq!(configured.multiplier(), 1.0);
+    assert_eq!(configured.calculate_max_delay(5), initial);
+}

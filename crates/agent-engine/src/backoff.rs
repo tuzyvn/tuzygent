@@ -272,4 +272,16 @@ mod tests {
             assert!(delay3 <= Duration::from_millis(400));
         }
     }
+
+    #[tokio::test]
+    async fn test_sleep_for_attempt_waits_and_returns_computed_delay() {
+        let delay = Duration::from_millis(5);
+        let policy = BackoffPolicy::fixed(delay);
+        let start = tokio::time::Instant::now();
+
+        let actual_delay = policy.sleep_for_attempt(1).await;
+
+        assert_eq!(actual_delay, delay);
+        assert!(start.elapsed() >= delay);
+    }
 }
