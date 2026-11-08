@@ -57,6 +57,32 @@ fn isolation_publication_deletion_and_no_profile_mutation() {
     a.delete(&public).unwrap();
     assert!(b.retrieve("t", "migration").unwrap().memory_ids.is_empty());
 }
+
+#[test]
+fn publishing_active_procedure_twice_creates_distinct_project_knowledge() {
+    let w = Workspace::new();
+    let m = w.store("p", "a");
+    let episode = m.record_episode("task", "verified migration", true).unwrap();
+    let procedure = m
+        .propose_lesson("use a transaction for migrations", "when changing schema", &episode)
+        .unwrap();
+    m.activate(&procedure).unwrap();
+
+    let first = m.publish(&procedure).unwrap();
+    let second = m.publish(&procedure).unwrap();
+
+    assert_ne!(first, second);
+    for id in [first, second] {
+        let knowledge = m.show(&id).unwrap();
+        assert_eq!(knowledge.kind, "knowledge");
+        assert_eq!(knowledge.scope, "project");
+        assert_eq!(knowledge.status, "active");
+        assert_eq!(knowledge.content, "use a transaction for migrations");
+        assert_eq!(knowledge.conditions, "when changing schema");
+        assert_eq!(knowledge.source, procedure);
+    }
+}
+
 #[test]
 fn verification_dedup_and_candidate_lifecycle() {
     let w = Workspace::new();
