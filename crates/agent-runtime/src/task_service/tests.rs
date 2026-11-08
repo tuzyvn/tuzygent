@@ -4,7 +4,7 @@ use agent_domain::{Priority, ScheduleSpec, TaskId, TaskStatus};
 use agent_engine::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 use async_trait::async_trait;
 use chrono::{Duration, TimeZone, Utc};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::{Notify, Semaphore};
 
@@ -163,6 +163,48 @@ async fn test_active_task_ids_lists_running_tasks_and_cleans_up() {
         .await
         .expect("drain service"));
     assert!(service.active_task_ids().await.is_empty());
+}
+
+#[test]
+fn test_trigger_cancellation_flag_only_sets_matching_task() {
+    let service = build_test_service();
+    let target_id = TaskId("target-cancellation-test-task".to_string());
+    let other_id = TaskId("other-cancellation-test-task".to_string());
+    let target_flag = Arc::new(AtomicBool::new(false));
+    let other_flag = Arc::new(AtomicBool::new(false));
+    {
+        let mut flags = service.cancellation_flags.write().unwrap();
+        flags.insert(target_id.0.clone(), target_flag.clone());
+        flags.insert(other_id.0.clone(), other_flag.clone());
+    }
+
+    service.trigger_cancellation_flag(&target_id);
+    assert!(target_flag.load(Ordering::SeqCst));
+    assert!(!other_flag.load(Ordering::SeqCst));
+
+    service.trigger_cancellation_flag(&TaskId("missing-cancellation-test-task".into()));
+    assert!(!other_flag.load(Ordering::SeqCst));
+}
+
+#[test]
+fn test_trigger_all_cancellation_flags_sets_every_registered_task() {
+    let service = build_test_service();
+    let flags = [
+        Arc::new(AtomicBool::new(false)),
+        Arc::new(AtomicBool::new(false)),
+    ];
+    {
+        let mut registered = service.cancellation_flags.write().unwrap();
+        registered.insert("first-cancellation-test-task".to_string(), flags[0].clone());
+        registered.insert(
+            "second-cancellation-test-task".to_string(),
+            flags[1].clone(),
+        );
+    }
+
+    service.trigger_all_cancellation_flags();
+
+    assert!(flags.iter().all(|flag| flag.load(Ordering::SeqCst)));
 }
 
 #[tokio::test]
