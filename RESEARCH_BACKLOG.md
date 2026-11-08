@@ -3870,7 +3870,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261108-9a825d: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-domain/src/rig.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 00:43:29 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-domain/src/rig.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `to_json` (L84), `find_seat` (L102).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-domain/src/rig.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 

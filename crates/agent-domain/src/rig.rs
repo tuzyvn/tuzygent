@@ -245,4 +245,59 @@ channels:
         let deserialized = RigSnapshot::from_json(&serialized).expect("Must deserialize RigSnapshot");
         assert_eq!(deserialized, snapshot);
     }
+
+    #[test]
+    fn test_rig_snapshot_to_json_returns_pretty_json() {
+        let snapshot = RigSnapshot {
+            snapshot_id: "snapshot-1".to_string(),
+            rig_id: "dev-rig".to_string(),
+            rig_name: "Development Rig".to_string(),
+            created_at: "2026-11-08T00:00:00Z".to_string(),
+            seats: Vec::new(),
+            spec_yaml: "rig: {}\n".to_string(),
+        };
+
+        let json = snapshot.to_json().expect("Must serialize RigSnapshot as JSON");
+
+        assert!(json.contains("\n  \"snapshot_id\""));
+        let deserialized = RigSnapshot::from_json(&json).expect("Must parse generated JSON");
+        assert_eq!(deserialized, snapshot);
+    }
+
+    #[test]
+    fn test_rig_spec_find_seat_returns_match_or_none() {
+        let expected = RigSeatConfig {
+            seat_id: "backend-dev".to_string(),
+            name: Some("Backend".to_string()),
+            role: "Developer".to_string(),
+            capabilities: vec!["rust".to_string()],
+            persona_path: None,
+            engine: None,
+            model: None,
+            harness: "process".to_string(),
+            voice_preset: None,
+            autonomy: "full".to_string(),
+        };
+        let spec = RigSpec {
+            rig: RigMetadata {
+                id: "dev-rig".to_string(),
+                name: "Development Rig".to_string(),
+                description: None,
+                version: None,
+            },
+            operator: RigOperatorConfig {
+                agent_id: "operator".to_string(),
+                name: None,
+                role: None,
+                persona_path: None,
+                engine: None,
+                model: None,
+            },
+            seats: vec![expected.clone()],
+            channels: Vec::new(),
+        };
+
+        assert_eq!(spec.find_seat("backend-dev"), Some(&expected));
+        assert_eq!(spec.find_seat("missing-seat"), None);
+    }
 }
