@@ -345,3 +345,56 @@ impl McpGatewayError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        McpGatewayError, McpJsonRpcResponse, MCP_ERR_EXECUTION_FAILED, MCP_ERR_INVALID_PARAMS,
+        MCP_ERR_POLICY_BLOCKED, MCP_ERR_SERVER_UNAVAILABLE,
+    };
+    use serde_json::{json, Value};
+
+    #[test]
+    fn jsonrpc_response_status_helpers_reflect_response_state() {
+        let success = McpJsonRpcResponse::success(json!(7), json!({ "ok": true }));
+        assert!(success.is_ok());
+        assert!(!success.is_err());
+
+        let error = McpJsonRpcResponse::error(json!(8), -32600, "invalid request", None);
+        assert!(!error.is_ok());
+        assert!(error.is_err());
+
+        let empty = McpJsonRpcResponse {
+            jsonrpc: "2.0".to_string(),
+            id: Value::Null,
+            result: None,
+            error: None,
+        };
+        assert!(!empty.is_ok());
+        assert!(!empty.is_err());
+    }
+
+    #[test]
+    fn gateway_errors_map_to_their_jsonrpc_codes() {
+        assert_eq!(
+            McpGatewayError::ServerUnavailable("offline".to_string()).jsonrpc_code(),
+            MCP_ERR_SERVER_UNAVAILABLE
+        );
+        assert_eq!(
+            McpGatewayError::ToolNotFound("missing".to_string()).jsonrpc_code(),
+            MCP_ERR_SERVER_UNAVAILABLE
+        );
+        assert_eq!(
+            McpGatewayError::SchemaValidationFailed("invalid".to_string()).jsonrpc_code(),
+            MCP_ERR_INVALID_PARAMS
+        );
+        assert_eq!(
+            McpGatewayError::PolicyBlocked("blocked".to_string()).jsonrpc_code(),
+            MCP_ERR_POLICY_BLOCKED
+        );
+        assert_eq!(
+            McpGatewayError::ExecutionFailed("failed".to_string()).jsonrpc_code(),
+            MCP_ERR_EXECUTION_FAILED
+        );
+    }
+}
