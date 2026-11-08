@@ -76,3 +76,14 @@ async fn test_skills_submodule_structure_and_direct_exports(
 
     Ok(())
 }
+
+#[test]
+fn test_frontmatter_requires_standalone_closing_delimiter() {
+    let malformed = "---\nname: Almost Valid\ndescription: Closing marker has trailing text\n--- trailing text\n# Skill Details";
+
+    assert_eq!(
+        validate_frontmatter(malformed),
+        Err(SkillValidationError::MissingFrontmatter),
+        "a closing delimiter must occupy its own line"
+    );
+}

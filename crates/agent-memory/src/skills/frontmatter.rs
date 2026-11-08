@@ -7,7 +7,8 @@ use crate::skills::types::{SkillFrontmatter, SkillValidationError};
 
 #[allow(clippy::expect_used)]
 pub static FRONTMATTER_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?s)\A---\r?\n(.*?\r?\n)---").expect("Failed to compile FRONTMATTER_RE regex")
+    Regex::new(r"(?s)\A---\r?\n(.*?\r?\n)---(?:\r?\n|\z)")
+        .expect("Failed to compile FRONTMATTER_RE regex")
 });
 
 /// Xác thực schema của YAML frontmatter trong nội dung kỹ năng
