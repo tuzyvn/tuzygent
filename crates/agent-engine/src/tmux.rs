@@ -164,18 +164,20 @@ impl TmuxSessionManager {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(Self::filter_rig_sessions(rig_id, &stdout))
+    }
+
+    fn filter_rig_sessions(rig_id: Option<&str>, sessions: &str) -> Vec<String> {
         let prefix = match rig_id {
             Some(rid) => format!("rig_{}_", rid.replace([':', '/', ' ', '.'], "_")),
             None => "rig_".to_string(),
         };
 
-        let matched = stdout
+        sessions
             .lines()
             .map(|l| l.trim().to_string())
             .filter(|s| s.starts_with(&prefix))
-            .collect();
-
-        Ok(matched)
+            .collect()
     }
 }
 
@@ -192,6 +194,31 @@ mod tests {
         assert_eq!(
             TmuxSessionManager::format_session_name("my-rig", "backend:dev"),
             "rig_my-rig_backend_dev"
+        );
+    }
+
+    #[test]
+    fn test_is_available_reports_whether_tmux_version_command_succeeds() {
+        let expected = std::process::Command::new("tmux")
+            .arg("-V")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false);
+
+        assert_eq!(TmuxSessionManager::is_available(), expected);
+    }
+
+    #[test]
+    fn test_list_rig_sessions_filters_and_normalizes_rig_id() {
+        let sessions = "other_session\nrig_alpha_seat_1\n rig_alpha_team_seat_2 \nrig_beta_seat_3\n";
+
+        assert_eq!(
+            TmuxSessionManager::filter_rig_sessions(Some("alpha/team"), sessions),
+            vec!["rig_alpha_team_seat_2"]
+        );
+        assert_eq!(
+            TmuxSessionManager::filter_rig_sessions(None, sessions),
+            vec!["rig_alpha_seat_1", "rig_alpha_team_seat_2", "rig_beta_seat_3"]
         );
     }
 
@@ -214,6 +241,12 @@ mod tests {
         };
 
         assert!(TmuxSessionManager::has_session(&session_name));
+        assert!(TmuxSessionManager::list_rig_sessions(Some(test_rig))
+            .expect("Must list sessions for the rig")
+            .contains(&session_name));
+        assert!(TmuxSessionManager::list_rig_sessions(None)
+            .expect("Must list all rig sessions")
+            .contains(&session_name));
 
         // Test send command
         let _ = TmuxSessionManager::send_command(&session_name, "echo 'AGENT_ALIVE_TEST'");
