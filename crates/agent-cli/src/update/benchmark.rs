@@ -112,8 +112,8 @@ impl UpdateBenchmarkHarness {
         num_requests: usize,
         concurrency: usize,
     ) -> UpdateBenchmarkStats {
-        let concurrency = concurrency.max(1);
         let num_requests = num_requests.max(1);
+        let concurrency = concurrency.max(1).min(num_requests);
         let shared_updater = Arc::new(tokio::sync::Mutex::new(
             ResilientUpdater::with_policy(CliFaultPolicy::none(), 3)
                 .with_max_capacity(num_requests + 64),
@@ -121,17 +121,20 @@ impl UpdateBenchmarkHarness {
 
         let start = Instant::now();
         let per_task = num_requests / concurrency;
+        let remainder = num_requests % concurrency;
         let mut handles = Vec::with_capacity(concurrency);
 
         for t_idx in 0..concurrency {
+            let task_requests = per_task + usize::from(t_idx < remainder);
+            let task_start = t_idx * per_task + t_idx.min(remainder);
             let shared_clone = Arc::clone(&shared_updater);
             handles.push(tokio::spawn(async move {
-                let mut local_latencies = Vec::with_capacity(per_task);
+                let mut local_latencies = Vec::with_capacity(task_requests);
                 let mut local_success = 0;
                 let mut local_rejected = 0;
 
-                for i in 0..per_task {
-                    let req_idx = t_idx * per_task + i;
+                for i in 0..task_requests {
+                    let req_idx = task_start + i;
                     let is_invalid = req_idx.is_multiple_of(10);
                     let (action_name, invalid) = Self::make_benchmark_action(req_idx, is_invalid);
 
@@ -189,8 +192,8 @@ impl UpdateBenchmarkHarness {
         concurrency: usize,
     ) -> UpdateBenchmarkStats {
         const NUM_SHARDS: usize = 16;
-        let concurrency = concurrency.max(1);
         let num_requests = num_requests.max(1);
+        let concurrency = concurrency.max(1).min(num_requests);
         let per_shard_cap = (num_requests / NUM_SHARDS) + 64;
 
         let sharded_updater = Arc::new(
@@ -200,17 +203,20 @@ impl UpdateBenchmarkHarness {
 
         let start = Instant::now();
         let per_task = num_requests / concurrency;
+        let remainder = num_requests % concurrency;
         let mut handles = Vec::with_capacity(concurrency);
 
         for t_idx in 0..concurrency {
+            let task_requests = per_task + usize::from(t_idx < remainder);
+            let task_start = t_idx * per_task + t_idx.min(remainder);
             let updater_clone = Arc::clone(&sharded_updater);
             handles.push(tokio::spawn(async move {
-                let mut local_latencies = Vec::with_capacity(per_task);
+                let mut local_latencies = Vec::with_capacity(task_requests);
                 let mut local_success = 0;
                 let mut local_rejected = 0;
 
-                for i in 0..per_task {
-                    let req_idx = t_idx * per_task + i;
+                for i in 0..task_requests {
+                    let req_idx = task_start + i;
                     let is_invalid = req_idx.is_multiple_of(10);
                     let (action_name, invalid) = Self::make_benchmark_action(req_idx, is_invalid);
 

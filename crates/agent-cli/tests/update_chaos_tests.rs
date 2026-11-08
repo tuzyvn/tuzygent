@@ -11,6 +11,57 @@ use agent_cli::update::{
 use agent_cli::{is_retryable_cli_error, CliExecutionError, CliFault, CliFaultPolicy};
 
 #[test]
+fn update_benchmark_action_builds_valid_and_invalid_actions() {
+    assert_eq!(
+        UpdateBenchmarkHarness::make_benchmark_action(7, false),
+        ("valid_update_action_7".to_string(), false)
+    );
+    assert_eq!(
+        UpdateBenchmarkHarness::make_benchmark_action(12, true),
+        ("invalid_update_arg_12".to_string(), true)
+    );
+}
+
+#[tokio::test]
+async fn update_benchmark_reports_empty_stats_for_zero_requests() {
+    let mut updater = ResilientUpdater::default();
+
+    let stats = UpdateBenchmarkHarness::run_benchmark(&mut updater, 0).await;
+
+    assert_eq!(stats.total_requests, 0);
+    assert_eq!(stats.successful_operations, 0);
+    assert_eq!(stats.rejected_count, 0);
+    assert_eq!(stats.p50_latency_us, 0.0);
+    assert_eq!(stats.p90_latency_us, 0.0);
+    assert_eq!(stats.p99_latency_us, 0.0);
+    assert_eq!(stats.max_latency_us, 0.0);
+    assert_eq!(stats.throughput_ops_per_sec, 0.0);
+}
+
+#[tokio::test]
+async fn update_concurrent_benchmark_processes_requests_when_concurrency_exceeds_count() {
+    let stats = UpdateBenchmarkHarness::run_concurrent_benchmark(3, 5).await;
+
+    assert_eq!(stats.total_requests, 3);
+    assert_eq!(stats.successful_operations, 2);
+    assert_eq!(stats.rejected_count, 1);
+}
+
+#[tokio::test]
+async fn update_single_lock_benchmark_processes_requests_when_concurrency_exceeds_count() {
+    let stats = UpdateBenchmarkHarness::run_single_lock_benchmark(3, 5).await;
+
+    assert_eq!(stats.total_requests, 3);
+    assert_eq!(stats.successful_operations, 2);
+    assert_eq!(stats.rejected_count, 1);
+    assert!(stats.p50_latency_us > 0.0);
+    assert!(stats.p90_latency_us >= stats.p50_latency_us);
+    assert!(stats.p99_latency_us >= stats.p90_latency_us);
+    assert!(stats.max_latency_us >= stats.p99_latency_us);
+    assert!(stats.memory_allocated_bytes > 0);
+}
+
+#[test]
 fn update_check_outputs_installed_metadata_when_fetch_fails() {
     let temp_dir = TemporaryDirectory::new(&std::env::temp_dir()).unwrap();
     let fake_bin = temp_dir.path().join("bin");
