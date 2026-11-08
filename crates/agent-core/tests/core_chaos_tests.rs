@@ -236,6 +236,57 @@ fn test_core_benchmark_harness_stats_and_percentiles() {
 }
 
 #[test]
+fn test_benchmark_percentile_empty_boundaries_and_interpolation() {
+    assert_eq!(CoreBenchmarkHarness::percentile(&[], 0.50), 0.0);
+
+    let sorted = [10.0, 20.0, 40.0, 80.0];
+    assert_eq!(CoreBenchmarkHarness::percentile(&sorted, 0.0), 10.0);
+    assert_eq!(CoreBenchmarkHarness::percentile(&sorted, 1.0), 80.0);
+    assert_eq!(CoreBenchmarkHarness::percentile(&sorted, 0.5), 30.0);
+}
+
+#[test]
+fn test_sharded_benchmark_reports_successes_rejections_and_empty_run() {
+    let policy = Arc::new(CoreFaultPolicy::new(100));
+    let runner = ShardedCoreAgentRunner::with_shared_fault_policy(Arc::clone(&policy), 20);
+
+    let stats = CoreBenchmarkHarness::run_sharded_benchmark(&runner, 4);
+    assert_eq!(stats.total_requests, 4);
+    assert_eq!(stats.successful_operations, 4);
+    assert_eq!(stats.rejected_count, 0);
+    assert!(stats.p50_latency_us >= 0.0);
+    assert!(stats.p90_latency_us >= stats.p50_latency_us);
+    assert!(stats.p99_latency_us >= stats.p90_latency_us);
+    assert!(stats.max_latency_us >= stats.p99_latency_us);
+    assert!(stats.total_duration.as_nanos() > 0);
+    assert!(stats.throughput_ops_per_sec > 0.0);
+    assert!(stats.memory_allocated_bytes > 0);
+
+    policy.set_fault(CoreFaultKind::SimulateTimeout);
+    let rejected = CoreBenchmarkHarness::run_sharded_benchmark(&runner, 3);
+    assert_eq!(rejected.total_requests, 3);
+    assert_eq!(rejected.successful_operations, 0);
+    assert_eq!(rejected.rejected_count, 3);
+    assert_eq!(rejected.p50_latency_us, 0.0);
+    assert_eq!(rejected.p99_latency_us, 0.0);
+    assert_eq!(rejected.max_latency_us, 0.0);
+    assert!(rejected.total_duration.as_nanos() > 0);
+    assert!(rejected.throughput_ops_per_sec > 0.0);
+    assert!(rejected.memory_allocated_bytes > 0);
+
+    let empty = CoreBenchmarkHarness::run_sharded_benchmark(&runner, 0);
+    assert_eq!(empty.total_requests, 0);
+    assert_eq!(empty.successful_operations, 0);
+    assert_eq!(empty.rejected_count, 0);
+    assert_eq!(empty.p50_latency_us, 0.0);
+    assert_eq!(empty.p90_latency_us, 0.0);
+    assert_eq!(empty.p99_latency_us, 0.0);
+    assert_eq!(empty.max_latency_us, 0.0);
+    assert_eq!(empty.throughput_ops_per_sec, 0.0);
+    assert_eq!(empty.memory_allocated_bytes, rejected.memory_allocated_bytes);
+}
+
+#[test]
 fn test_core_benchmark_compare_lock_contention() {
     let (single, sharded, ratio) = CoreBenchmarkHarness::compare_lock_contention(200);
     assert_eq!(single.total_requests, 200);
