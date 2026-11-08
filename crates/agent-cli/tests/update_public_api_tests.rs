@@ -3,9 +3,25 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::sync::Mutex;
 
-use agent_cli::update::{run, run_resilient_command, TemporaryDirectory, UpdateStatus};
+use agent_cli::update::{
+    run, run_resilient_command, TemporaryDirectory, UpdateStatus, DEFAULT_BRANCH,
+    DEFAULT_REPOSITORY,
+};
 
 static PATH_LOCK: Mutex<()> = Mutex::new(());
+
+#[test]
+fn default_branch_is_main() {
+    assert_eq!(DEFAULT_BRANCH, "main");
+}
+
+#[test]
+fn default_repository_points_to_the_project_repository() {
+    assert_eq!(
+        DEFAULT_REPOSITORY,
+        "https://github.com/tuzyvn/tuzygent.git"
+    );
+}
 
 struct PathRestore(Option<std::ffi::OsString>);
 
