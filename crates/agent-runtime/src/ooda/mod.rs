@@ -205,7 +205,9 @@ mod public_api_tests {
     #[async_trait]
     impl ComputeEngine for UnusedEngine {
         async fn execute(&self, _input: &EngineInput) -> Result<EngineOutput, EngineError> {
-            panic!("the public API tests do not execute the engine")
+            Err(EngineError::ProcessFailed(
+                "engine execution is not expected in public API tests".into(),
+            ))
         }
 
         fn engine_kind(&self) -> EngineKind {
@@ -225,6 +227,19 @@ mod public_api_tests {
             DurableMemoryStore::new(&workspace),
             workspace.to_str().unwrap(),
         )
+    }
+
+    #[tokio::test]
+    async fn unused_engine_returns_an_error_instead_of_panicking() {
+        let ooda = test_loop();
+
+        let result = ooda.engine.execute(&EngineInput::default()).await;
+
+        assert!(matches!(
+            result,
+            Err(EngineError::ProcessFailed(message))
+                if message == "engine execution is not expected in public API tests"
+        ));
     }
 
     fn persona(id: &str) -> AgentPersonaProfile {

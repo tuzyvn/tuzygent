@@ -38,3 +38,8 @@ tower-http = { workspace = true }
 futures = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["service", "tokio"] }
+tokio-tungstenite = "0.29.0"

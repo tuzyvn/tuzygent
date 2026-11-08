@@ -3984,7 +3984,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261108-0e0ef7: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-server/src/handlers/ws.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 04:36:08 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/handlers/ws.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `ws_handler` (L13), `handle_socket` (L18).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/handlers/ws.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
@@ -4029,4 +4029,46 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 - **Trạng thái**: `PENDING_RESEARCH` ⏳
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/update/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `checked_command` (L49).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/update/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P0] TOPIC-20261108-4a806d: Khử 1 điểm gọi panic!() tường minh trong crates/agent-runtime/src/ooda/mod.rs
+- **Phân loại**: `Reliability / Crash Immunity`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 04:45:46 UTC)
+- **Lý do cần nghiên cứu**: Phát hiện 1 lệnh panic!() trong crates/agent-runtime/src/ooda/mod.rs. Việc chủ động làm sập tiến trình vi phạm nguyên tắc tự phục hồi (Self-Healing) của AgentCore.
+- **Tiêu chuẩn nghiệm thu**: Chuyển đổi các nhánh panic!() trong crates/agent-runtime/src/ooda/mod.rs thành kiểu trả về Result<T, E>.
+
+### [P1] TOPIC-20261108-ff0e02: Refactor 3 lệnh unwrap() tại crates/agent-runtime/src/ooda/mod.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 3 lệnh unwrap() trong mã sản xuất tại crates/agent-runtime/src/ooda/mod.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-runtime/src/ooda/mod.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P1] TOPIC-20261108-270c47: Refactor 2 lệnh unwrap() tại crates/agent-server/src/handlers/agents.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 2 lệnh unwrap() trong mã sản xuất tại crates/agent-server/src/handlers/agents.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-server/src/handlers/agents.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P1] TOPIC-20261108-096bc9: Refactor 1 lệnh unwrap() tại crates/agent-runtime/src/operator/mod.rs sang cơ chế xử lý lỗi an toàn
+- **Phân loại**: `Reliability / Panic Prevention`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Phát hiện 1 lệnh unwrap() trong mã sản xuất tại crates/agent-runtime/src/operator/mod.rs. Bất kỳ nhánh lỗi I/O hoặc parse thất bại nào đều có thể làm dừng tiến trình ngoài ý muốn.
+- **Tiêu chuẩn nghiệm thu**: Thay thế toàn bộ unwrap() trong crates/agent-runtime/src/operator/mod.rs bằng toán tử ? kết hợp anyhow::Context hoặc domain error tương ứng.
+
+### [P1] TOPIC-20261108-982a14: Củng cố và phòng ngừa lỗi (gatekeeper_benchmark::TOPIC-20261108-0e0ef7)
+- **Phân loại**: `Self-Healing Root Cause`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Ghi nhận mẫu lỗi đơn lẻ: 'Benchmark tests or clippy failed after mission completion'. Giải pháp tạm thời: 'Chạy cargo test và cargo clippy để sửa triệt để lỗi hồi quy'. Cần củng cố cấu trúc xử lý lỗi.
+- **Tiêu chuẩn nghiệm thu**: Refactor mã nguồn xử lý TOPIC-20261108-0e0ef7 để tăng cường khả năng tự phục hồi.
+
+### [P2] TOPIC-20261108-cab65b: Phân tách cấu trúc tệp nguyên khối (410 dòng): crates/agent-runtime/src/verifier.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-runtime/src/verifier.rs có độ dài 410 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-runtime/src/verifier.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
+
+### [P2] TOPIC-20261108-3595e7: Phân tách cấu trúc tệp nguyên khối (376 dòng): crates/agent-server/src/auth/validator.rs
+- **Phân loại**: `Modularity & Maintainability`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Tệp crates/agent-server/src/auth/validator.rs có độ dài 376 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
+- **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-server/src/auth/validator.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
