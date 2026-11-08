@@ -3850,3 +3850,183 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 - **Lý do cần nghiên cứu**: Tệp crates/agent-server/src/metrics/types.rs có độ dài 389 dòng (vượt ngưỡng P90 là 350 dòng của toàn bộ dự án). Điều này làm tăng độ phức tạp nhận thức và khó khăn khi kiểm thử đơn vị độc lập.
 - **Tiêu chuẩn nghiệm thu**: Tách các struct, impl, hoặc handlers trong crates/agent-server/src/metrics/types.rs thành các submodule chuyên biệt theo nguyên tắc đơn nhiệm.
 
+### [P1] TOPIC-20261108-9d48fa: Bổ sung kiểm thử cho 3 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/accounts/vault/mod.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 00:11:19 UTC)
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/accounts/vault/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `accounts_read` (L46), `rr_read` (L70), `rr_write` (L80).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/accounts/vault/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-1bba3e: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/update/resilience/operations.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/update/resilience/operations.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `fetch_repository` (L50), `check_remote_commit` (L77).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/update/resilience/operations.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-0eab40: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-core/src/benchmark.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-core/src/benchmark.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `percentile` (L23), `run_sharded_benchmark` (L102).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-core/src/benchmark.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-9a825d: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-domain/src/rig.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-domain/src/rig.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `to_json` (L84), `find_seat` (L102).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-domain/src/rig.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-b312a3: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/accounts/resilience/cache.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/accounts/resilience/cache.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `evict_if_needed` (L60), `cache_account` (L70).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/accounts/resilience/cache.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-89147e: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-engine/src/router.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-engine/src/router.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `register_named` (L36), `resolve_kind` (L68).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-engine/src/router.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-f5de80: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/context_builder/resilience.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/context_builder/resilience.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `builder_mut` (L60), `build_with` (L114).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/context_builder/resilience.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-899b61: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/durable/ranking.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/durable/ranking.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `tokenize_document` (L33), `tokens_match` (L43).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/durable/ranking.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-df81c2: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-memory/src/durable/resilience/recovery.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-memory/src/durable/resilience/recovery.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `check_fault_injection` (L5), `handle_transient_error` (L32).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-memory/src/durable/resilience/recovery.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-83cbec: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/bus/event.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/bus/event.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_from_agent` (L52), `with_to_agent` (L57).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/bus/event.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-0a0142: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/bus/subscriber.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/bus/subscriber.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `with_auto_catchup` (L21), `try_recv_resilient` (L58).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/bus/subscriber.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-4cb484: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/execution/fault.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/execution/fault.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `is_transient` (L45), `is_retryable_execution_error` (L146).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/execution/fault.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-6457f5: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/harness/cache.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/harness/cache.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `set_max_capacity` (L28), `evict_if_needed` (L37).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/harness/cache.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-681682: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/ooda/mod.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/ooda/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `wait_for_cancellation` (L25), `supplement_controller` (L127).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/ooda/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-35b58c: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/operator/mod.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/operator/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `boot_seats` (L35), `shutdown_seats` (L64).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/operator/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-e3c0d7: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/operator/snapshot.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/operator/snapshot.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `save_snapshot` (L56), `load_snapshot` (L81).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/operator/snapshot.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-a9bf38: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/sandbox/workspace/manager.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/sandbox/workspace/manager.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `prepare_workspace` (L108), `teardown_workspace` (L119).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/sandbox/workspace/manager.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-ff3b69: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/task_service/activity.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/task_service/activity.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `trigger_all_cancellation_flags` (L28), `trigger_cancellation_flag` (L38).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/task_service/activity.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-4ff9c9: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/task_service/resume.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/task_service/resume.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `prepare_replay_from_checkpoint` (L57), `fork_task_from_checkpoint` (L113).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/task_service/resume.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-cad313: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-runtime/src/verifier.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-runtime/src/verifier.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `parse_specs` (L33), `verify_all` (L279).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-runtime/src/verifier.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-932bdf: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-server/src/auth/validator.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/auth/validator.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `increment_validated` (L118), `increment_rejected` (L122).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/auth/validator.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-b5733c: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-server/src/handlers/agents.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/handlers/agents.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `list_agents_handler` (L16), `create_agent_handler` (L35).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/handlers/agents.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-0e0ef7: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-server/src/handlers/ws.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/handlers/ws.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `ws_handler` (L13), `handle_socket` (L18).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/handlers/ws.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-5ffa8d: Bổ sung kiểm thử cho 2 API công khai chưa được nhắc tới trong test: crates/agent-server/src/metrics/benchmark.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-server/src/metrics/benchmark.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `run_single_thread` (L30), `run_sharded_concurrent` (L71).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-server/src/metrics/benchmark.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-b06b6e: Bổ sung kiểm thử cho 1 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/benchmark.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/benchmark.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `make_benchmark_action` (L59).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/benchmark.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-5efa50: Bổ sung kiểm thử cho 1 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/commands/benchmark.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/commands/benchmark.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `make_benchmark_action` (L59).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/commands/benchmark.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-a3656b: Bổ sung kiểm thử cho 1 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/commands/persona.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/commands/persona.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `init_samples` (L23).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/commands/persona.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-575ffd: Bổ sung kiểm thử cho 1 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/commands/replay/mod.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/commands/replay/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `handle_fork` (L28).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/commands/replay/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-e5aed9: Bổ sung kiểm thử cho 1 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/update/benchmark.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/update/benchmark.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `make_benchmark_action` (L60).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/update/benchmark.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+
+### [P2] TOPIC-20261108-8b6961: Bổ sung kiểm thử cho 1 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/update/mod.rs
+- **Phân loại**: `Source Finding / Public API Verification Gap`
+- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/update/mod.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `checked_command` (L49).
+- **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/update/mod.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
+

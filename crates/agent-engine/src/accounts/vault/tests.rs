@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
 use crate::accounts::types::{AccountProfile, AccountStatus};
@@ -32,6 +33,87 @@ fn test_base_dir_preserves_the_configured_path() {
     let vault = AccountVault::new_with_dir(configured_dir.clone());
 
     assert_eq!(vault.base_dir(), configured_dir.as_path());
+}
+
+#[test]
+fn test_accounts_read_returns_registered_profiles() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "vault_accounts_read_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let vault = AccountVault::new_with_dir(temp_dir.clone());
+    vault
+        .register_account(
+            AccountEngineKind::Antigravity,
+            "read-account",
+            "Read account",
+            HashMap::new(),
+        )
+        .expect("register account");
+
+    let accounts = vault.accounts_read();
+
+    let registered = accounts
+        .get(&AccountEngineKind::Antigravity)
+        .expect("engine account list should exist");
+    assert_eq!(registered.len(), 1);
+    assert_eq!(registered[0].id, "read-account");
+    drop(accounts);
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_rr_read_observes_round_robin_index() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "vault_rr_read_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let vault = AccountVault::new_with_dir(temp_dir.clone());
+    let engine = AccountEngineKind::Codex;
+    {
+        let mut indices = vault.rr_write();
+        indices.insert(engine.clone(), AtomicUsize::new(7));
+    }
+
+    let indices = vault.rr_read();
+
+    assert_eq!(
+        indices
+            .get(&engine)
+            .expect("round-robin index should exist")
+            .load(Ordering::SeqCst),
+        7
+    );
+    drop(indices);
+    let _ = std::fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_rr_write_updates_round_robin_index() {
+    let temp_dir = std::env::temp_dir().join(format!(
+        "vault_rr_write_{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let vault = AccountVault::new_with_dir(temp_dir.clone());
+    let engine = AccountEngineKind::Claude;
+    {
+        let mut indices = vault.rr_write();
+        indices.insert(engine.clone(), AtomicUsize::new(0));
+        indices
+            .get(&engine)
+            .expect("inserted round-robin index should exist")
+            .store(3, Ordering::SeqCst);
+    }
+
+    assert_eq!(
+        vault
+            .rr_read()
+            .get(&engine)
+            .expect("round-robin index should remain readable")
+            .load(Ordering::SeqCst),
+        3
+    );
+    let _ = std::fs::remove_dir_all(temp_dir);
 }
 
 #[test]
