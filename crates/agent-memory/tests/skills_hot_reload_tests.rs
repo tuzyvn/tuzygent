@@ -27,6 +27,14 @@ impl Drop for TempDirGuard {
     }
 }
 
+#[test]
+fn test_skills_dir_returns_configured_directory() {
+    let temp_guard = TempDirGuard::new("skills_dir_accessor");
+    let registry = SkillRegistry::new(temp_guard.path());
+
+    assert_eq!(registry.skills_dir(), temp_guard.path());
+}
+
 #[tokio::test]
 async fn test_dynamic_skill_detection_and_hot_reload() {
     let temp_guard = TempDirGuard::new("detection");
@@ -306,6 +314,55 @@ tags:
     assert_eq!(
         SkillRegistry::validate_frontmatter(empty_desc).unwrap_err(),
         SkillValidationError::MissingDescription
+    );
+}
+
+#[tokio::test]
+async fn test_registry_validate_skill_file_reads_and_validates_file() {
+    let temp_guard = TempDirGuard::new("validate_skill_file");
+    let valid_path = temp_guard.path().join("valid-skill.md");
+    tokio::fs::write(
+        &valid_path,
+        "---\nname: File Skill\ndescription: Validated from disk\nversion: 1.2.3\n---\n# Instructions\n",
+    )
+    .await
+    .expect("write valid skill file");
+
+    let validated = SkillRegistry::validate_skill_file(&valid_path)
+        .await
+        .expect("valid skill file should pass schema validation");
+    assert_eq!(validated.name, "File Skill");
+    assert_eq!(validated.description, "Validated from disk");
+    assert_eq!(validated.version.as_deref(), Some("1.2.3"));
+
+    let invalid_path = temp_guard.path().join("invalid-skill.md");
+    tokio::fs::write(
+        &invalid_path,
+        "---\nname: Missing Description\n---\n# Instructions\n",
+    )
+    .await
+    .expect("write invalid skill file");
+
+    assert_eq!(
+        SkillRegistry::validate_skill_file(&invalid_path).await,
+        Err(SkillValidationError::MissingDescription)
+    );
+}
+
+#[test]
+fn test_registry_parse_frontmatter_extracts_name_and_description() {
+    let content = "---\nname: Registry Skill\ndescription: Parsed through the registry API\n---\n# Instructions\n";
+
+    assert_eq!(
+        SkillRegistry::parse_frontmatter(content),
+        (
+            "Registry Skill".to_string(),
+            "Parsed through the registry API".to_string()
+        )
+    );
+    assert_eq!(
+        SkillRegistry::parse_frontmatter("# No frontmatter"),
+        (String::new(), String::new())
     );
 }
 
