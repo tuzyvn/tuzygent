@@ -8,7 +8,7 @@ use agent_domain::RigSpec;
 use agent_engine::tmux::TmuxSessionManager;
 use agent_engine::ComputeEngine;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 
 pub struct KernelOperator {
     pub spec: RigSpec,
@@ -33,10 +33,27 @@ impl KernelOperator {
 
     /// Khởi động toàn bộ team: tạo các persistent seats (tmux hoặc process)
     pub fn boot_seats(&self) -> Result<Vec<String>, String> {
+        self.boot_seats_with(
+            TmuxSessionManager::is_available,
+            |rig_id, seat_id, workspace_dir| {
+                TmuxSessionManager::create_seat_session(rig_id, seat_id, workspace_dir)
+            },
+        )
+    }
+
+    fn boot_seats_with<A, C>(
+        &self,
+        tmux_is_available: A,
+        mut create_tmux_session: C,
+    ) -> Result<Vec<String>, String>
+    where
+        A: Fn() -> bool,
+        C: FnMut(&str, &str, Option<&str>) -> Result<String, String>,
+    {
         let mut booted = Vec::new();
         for seat in &self.spec.seats {
-            if seat.harness == "tmux" && TmuxSessionManager::is_available() {
-                match TmuxSessionManager::create_seat_session(
+            if seat.harness == "tmux" && tmux_is_available() {
+                match create_tmux_session(
                     &self.spec.rig.id,
                     &seat.seat_id,
                     Some(&self.workspace_dir),
@@ -46,7 +63,10 @@ impl KernelOperator {
                         booted.push(sess);
                     }
                     Err(e) => {
-                        warn!("Failed to boot tmux seat '{}': {}", seat.seat_id, e);
+                        return Err(format!(
+                            "Failed to boot tmux seat '{}': {}",
+                            seat.seat_id, e
+                        ));
                     }
                 }
             } else {
@@ -238,10 +258,58 @@ mod tests {
         let operator = KernelOperator::new(spec, ".");
 
         assert_eq!(
-            operator.boot_seats().unwrap(),
-            vec!["process_worker-1", "process_worker-2"]
+            operator.boot_seats(),
+            Ok(vec![
+                "process_worker-1".to_string(),
+                "process_worker-2".to_string()
+            ])
         );
         assert!(operator.shutdown_seats().is_ok());
+    }
+
+    #[test]
+    fn test_boot_seats_returns_error_when_tmux_creation_fails() {
+        let operator = KernelOperator::new(
+            RigSpec {
+                rig: RigMetadata {
+                    id: "tmux-error-test".to_string(),
+                    name: "Tmux error test".to_string(),
+                    description: None,
+                    version: None,
+                },
+                operator: RigOperatorConfig {
+                    agent_id: "operator".to_string(),
+                    name: None,
+                    role: None,
+                    persona_path: None,
+                    engine: None,
+                    model: None,
+                },
+                seats: vec![RigSeatConfig {
+                    seat_id: "worker".to_string(),
+                    name: None,
+                    role: "worker".to_string(),
+                    capabilities: vec![],
+                    persona_path: None,
+                    engine: None,
+                    model: None,
+                    harness: "tmux".to_string(),
+                    voice_preset: None,
+                    autonomy: "full".to_string(),
+                }],
+                channels: vec![],
+            },
+            ".",
+        );
+
+        let result = operator.boot_seats_with(
+            || true,
+            |_, _, _| Err("simulated tmux startup failure".to_string()),
+        );
+
+        assert!(result
+            .expect_err("tmux creation failure must be returned, not swallowed")
+            .contains("worker"));
     }
 
     #[tokio::test]

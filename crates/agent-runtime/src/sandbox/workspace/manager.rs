@@ -181,12 +181,7 @@ mod tests {
         assert!(branch_name.is_none());
 
         let mut worktree_path = worktree_path;
-        teardown_workspace(
-            &repo_path,
-            IsolationMode::Ephemeral,
-            &mut worktree_path,
-        )
-        .await?;
+        teardown_workspace(&repo_path, IsolationMode::Ephemeral, &mut worktree_path).await?;
         assert!(!run_dir.exists());
         assert!(worktree_path.is_none());
 
