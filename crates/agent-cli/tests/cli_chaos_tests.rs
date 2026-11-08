@@ -7,6 +7,18 @@ use agent_cli::{
     CliExecutionError, CliFault, CliFaultPolicy, ResilientCliRunner,
 };
 
+#[test]
+fn cli_benchmark_action_marks_invalid_actions_and_formats_names() {
+    assert_eq!(
+        CliBenchmarkHarness::make_benchmark_action(7, false),
+        ("valid_cli_action_7".to_string(), false)
+    );
+    assert_eq!(
+        CliBenchmarkHarness::make_benchmark_action(12, true),
+        ("invalid_cli_arg_12".to_string(), true)
+    );
+}
+
 /// TDD test case for TOPIC-20261105-a26029 & TOPIC-20261105-8b5788:
 /// Chaos Engineering and Fault Injection resilience in agent-cli::cli.
 /// Permanently eliminates recurring mission failure: 'Mission exited with non-zero code 2'.

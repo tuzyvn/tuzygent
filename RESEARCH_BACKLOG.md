@@ -3996,7 +3996,7 @@ Danh mục đề tài nghiên cứu được trích xuất hoàn toàn động t
 
 ### [P2] TOPIC-20261108-b06b6e: Bổ sung kiểm thử cho 1 API công khai chưa được nhắc tới trong test: crates/agent-cli/src/benchmark.rs
 - **Phân loại**: `Source Finding / Public API Verification Gap`
-- **Trạng thái**: `PENDING_RESEARCH` ⏳
+- **Trạng thái**: `COMPLETED` ✅ (2026-11-08 08:25:34 UTC)
 - **Lý do cần nghiên cứu**: Các hàm công khai sau được khai báo trong `crates/agent-cli/src/benchmark.rs` nhưng không tìm thấy tên tương ứng trong Rust test hiện có: `make_benchmark_action` (L59).
 - **Tiêu chuẩn nghiệm thu**: Thêm kiểm thử hành vi cho các API được liệt kê tại `crates/agent-cli/src/benchmark.rs`, bao gồm input biên và đường lỗi phù hợp; mỗi test phải xác minh kết quả quan sát được.
 
