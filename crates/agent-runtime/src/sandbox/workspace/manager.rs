@@ -131,3 +131,65 @@ pub async fn teardown_workspace(
     *worktree_path = manager.worktree_path;
     res
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{prepare_workspace, teardown_workspace};
+    use crate::sandbox::config::IsolationMode;
+    use anyhow::Result;
+    use std::fs;
+    use std::path::PathBuf;
+    use uuid::Uuid;
+
+    fn test_path(prefix: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("{prefix}-{}", Uuid::new_v4().simple()))
+    }
+
+    #[tokio::test]
+    async fn prepare_and_teardown_local_directory_preserve_repository() -> Result<()> {
+        let repo_path = test_path("ws-helper-local");
+        fs::create_dir_all(&repo_path)?;
+
+        let (run_dir, worktree_path, branch_name) =
+            prepare_workspace(&repo_path, IsolationMode::LocalDirectory, "task-local").await?;
+        assert_eq!(run_dir, repo_path);
+        assert!(worktree_path.is_none());
+        assert!(branch_name.is_none());
+
+        let mut worktree_path = Some(run_dir.clone());
+        teardown_workspace(
+            &repo_path,
+            IsolationMode::LocalDirectory,
+            &mut worktree_path,
+        )
+        .await?;
+        assert!(worktree_path.is_none());
+        assert!(repo_path.is_dir());
+
+        fs::remove_dir_all(repo_path)?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn prepare_and_teardown_ephemeral_directory_create_and_remove_workspace() -> Result<()> {
+        let repo_path = test_path("ws-helper-ephemeral-repo");
+
+        let (run_dir, worktree_path, branch_name) =
+            prepare_workspace(&repo_path, IsolationMode::Ephemeral, "task-ephemeral").await?;
+        assert!(run_dir.is_dir());
+        assert_eq!(worktree_path.as_ref(), Some(&run_dir));
+        assert!(branch_name.is_none());
+
+        let mut worktree_path = worktree_path;
+        teardown_workspace(
+            &repo_path,
+            IsolationMode::Ephemeral,
+            &mut worktree_path,
+        )
+        .await?;
+        assert!(!run_dir.exists());
+        assert!(worktree_path.is_none());
+
+        Ok(())
+    }
+}
