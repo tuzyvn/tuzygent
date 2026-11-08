@@ -113,6 +113,61 @@ mod tests {
     use super::*;
     use agent_domain::{RigChannelConfig, RigMetadata, RigOperatorConfig, RigSeatConfig};
 
+    #[test]
+    fn test_boot_and_shutdown_process_seats() {
+        let spec = RigSpec {
+            rig: RigMetadata {
+                id: "seat-lifecycle-test".to_string(),
+                name: "Seat lifecycle test".to_string(),
+                description: None,
+                version: None,
+            },
+            operator: RigOperatorConfig {
+                agent_id: "operator".to_string(),
+                name: None,
+                role: None,
+                persona_path: None,
+                engine: None,
+                model: None,
+            },
+            seats: vec![
+                RigSeatConfig {
+                    seat_id: "worker-1".to_string(),
+                    name: None,
+                    role: "worker".to_string(),
+                    capabilities: vec![],
+                    persona_path: None,
+                    engine: None,
+                    model: None,
+                    harness: "process".to_string(),
+                    voice_preset: None,
+                    autonomy: "full".to_string(),
+                },
+                RigSeatConfig {
+                    seat_id: "worker-2".to_string(),
+                    name: None,
+                    role: "worker".to_string(),
+                    capabilities: vec![],
+                    persona_path: None,
+                    engine: None,
+                    model: None,
+                    harness: "process".to_string(),
+                    voice_preset: None,
+                    autonomy: "full".to_string(),
+                },
+            ],
+            channels: vec![],
+        };
+
+        let operator = KernelOperator::new(spec, ".");
+
+        assert_eq!(
+            operator.boot_seats().unwrap(),
+            vec!["process_worker-1", "process_worker-2"]
+        );
+        assert!(operator.shutdown_seats().is_ok());
+    }
+
     #[tokio::test]
     async fn test_kernel_operator_lifecycle_and_channels() {
         let spec = RigSpec {
