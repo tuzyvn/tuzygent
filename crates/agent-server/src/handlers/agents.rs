@@ -70,13 +70,32 @@ mod tests {
     use super::{create_agent_handler, list_agents_handler, CreateAgentReq};
     use crate::state::AppState;
     use agent_core::prelude::*;
+    use anyhow::Context;
     use axum::{extract::State, response::IntoResponse, Json};
     use std::sync::Arc;
 
-    fn test_state() -> AppState {
+    fn agents_array(value: &serde_json::Value) -> anyhow::Result<&[serde_json::Value]> {
+        value["agents"]
+            .as_array()
+            .map(Vec::as_slice)
+            .ok_or_else(|| anyhow::anyhow!("response field `agents` is missing or is not an array"))
+    }
+
+    #[test]
+    fn missing_agents_array_returns_a_diagnostic_error() {
+        let value = serde_json::json!({ "agents": "invalid" });
+
+        let error = agents_array(&value).expect_err("invalid agents field should return an error");
+
+        assert!(error.to_string().contains("agents"));
+    }
+
+    fn test_state() -> anyhow::Result<AppState> {
         let bus = InterAgentBus::new(16);
-        let task_store = Arc::new(agent_runtime::SqliteTaskStore::memory().unwrap());
-        AppState {
+        let task_store = Arc::new(
+            agent_runtime::SqliteTaskStore::memory().context("create in-memory task store")?,
+        );
+        Ok(AppState {
             supervisor: Arc::new(AgentSupervisor::new(bus.clone())),
             bus,
             workspace: "/tmp".into(),
@@ -87,7 +106,7 @@ mod tests {
                 task_store, "/tmp", 2, None, None,
             )),
             metrics: Arc::new(crate::metrics::ResilientMetricsService::default()),
-        }
+        })
     }
 
     #[test]
@@ -134,8 +153,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_agents_handler_returns_registered_agent_details() {
-        let state = test_state();
+    async fn list_agents_handler_returns_registered_agent_details() -> anyhow::Result<()> {
+        let state = test_state()?;
         state
             .supervisor
             .register_agent(AgentIdentity {
@@ -154,16 +173,20 @@ mod tests {
         let value: serde_json::Value =
             serde_json::from_slice(&body).expect("response is valid JSON");
 
-        assert_eq!(value["agents"].as_array().unwrap().len(), 1);
+        assert_eq!(agents_array(&value)?.len(), 1);
         assert_eq!(value["agents"][0]["id"], "agent-list-test");
         assert_eq!(value["agents"][0]["name"], "Listed Agent");
-        assert_eq!(value["agents"][0]["description"], "An agent for the list response");
+        assert_eq!(
+            value["agents"][0]["description"],
+            "An agent for the list response"
+        );
         assert_eq!(value["agents"][0]["autonomy_level"], "Supervised");
+        Ok(())
     }
 
     #[tokio::test]
-    async fn create_agent_handler_returns_created_and_registers_agent() {
-        let state = test_state();
+    async fn create_agent_handler_returns_created_and_registers_agent() -> anyhow::Result<()> {
+        let state = test_state()?;
         let response = create_agent_handler(
             State(state.clone()),
             Json(CreateAgentReq {
@@ -197,5 +220,6 @@ mod tests {
         assert_eq!(agents[0].0.name, "Created Agent");
         assert_eq!(agents[0].0.description, "Created through the handler");
         assert_eq!(agents[0].0.autonomy_level, AutonomyLevel::ShadowMode);
+        Ok(())
     }
 }
