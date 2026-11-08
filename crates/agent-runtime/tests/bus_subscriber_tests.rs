@@ -39,3 +39,19 @@ fn inner_mut_allows_raw_receive_and_advances_subscriber_receiver() {
     assert_eq!(subscriber.inner_mut().try_recv(), Ok(expected));
     assert_eq!(subscriber.try_recv_resilient(), Ok(None));
 }
+
+#[tokio::test]
+async fn disabling_auto_catchup_reports_and_tracks_missed_messages() {
+    let (sender, receiver) = broadcast::channel(2);
+    let mut subscriber = ResilientSubscriber::new(receiver).with_auto_catchup(false);
+
+    for _ in 0..5 {
+        sender.send(event()).unwrap();
+    }
+
+    assert_eq!(
+        subscriber.recv_resilient().await,
+        Err(BusError::ReceiverLagged(3))
+    );
+    assert_eq!(subscriber.total_lagged(), 3);
+}
