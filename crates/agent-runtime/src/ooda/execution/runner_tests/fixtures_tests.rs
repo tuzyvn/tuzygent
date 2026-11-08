@@ -126,4 +126,32 @@ mod tests {
         assert_eq!(try_exec.timeout_seconds, 30);
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_callback_mock_engine_with_failure_returns_process_failed() {
+        let engine = CallbackMockEngine::with_failure("simulated process failure");
+        let input = EngineInput::new("run command", "/tmp");
+
+        assert!(matches!(
+            engine.execute(&input).await,
+            Err(EngineError::ProcessFailed(message)) if message == "simulated process failure"
+        ));
+        assert_eq!(engine.call_count(), 1);
+    }
+
+    #[test]
+    fn test_setup_test_executor_creates_workspace_with_default_timeout() {
+        let env = TestEnv::new("setup_test_executor_defaults");
+        let workspace = env.path().join("new_workspace");
+        assert!(!workspace.exists());
+
+        let executor = setup_test_executor(
+            Arc::new(CallbackMockEngine::with_constant_output("ok")),
+            None,
+            &workspace,
+        );
+
+        assert!(workspace.is_dir());
+        assert_eq!(executor.timeout_seconds, 30);
+    }
 }
