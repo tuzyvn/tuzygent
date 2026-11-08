@@ -67,7 +67,28 @@ pub async fn create_agent_handler(
 
 #[cfg(test)]
 mod tests {
-    use super::CreateAgentReq;
+    use super::{create_agent_handler, list_agents_handler, CreateAgentReq};
+    use crate::state::AppState;
+    use agent_core::prelude::*;
+    use axum::{extract::State, response::IntoResponse, Json};
+    use std::sync::Arc;
+
+    fn test_state() -> AppState {
+        let bus = InterAgentBus::new(16);
+        let task_store = Arc::new(agent_runtime::SqliteTaskStore::memory().unwrap());
+        AppState {
+            supervisor: Arc::new(AgentSupervisor::new(bus.clone())),
+            bus,
+            workspace: "/tmp".into(),
+            vault: Arc::new(agent_engine::AccountVault::new_with_dir(
+                std::env::temp_dir().join(format!("test-vault-{}", uuid::Uuid::new_v4())),
+            )),
+            task_service: Arc::new(agent_runtime::TaskService::new(
+                task_store, "/tmp", 2, None, None,
+            )),
+            metrics: Arc::new(crate::metrics::ResilientMetricsService::default()),
+        }
+    }
 
     #[test]
     fn create_agent_request_serialization_preserves_json_contract() {
@@ -110,5 +131,71 @@ mod tests {
         assert_eq!(request.name, "Default Agent");
         assert_eq!(request.description, None);
         assert_eq!(request.autonomy, None);
+    }
+
+    #[tokio::test]
+    async fn list_agents_handler_returns_registered_agent_details() {
+        let state = test_state();
+        state
+            .supervisor
+            .register_agent(AgentIdentity {
+                id: AgentId::from_str("agent-list-test"),
+                name: "Listed Agent".into(),
+                description: "An agent for the list response".into(),
+                autonomy_level: AutonomyLevel::Supervised,
+                created_at: chrono::Utc::now(),
+            })
+            .await;
+
+        let response = list_agents_handler(State(state)).await.into_response();
+        let body = axum::body::to_bytes(response.into_body(), 8192)
+            .await
+            .expect("response body is readable");
+        let value: serde_json::Value =
+            serde_json::from_slice(&body).expect("response is valid JSON");
+
+        assert_eq!(value["agents"].as_array().unwrap().len(), 1);
+        assert_eq!(value["agents"][0]["id"], "agent-list-test");
+        assert_eq!(value["agents"][0]["name"], "Listed Agent");
+        assert_eq!(value["agents"][0]["description"], "An agent for the list response");
+        assert_eq!(value["agents"][0]["autonomy_level"], "Supervised");
+    }
+
+    #[tokio::test]
+    async fn create_agent_handler_returns_created_and_registers_agent() {
+        let state = test_state();
+        let response = create_agent_handler(
+            State(state.clone()),
+            Json(CreateAgentReq {
+                id: "agent-create-test".into(),
+                name: "Created Agent".into(),
+                description: Some("Created through the handler".into()),
+                autonomy: Some("shadow".into()),
+            }),
+        )
+        .await
+        .into_response();
+
+        assert_eq!(response.status(), axum::http::StatusCode::CREATED);
+        let body = axum::body::to_bytes(response.into_body(), 8192)
+            .await
+            .expect("response body is readable");
+        let value: serde_json::Value =
+            serde_json::from_slice(&body).expect("response is valid JSON");
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "success": true,
+                "agent_id": "agent-create-test",
+                "name": "Created Agent",
+            })
+        );
+
+        let agents = state.supervisor.list_agents().await;
+        assert_eq!(agents.len(), 1);
+        assert_eq!(agents[0].0.id.to_string(), "agent-create-test");
+        assert_eq!(agents[0].0.name, "Created Agent");
+        assert_eq!(agents[0].0.description, "Created through the handler");
+        assert_eq!(agents[0].0.autonomy_level, AutonomyLevel::ShadowMode);
     }
 }
