@@ -54,6 +54,24 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_mock_ok_fixture_shape() {
+        let output = mock_ok("successful execution");
+
+        assert_eq!(output.stdout_content, "successful execution");
+        assert_eq!(output.exit_code, 0);
+        assert_eq!(output.execution_duration_ms, 10);
+        assert_eq!(output.engine_used, EngineKind::Mock);
+        assert_eq!(output.session_id, None);
+
+        let empty_output = mock_ok("");
+        assert_eq!(empty_output.stdout_content, "");
+        assert_eq!(empty_output.exit_code, 0);
+        assert_eq!(empty_output.execution_duration_ms, 10);
+        assert_eq!(empty_output.engine_used, EngineKind::Mock);
+        assert_eq!(empty_output.session_id, None);
+    }
+
     #[tokio::test]
     async fn test_callback_mock_engine_and_executors() -> anyhow::Result<()> {
         let mock_engine = Arc::new(CallbackMockEngine::with_constant_output("hello response"));
