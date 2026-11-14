@@ -50,6 +50,16 @@ pub fn validate_engine_name(engine_str: &str) -> Result<(), std::io::Error> {
             ),
         ));
     }
+    let trimmed = engine_str.trim();
+    if matches!(
+        trimmed.to_ascii_lowercase().as_str(),
+        "antigravity" | "agy" | "gemini"
+    ) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "Multi-account vault registration for Google/Antigravity is disabled to comply with Google Terms of Service",
+        ));
+    }
     Ok(())
 }
 

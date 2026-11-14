@@ -29,9 +29,9 @@ fn with_history_buffer_preserves_shared_buffer_and_capacity() {
     );
 
     service
-        .resolve_model_resilient("antigravity")
+        .resolve_model_resilient("codex")
         .expect("valid model should resolve");
-    assert_eq!(history.snapshot(), vec!["antigravity"]);
+    assert_eq!(history.snapshot(), vec!["codex"]);
 }
 
 #[test]
@@ -50,9 +50,9 @@ fn with_sharded_history_buffer_preserves_shared_buffer_and_capacity() {
     );
 
     service
-        .resolve_model_resilient("antigravity")
+        .resolve_model_resilient("codex")
         .expect("valid model should resolve");
-    assert_eq!(history.snapshot(), vec!["antigravity"]);
+    assert_eq!(history.snapshot(), vec!["codex"]);
 }
 
 #[test]
@@ -101,7 +101,7 @@ fn zero_capacity_history_is_reported_and_does_not_record_entries() {
 
     assert_eq!(service.max_capacity(), Some(0));
     service
-        .resolve_model_resilient("antigravity")
+        .resolve_model_resilient("codex")
         .expect("valid model should resolve");
     assert!(history.is_empty());
     assert_eq!(history.total_pushed(), 0);

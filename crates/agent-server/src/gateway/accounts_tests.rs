@@ -63,8 +63,17 @@ async fn test_gateway_account_profile_sanitization() -> Result<(), Box<dyn std::
     );
     env.insert("ANTHROPIC_AUTH".to_string(), "token-999".to_string());
 
-    let req = AddAccountReq {
+    let google_req = AddAccountReq {
         engine: "antigravity".to_string(),
+        id: "google-acc-01".to_string(),
+        name: "Disabled Google Account".to_string(),
+        extra_env: HashMap::new(),
+    };
+    let google_res = add_account_handler(State(state.clone()), Json(google_req)).await;
+    assert!(matches!(google_res, Err((axum::http::StatusCode::BAD_REQUEST, _))));
+
+    let req = AddAccountReq {
+        engine: "codex".to_string(),
         id: "safe-acc-01".to_string(),
         name: "Sanitized Test Account".to_string(),
         extra_env: env,
@@ -103,9 +112,9 @@ async fn test_gateway_account_profile_sanitization() -> Result<(), Box<dyn std::
 async fn test_reset_account_handler_reports_reset_and_missing_accounts(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let state = create_test_state()?;
-    register_test_account(&state, "antigravity", "reset-me")?;
+    register_test_account(&state, "codex", "reset-me")?;
     state.vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "reset-me",
         60,
         "test cooldown",
@@ -113,7 +122,7 @@ async fn test_reset_account_handler_reports_reset_and_missing_accounts(
 
     let reset = reset_account_handler(
         State(state.clone()),
-        axum::extract::Path(("antigravity".into(), "reset-me".into())),
+        axum::extract::Path(("codex".into(), "reset-me".into())),
     )
     .await
     .0;
@@ -121,14 +130,14 @@ async fn test_reset_account_handler_reports_reset_and_missing_accounts(
     assert_eq!(
         state
             .vault
-            .get_account(&AccountEngineKind::Antigravity, "reset-me")
+            .get_account(&AccountEngineKind::Codex, "reset-me")
             .map(|account| account.status),
         Some(agent_engine::AccountStatus::Ready)
     );
 
     let already_ready = reset_account_handler(
         State(state.clone()),
-        axum::extract::Path(("antigravity".into(), "reset-me".into())),
+        axum::extract::Path(("codex".into(), "reset-me".into())),
     )
     .await
     .0;
@@ -136,7 +145,7 @@ async fn test_reset_account_handler_reports_reset_and_missing_accounts(
 
     let missing = reset_account_handler(
         State(state.clone()),
-        axum::extract::Path(("antigravity".into(), "missing".into())),
+        axum::extract::Path(("codex".into(), "missing".into())),
     )
     .await
     .0;
@@ -157,43 +166,43 @@ async fn test_import_local_handler_reports_success_and_failure(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let _env_guard = ENV_LOCK.lock().await;
     let state = create_test_state()?;
-    register_test_account(&state, "antigravity", "import-me")?;
+    register_test_account(&state, "codex", "import-me")?;
 
     let temp_home = std::env::temp_dir().join(format!("gateway_import_{}", uuid::Uuid::new_v4()));
-    let credentials = temp_home.join(".gemini");
+    let credentials = temp_home.join(".codex");
     std::fs::create_dir_all(&credentials)?;
-    std::fs::write(credentials.join("settings.json"), "{\"token\":\"test\"}")?;
+    std::fs::write(credentials.join("auth.json"), "{\"token\":\"test\"}")?;
 
     let previous_home = std::env::var_os("HOME");
     std::env::set_var("HOME", &temp_home);
     let imported = import_local_handler(
         State(state.clone()),
-        axum::extract::Path(("antigravity".into(), "import-me".into())),
+        axum::extract::Path(("codex".into(), "import-me".into())),
     )
     .await
     .0;
     assert_eq!(imported, serde_json::json!({"imported": true}));
     let account = state
         .vault
-        .get_account(&AccountEngineKind::Antigravity, "import-me")
+        .get_account(&AccountEngineKind::Codex, "import-me")
         .ok_or("registered account missing")?;
     assert_eq!(
-        std::fs::read_to_string(account.home_dir.join(".gemini/settings.json"))?,
+        std::fs::read_to_string(account.home_dir.join(".codex/auth.json"))?,
         "{\"token\":\"test\"}"
     );
 
     std::fs::remove_dir_all(&credentials)?;
     let missing = import_local_handler(
         State(state.clone()),
-        axum::extract::Path(("antigravity".into(), "not-present".into())),
+        axum::extract::Path(("codex".into(), "not-present".into())),
     )
     .await
     .0;
     assert_eq!(missing, serde_json::json!({"imported": false}));
-    register_test_account(&state, "antigravity", "no-local-credentials")?;
+    register_test_account(&state, "codex", "no-local-credentials")?;
     let no_credentials = import_local_handler(
         State(state),
-        axum::extract::Path(("antigravity".into(), "no-local-credentials".into())),
+        axum::extract::Path(("codex".into(), "no-local-credentials".into())),
     )
     .await
     .0;
@@ -211,26 +220,29 @@ async fn test_verify_account_handler_success_and_failure_paths(
 
     let _env_guard = ENV_LOCK.lock().await;
     let state = create_test_state()?;
-    register_test_account(&state, "antigravity", "verify-me")?;
+    register_test_account(&state, "codex", "verify-me")?;
     let runner = std::env::temp_dir().join(format!("gateway_verify_{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&runner)?;
-    let binary = runner.join("agy-test");
-    std::fs::write(&binary, "#!/bin/sh\nprintf '  verified output  \\n'\n")?;
+    let binary = runner.join("codex-test");
+    std::fs::write(
+        &binary,
+        "#!/bin/sh\nprintf '{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"  verified output  \"}}\\n'\nprintf '{\"type\":\"turn.completed\"}\\n'\n",
+    )?;
     let mut permissions = std::fs::metadata(&binary)?.permissions();
     permissions.set_mode(0o700);
     std::fs::set_permissions(&binary, permissions)?;
 
-    let previous_binary = std::env::var_os("AGY_BIN");
-    std::env::set_var("AGY_BIN", &binary);
+    let previous_binary = std::env::var_os("CODEX_BIN");
+    std::env::set_var("CODEX_BIN", &binary);
     state.vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "verify-me",
         60,
         "pre-existing cooldown",
     );
     let verified = verify_account_handler(
         State(state.clone()),
-        axum::extract::Path(("antigravity".into(), "verify-me".into())),
+        axum::extract::Path(("codex".into(), "verify-me".into())),
     )
     .await
     .0;
@@ -240,7 +252,7 @@ async fn test_verify_account_handler_success_and_failure_paths(
     assert_eq!(
         state
             .vault
-            .get_account(&AccountEngineKind::Antigravity, "verify-me")
+            .get_account(&AccountEngineKind::Codex, "verify-me")
             .map(|account| account.status),
         Some(agent_engine::AccountStatus::Ready)
     );
@@ -248,24 +260,24 @@ async fn test_verify_account_handler_success_and_failure_paths(
     std::fs::write(&binary, "#!/bin/sh\nexit 7\n")?;
     let failed = verify_account_handler(
         State(state.clone()),
-        axum::extract::Path(("antigravity".into(), "verify-me".into())),
+        axum::extract::Path(("codex".into(), "verify-me".into())),
     )
     .await
     .0;
-    restore_env_var("AGY_BIN", previous_binary);
+    restore_env_var("CODEX_BIN", previous_binary);
     assert_eq!(failed["success"], false);
     assert_eq!(failed["error"], "Engine exited with code 7");
     assert!(matches!(
         state
             .vault
-            .get_account(&AccountEngineKind::Antigravity, "verify-me")
+            .get_account(&AccountEngineKind::Codex, "verify-me")
             .map(|account| account.status),
         Some(agent_engine::AccountStatus::Cooldown { .. })
     ));
 
     let missing = verify_account_handler(
         State(state.clone()),
-        axum::extract::Path(("antigravity".into(), "missing".into())),
+        axum::extract::Path(("codex".into(), "missing".into())),
     )
     .await
     .0;

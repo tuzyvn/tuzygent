@@ -132,7 +132,7 @@ async fn test_gateway_load_10k_simultaneous_tasks() {
 
     let service = Arc::new(
         ShardedResilientGatewayService::new(NUM_SHARDS)
-            .with_fallback_model("antigravity")
+            .with_fallback_model("codex")
             .with_max_capacity(TOTAL_REQUESTS + 128)
             .with_cache(TOTAL_REQUESTS + 64),
     );
@@ -355,7 +355,7 @@ async fn test_gateway_http_chat_route_load() {
             for i in 0..per_worker {
                 let req_num = worker_idx * per_worker + i;
                 let payload = serde_json::json!({
-                    "model": if req_num.is_multiple_of(10) { "invalid_chat_engine" } else { "antigravity" },
+                    "model": if req_num.is_multiple_of(10) { "invalid_chat_engine" } else { "codex" },
                     "messages": [{"role": "user", "content": "benchmark load ping"}],
                     "stream": false
                 });
@@ -470,7 +470,7 @@ async fn test_gateway_http_mixed_accounts_and_chat_load() {
                     1 => {
                         // Route 2: POST /v1/chat/completions
                         let payload = serde_json::json!({
-                            "model": "antigravity",
+                            "model": "codex",
                             "messages": [{"role": "user", "content": "mixed test"}],
                             "stream": false
                         });
@@ -572,7 +572,7 @@ async fn test_gateway_load_10k_bounded_memory_ring_buffer() {
 
     let service = ResilientGatewayService::new()
         .with_fault_policy(GatewayFaultPolicy::none())
-        .with_fallback_model("antigravity")
+        .with_fallback_model("codex")
         .with_max_capacity(BOUNDED_CAPACITY);
 
     println!("\n>>> Measuring memory stability under multiple 10,000-request bursts...");
@@ -626,10 +626,10 @@ async fn test_gateway_batch_and_cache_performance() {
                 format!("invalid_engine_model_{i}")
             } else {
                 let base = [
-                    "antigravity",
                     "codex",
                     "claude",
-                    "gemini/gemini-2.0-flash-exp",
+                    "codex/gpt-4o",
+                    "claude/claude-3-5-sonnet",
                 ];
                 base[i % base.len()].to_string()
             }
@@ -668,7 +668,7 @@ async fn test_gateway_batch_and_cache_performance() {
     assert!(throughput > 10_000.0);
 
     // Warm cache vs Cold cache
-    let cache_key = "gemini/gemini-2.0-flash-exp";
+    let cache_key = "codex/gpt-4o";
 
     // Cold cache miss
     let cold_service = ResilientGatewayService::new().with_cache(100);

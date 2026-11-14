@@ -30,8 +30,10 @@ pub struct AddAccountReq {
 pub fn parse_model_spec(model_str: &str) -> Result<(AccountEngineKind, Option<String>), String> {
     let lower = model_str.to_lowercase();
     if lower.starts_with("antigravity") || lower.starts_with("agy") || lower.starts_with("gemini") {
-        let specific_model = model_str.split_once('/').map(|(_, m)| m.to_string());
-        Ok((AccountEngineKind::Antigravity, specific_model))
+        Err(format!(
+            "Model '{}' is disabled on the OpenAI proxy gateway to comply with Google Terms of Service. Supported engines: codex, claude.",
+            model_str
+        ))
     } else if lower.starts_with("codex")
         || lower.starts_with("gpt")
         || lower.starts_with("o1")
@@ -44,7 +46,7 @@ pub fn parse_model_spec(model_str: &str) -> Result<(AccountEngineKind, Option<St
         Ok((AccountEngineKind::Claude, specific_model))
     } else {
         Err(format!(
-            "Model '{}' is not recognized or permitted. Supported engines: antigravity, codex, claude.",
+            "Model '{}' is not recognized or permitted. Supported engines: codex, claude.",
             model_str
         ))
     }
@@ -87,20 +89,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_model_spec_antigravity() -> Result<(), Box<dyn std::error::Error>> {
-        let (kind, override_model) = parse_model_spec("antigravity")?;
-        assert_eq!(kind, AccountEngineKind::Antigravity);
-        assert_eq!(override_model, None);
-
-        let (kind, override_model) = parse_model_spec("gemini/gemini-1.5-pro")?;
-        assert_eq!(kind, AccountEngineKind::Antigravity);
-        assert_eq!(override_model.as_deref(), Some("gemini-1.5-pro"));
-
-        let (kind, override_model) = parse_model_spec("agy/flash")?;
-        assert_eq!(kind, AccountEngineKind::Antigravity);
-        assert_eq!(override_model.as_deref(), Some("flash"));
-
-        Ok(())
+    fn test_parse_model_spec_rejects_antigravity_and_gemini() {
+        for model in ["antigravity", "gemini/gemini-1.5-pro", "agy/flash"] {
+            let err = parse_model_spec(model)
+                .expect_err("Expected antigravity/gemini model to be rejected");
+            assert!(
+                err.contains("Google Terms of Service"),
+                "Unexpected error for {model}: {err}"
+            );
+        }
     }
 
     #[test]
@@ -138,9 +135,12 @@ mod tests {
         assert!(parse_model_spec("llama-3").is_err());
 
         // Case insensitivity
-        let (kind, override_model) = parse_model_spec("ANTIGRAVITY/gemini-2.5")?;
-        assert_eq!(kind, AccountEngineKind::Antigravity);
-        assert_eq!(override_model.as_deref(), Some("gemini-2.5"));
+        assert!(parse_model_spec("ANTIGRAVITY/gemini-2.5").is_err());
+        assert!(parse_model_spec("agy/").is_err());
+
+        let (kind, override_model) = parse_model_spec("CODEX/gpt-4o")?;
+        assert_eq!(kind, AccountEngineKind::Codex);
+        assert_eq!(override_model.as_deref(), Some("gpt-4o"));
 
         let (kind, override_model) = parse_model_spec("CLAUDE")?;
         assert_eq!(kind, AccountEngineKind::Claude);
@@ -158,11 +158,6 @@ mod tests {
         let (kind, override_model) = parse_model_spec("o1/reasoning-high")?;
         assert_eq!(kind, AccountEngineKind::Codex);
         assert_eq!(override_model.as_deref(), Some("reasoning-high"));
-
-        // Trailing slash and multiple slashes
-        let (kind, override_model) = parse_model_spec("agy/")?;
-        assert_eq!(kind, AccountEngineKind::Antigravity);
-        assert_eq!(override_model.as_deref(), Some(""));
 
         let (kind, override_model) = parse_model_spec("codex/nested/model/path")?;
         assert_eq!(kind, AccountEngineKind::Codex);

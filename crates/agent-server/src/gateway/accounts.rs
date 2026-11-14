@@ -55,7 +55,7 @@ pub async fn reset_account_handler(
     Json(serde_json::json!({ "reset": ok }))
 }
 
-/// Sao chép token CLI từ máy host (~/.gemini, ~/.codex) vào sandbox của tài khoản
+/// Sao chép token CLI từ máy host (~/.codex, ~/.claude) vào sandbox của tài khoản
 pub async fn import_local_handler(
     State(state): State<AppState>,
     axum::extract::Path((engine, id)): axum::extract::Path<(String, String)>,
@@ -86,9 +86,6 @@ pub async fn verify_account_handler(
 
     let env = state.vault.build_env_for_account(&account);
     let engine_impl: Arc<dyn ComputeEngine> = match engine_kind {
-        AccountEngineKind::Antigravity => {
-            Arc::new(agent_engine::AntigravityEngine::new(None, None).with_env(env))
-        }
         AccountEngineKind::Codex => {
             Arc::new(agent_engine::CodexEngine::new(None, None).with_env(env))
         }

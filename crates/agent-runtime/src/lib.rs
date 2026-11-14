@@ -13,6 +13,7 @@ pub mod operator;
 pub mod processtree;
 pub mod report_queue;
 pub mod sandbox;
+pub mod sentinel;
 pub mod supervisor;
 pub mod supplement;
 pub mod task_service;
@@ -54,15 +55,26 @@ pub use ooda::{
     MAX_SUBTASK_RETRIES, MAX_TOTAL_REMEDIATIONS, OODA_PHASE_ACT, OODA_PHASE_DECIDE,
     OODA_PHASE_OBSERVE, OODA_PHASE_ORIENT, OODA_PHASE_REMEDIATE,
 };
-pub use operator::{KernelOperator, RigExecutionSummary, RigSeatAssignment, SeatStatusReport};
+pub use operator::{
+    CoordinateBotsRequest, CoordinationBatchResult, CoordinationContext, CoordinationReplyMode,
+    KernelOperator, RigExecutionSummary, RigSeatAssignment, RoomTargetInfo, SeatStatusReport,
+    TeammateTurnResult, DEFAULT_MAX_COORDINATION_DEPTH, MAX_COORDINATE_BOTS,
+};
 pub use processtree::ProcessTreeController;
 pub use report_queue::{TerminalReportKind, TerminalReportStore, TerminalTaskReport};
 pub use sandbox::{
-    expand_home, inject_agent_brief, is_retryable_workspace_error, prepare_workspace,
-    purge_sidecar_context, teardown_workspace, IsolationMode, ResilientWorkspaceManager,
-    SandboxConfig, SandboxDriverKind, SandboxEnvironment, SandboxSpec, SidecarContextManager,
+    command_sandbox, expand_home, filter_sandbox_env_whitelist, inject_agent_brief,
+    is_retryable_workspace_error, is_sandbox_env_allowed, prepare_workspace, purge_sidecar_context,
+    teardown_workspace, verify_sandbox_plan, wrap_command, CommandManager, IsolationMode,
+    ResilientWorkspaceManager, SandboxConfig, SandboxDriverKind, SandboxEnvironment,
+    SandboxMutation, SandboxSelfCheckReport, SandboxSpec, SidecarContextManager,
     WorkspaceAuditRecord, WorkspaceBenchmarkHarness, WorkspaceBenchmarkStats, WorkspaceError,
-    WorkspaceFaultKind, WorkspaceFaultPolicy, WorkspaceManager,
+    WorkspaceFaultKind, WorkspaceFaultPolicy, WorkspaceManager, SANDBOX_CPU_TOPOLOGY_PATHS,
+    SANDBOX_ENV_NEVER_LIST,
+};
+pub use sentinel::{
+    classify_shell_error, failure_signature, normalize_signature_text, ExecutionLoopConfig,
+    ExecutionLoopGuard, FailureSignature, LoopVerdict, RepeatDetector, RepeatObservation,
 };
 pub use supervisor::{AgentState, AgentSupervisor};
 pub use supplement::{InFlightSupplement, InFlightSupplementController};

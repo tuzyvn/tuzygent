@@ -138,11 +138,16 @@ impl HarnessMemoryStore {
             let mut lessons = mem.write().await;
             let now_str = Utc::now().to_rfc3339();
 
+            let normalized_incoming = crate::sentinel::normalize_signature_text(error_pattern);
+
             if let Some(existing) = lessons.iter_mut().find(|l| {
                 l.node_type == node_type
                     && l.identifier == identifier
                     && (l.error_pattern.contains(error_pattern)
-                        || error_pattern.contains(&l.error_pattern))
+                        || error_pattern.contains(&l.error_pattern)
+                        || (!normalized_incoming.is_empty()
+                            && crate::sentinel::normalize_signature_text(&l.error_pattern)
+                                == normalized_incoming))
             }) {
                 existing.success_count += 1;
                 existing.last_applied_at = Some(now_str);
@@ -174,11 +179,15 @@ impl HarnessMemoryStore {
         let now_str = Utc::now().to_rfc3339();
 
         // Kiểm tra xem bài học tương tự đã có chưa
+        let normalized_incoming = crate::sentinel::normalize_signature_text(error_pattern);
         if let Some(existing) = lessons.iter_mut().find(|l| {
             l.node_type == node_type
                 && l.identifier == identifier
                 && (l.error_pattern.contains(error_pattern)
-                    || error_pattern.contains(&l.error_pattern))
+                    || error_pattern.contains(&l.error_pattern)
+                    || (!normalized_incoming.is_empty()
+                        && crate::sentinel::normalize_signature_text(&l.error_pattern)
+                            == normalized_incoming))
         }) {
             existing.success_count += 1;
             existing.last_applied_at = Some(now_str);

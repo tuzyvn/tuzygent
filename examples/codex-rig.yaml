@@ -16,7 +16,3 @@ seats:
     capabilities: [review]
     engine: codex
     harness: process
-channels:
-  - from_seat: developer
-    to_seat: reviewer
-    mode: review

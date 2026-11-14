@@ -389,7 +389,7 @@ pub enum Commands {
         #[arg(short, long, default_value = "personas")]
         output_dir: String,
     },
-    /// Manage multi-agent teams declaratively via OpenRig-style RigSpec
+    /// Manage multi-agent subagent rosters (agents/*.md) and dynamic coordination
     Rig {
         #[command(subcommand)]
         action: RigAction,
@@ -430,26 +430,26 @@ pub enum AuthAction {
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum RigAction {
-    /// Boot all persistent seats defined in RigSpec (creates tmux sessions or processes)
+    /// Boot all persistent seats defined in the subagent roster (agents/*.md or legacy YAML)
     Up {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        #[arg(short, long, default_value = "agents")]
         spec: PathBuf,
         #[arg(short, long, default_value = ".")]
         workspace: String,
     },
     /// Shutdown and cleanup all seats of a Rig
     Down {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        #[arg(short, long, default_value = "agents")]
         spec: PathBuf,
     },
     /// Inspect health and status of all seats in a Rig
     Status {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        #[arg(short, long, default_value = "agents")]
         spec: PathBuf,
     },
     /// Deliver a high-level goal to the Kernel Operator for autonomous team dispatch
     Run {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        #[arg(short, long, default_value = "agents")]
         spec: PathBuf,
         #[arg(short, long)]
         goal: String,
@@ -460,7 +460,7 @@ pub enum RigAction {
     },
     /// Create a full state snapshot of the Rig (seat states, tmux buffers, timestamps)
     Snapshot {
-        #[arg(short, long, default_value = "rigs/software-dev.yaml")]
+        #[arg(short, long, default_value = "agents")]
         spec: PathBuf,
         #[arg(short, long, default_value = ".")]
         workspace: String,
@@ -474,6 +474,8 @@ pub enum RigAction {
         #[arg(short, long, default_value = ".")]
         workspace: String,
     },
+    /// Coordinate 1-4 teammate seats with anti-cycle and turn-depth guards (OpenMausBot style)
+    Coordinate(crate::commands::rig::RigCoordinateArgs),
 }
 
 #[derive(clap::Args, Debug, Clone)]

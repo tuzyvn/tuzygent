@@ -63,10 +63,10 @@ impl GatewayBenchmarkHarness {
             (format!("invalid_engine_model_{idx}"), true)
         } else {
             let models = [
-                "antigravity",
                 "codex",
                 "claude",
-                "gemini/gemini-2.0-flash-exp",
+                "codex/gpt-4o",
+                "claude/claude-3-5-sonnet",
                 "codex/o1-preview",
                 "claude/claude-3-5-haiku",
             ];
@@ -117,7 +117,7 @@ impl GatewayBenchmarkHarness {
         let shared_service = Arc::new(tokio::sync::Mutex::new(
             ResilientGatewayService::new()
                 .with_fault_policy(GatewayFaultPolicy::none())
-                .with_fallback_model("antigravity")
+                .with_fallback_model("codex")
                 .with_max_capacity(num_requests + 64),
         ));
 
@@ -197,7 +197,7 @@ impl GatewayBenchmarkHarness {
         let sharded_service = Arc::new(
             ShardedResilientGatewayService::new(NUM_SHARDS)
                 .with_fault_policy(GatewayFaultPolicy::none())
-                .with_fallback_model("antigravity")
+                .with_fallback_model("codex")
                 .with_max_capacity(num_requests + per_shard_cap * NUM_SHARDS),
         );
 

@@ -112,12 +112,16 @@ pub fn wrap_command(
                 }
             }
 
-            // Inject allowed environment variables
-            for env_key in &config.env_whitelist {
-                if let Ok(val) = std::env::var(env_key) {
-                    bwrap_args.push("--setenv".to_string());
-                    bwrap_args.push(env_key.clone());
-                    bwrap_args.push(val);
+            // Expose minimal CPU topology so TCMalloc/Antigravity runtimes do not SIGABRT
+            for cpu_path in super::self_check::SANDBOX_CPU_TOPOLOGY_PATHS {
+                if Path::new(cpu_path).exists() {
+                    bwrap_args.extend(["--ro-bind", cpu_path, cpu_path].map(String::from));
+                }
+            }
+            // Inject allowed environment variables (blocking control-plane secrets)
+            for env_key in super::self_check::filter_sandbox_env_whitelist(&config.env_whitelist) {
+                if let Ok(val) = std::env::var(&env_key) {
+                    bwrap_args.extend(["--setenv".to_string(), env_key, val]);
                 }
             }
 
@@ -168,10 +172,9 @@ pub fn wrap_command(
                 }
             }
 
-            for env_key in &config.env_whitelist {
-                if let Ok(val) = std::env::var(env_key) {
-                    docker_args.push("-e".to_string());
-                    docker_args.push(format!("{}={}", env_key, val));
+            for env_key in super::self_check::filter_sandbox_env_whitelist(&config.env_whitelist) {
+                if let Ok(val) = std::env::var(&env_key) {
+                    docker_args.extend(["-e".to_string(), format!("{}={}", env_key, val)]);
                 }
             }
 
@@ -211,7 +214,7 @@ pub fn command_sandbox(
         program,
         prefix_args,
         container_name,
-        env_whitelist: config.env_whitelist.clone(),
+        env_whitelist: super::self_check::filter_sandbox_env_whitelist(&config.env_whitelist),
         working_dir: if config.driver == SandboxDriverKind::Docker {
             "/workspace".into()
         } else {

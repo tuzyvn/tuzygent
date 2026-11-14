@@ -72,7 +72,7 @@ impl AccountBenchmarkHarness {
             let engine = if is_invalid {
                 AccountEngineKind::Generic("missing_bench_engine".to_string())
             } else {
-                AccountEngineKind::Antigravity
+                AccountEngineKind::Codex
             };
             let t0 = Instant::now();
             match manager.select_account(&engine) {
@@ -116,7 +116,7 @@ impl AccountBenchmarkHarness {
             for acc_idx in 0..5 {
                 let acc_id = format!("bench_acc_{}_{}", s_idx, acc_idx);
                 let _ = vault.register_account(
-                    AccountEngineKind::Antigravity,
+                    AccountEngineKind::Codex,
                     &acc_id,
                     &format!("Bench Account {}", acc_idx),
                     std::collections::HashMap::new(),
@@ -147,7 +147,7 @@ impl AccountBenchmarkHarness {
                     let engine = if is_invalid {
                         AccountEngineKind::Generic("missing_bench_engine".to_string())
                     } else {
-                        AccountEngineKind::Antigravity
+                        AccountEngineKind::Codex
                     };
 
                     let mut hasher = DefaultHasher::new();

@@ -5,7 +5,7 @@ use super::types::AccountEngineKind;
 use super::vault::AccountVault;
 use crate::traits::{ComputeEngine, EngineError, EngineInput, EngineKind, EngineOutput};
 
-/// ComputeEngine tự động xoay vòng tài khoản CLI (Antigravity, Codex...)
+/// ComputeEngine tự động xoay vòng tài khoản CLI (Codex, Claude...)
 /// theo danh sách tài khoản trong AccountVault
 pub struct AccountRotatedEngine {
     vault: Arc<AccountVault>,
@@ -33,6 +33,17 @@ impl AccountRotatedEngine {
 #[async_trait]
 impl ComputeEngine for AccountRotatedEngine {
     async fn execute(&self, input: &EngineInput) -> Result<EngineOutput, EngineError> {
+        if let AccountEngineKind::Generic(name) = &self.engine_kind {
+            if matches!(
+                name.trim().to_ascii_lowercase().as_str(),
+                "antigravity" | "agy" | "gemini"
+            ) {
+                return Err(EngineError::PolicyRejected(
+                    "Multi-account rotation for Google/Antigravity is disabled to comply with Google Terms of Service".to_string(),
+                ));
+            }
+        }
+
         let max_retries = 3;
         let mut last_err = None;
 
@@ -57,13 +68,6 @@ impl ComputeEngine for AccountRotatedEngine {
             let env = self.vault.build_env_for_account(&account);
 
             let engine: Arc<dyn ComputeEngine> = match &self.engine_kind {
-                AccountEngineKind::Antigravity => Arc::new(
-                    crate::cli::AntigravityEngine::new(
-                        self.binary_path.clone(),
-                        self.model.clone(),
-                    )
-                    .with_env(env),
-                ),
                 AccountEngineKind::Codex => Arc::new(
                     crate::cli::CodexEngine::new(self.binary_path.clone(), self.model.clone())
                         .with_env(env),
@@ -117,7 +121,6 @@ impl ComputeEngine for AccountRotatedEngine {
 
     fn engine_kind(&self) -> EngineKind {
         match &self.engine_kind {
-            AccountEngineKind::Antigravity => EngineKind::Antigravity,
             AccountEngineKind::Codex => EngineKind::Codex,
             AccountEngineKind::Claude => EngineKind::ClaudeCode,
             AccountEngineKind::Generic(n) => EngineKind::Generic(n.clone()),

@@ -14,7 +14,7 @@ Harness không chỉ là bộ chấm thi (chạy test), mà là một hệ thố
 | **2. Tự sinh đề tài động** | [`harness/topic_generator.py`](file:///home/fox/tuzygent/harness/topic_generator.py) | **Zero-hardcoding**: Quét động AST mã nguồn (`.unwrap()`, `panic!()`), phân vị P90 LOC, và lỗi tái diễn từ runtime. |
 | **3. Trí nhớ bài học** | [`storage/harness_memory/harness_lessons.json`](file:///home/fox/tuzygent/storage/harness_memory/harness_lessons.json) | Nhớ các lần giải thất bại trước đó để Agent không lặp lại sai lầm. |
 | **4. Bộ não nghiên cứu** | [`harness/researcher.py`](file:///home/fox/tuzygent/harness/researcher.py) & `agent-ctl run` | Trích xuất đề tài, nạp bài học quá khứ, gọi AI Engine (`antigravity`/`claude`/`codex`) để lập giả thuyết và sửa code. |
-| **5. Hội đồng chấm thi** | [`harness/evaluators/benchmark.py`](file:///home/fox/tuzygent/harness/evaluators/benchmark.py) | Đo lường khách quan: chạy 68+ tests, Clippy linter, và 4 kịch bản ranh giới. |
+| **5. Hội đồng chấm thi** | [`harness/evaluators/benchmark.py`](file:///home/fox/tuzygent/harness/evaluators/benchmark.py) | Đo lường khách quan: chạy 1,172+ tests (99 suites), Clippy linter, và 4 kịch bản ranh giới. |
 | **6. Cấp phép Release** | [`harness/orchestrator.py`](file:///home/fox/tuzygent/harness/orchestrator.py) & `agent-ctl update` | Nếu điểm số cao hơn và không có lỗi mới, tự động build release và thay thế nhị phân hệ thống. |
 
 ```mermaid
@@ -76,7 +76,7 @@ Hệ thống tự động phân tích tĩnh cây mã nguồn Rust để tìm cá
 #### Quy trình tự hành trong chế độ Continuous:
 1. **Lấy đề tài P0 tiếp theo** từ [`RESEARCH_BACKLOG.md`](file:///home/fox/tuzygent/RESEARCH_BACKLOG.md).
 2. **Khởi chạy Agent** tự phân tích, viết test TDD và refactor code.
-3. **Gatekeeper đo lường**: Chạy toàn bộ 68+ tests và clippy.
+3. **Gatekeeper đo lường**: Chạy toàn bộ 1,172+ tests và clippy.
 4. **Tự động thẩm định & Cập nhật**:
    - Đánh dấu đề tài là `COMPLETED ✅` trong backlog.
    - Tự động build release và thay thế binary `agent-ctl`.
@@ -100,8 +100,8 @@ Chỉ kiểm tra và in bảng điểm đánh giá, không thay đổi binary:
 Bảng điểm mẫu:
 ```text
 ---------------- SCORECARD ----------------
- Unit Tests  : PASS (68 passed, 0 failed) [5.79s]
- Clippy Lint : PASS [0.23s]
+ Unit Tests  : PASS (1172 passed, 0 failed) [78.94s]
+ Clippy Lint : PASS [0.41s]
  Scenarios   : 4/4 passed
  OVERALL     : ✅ ALL CRITERIA MET
  Report saved: harness/reports/latest_benchmark.json

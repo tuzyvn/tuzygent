@@ -3,9 +3,14 @@ pub mod config;
 pub mod context;
 pub mod driver;
 pub mod env;
+pub mod self_check;
 pub mod workspace;
 
 pub use command::{command_sandbox, expand_home, wrap_command, CommandManager};
+pub use self_check::{
+    filter_sandbox_env_whitelist, is_sandbox_env_allowed, verify_sandbox_plan, SandboxMutation,
+    SandboxSelfCheckReport, SANDBOX_CPU_TOPOLOGY_PATHS, SANDBOX_ENV_NEVER_LIST,
+};
 pub use config::{IsolationMode, SandboxConfig, SandboxSpec};
 pub use context::{inject_agent_brief, purge_sidecar_context, SidecarContextManager};
 pub use driver::SandboxDriverKind;

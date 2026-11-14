@@ -14,16 +14,18 @@ Dự án hỗ trợ 3 hình thức vận hành linh hoạt:
 ```text
 AgentCore/
 ├── Cargo.toml                  # Workspace Root
+├── agents/                     # Markdown Subagent Roster mặc định (`architect.md`, `developer.md`, `reviewer.md`)
 ├── crates/
-│   ├── agent-domain/           # Thực thể: Identity, Persona, Mission, Task, Guardrails, CloudEvents
-│   ├── agent-engine/           # Compute Drivers: Antigravity CLI, Claude CLI, Local LLM/OpenAI, Tmux
-│   ├── agent-memory/           # Bộ nhớ: Scratchpad (ngắn hạn), Durable Memory (dài hạn), Persona Loader
-│   ├── agent-runtime/          # Trái tim vận hành: OODA Loop, InterAgentBus, Supervisor, DAG Orchestrator
+│   ├── agent-domain/           # Thực thể: Identity, SubagentSpec, Redact, Provenance Envelope, Task, Guardrails, CloudEvents
+│   ├── agent-engine/           # Compute Drivers: Codex CLI, Claude CLI, Antigravity CLI (single-user), Local LLM/OpenAI, Tmux
+│   ├── agent-memory/           # Bộ nhớ: Scratchpad (ngắn hạn), Durable Memory (lọc secret tự động), Persona Loader
+│   ├── agent-runtime/          # Runtime: OODA Loop, KernelOperator (`coordinate_bots`), Sentinel Loop Guard, Sandbox Self-Check, DAG
 │   ├── agent-core/             # SDK Facade & Prelude (Dành riêng cho Mô hình C nhúng trực tiếp)
 │   ├── agent-cli/              # Binary thực thi CLI: `agent-ctl`
 │   └── agent-server/           # Binary Daemon Microservice: `agent-server` (REST & WebSocket)
 └── examples/
-    └── embed_agent.rs          # Minh họa nhúng SDK trực tiếp trong 20 dòng code
+    ├── embed_agent.rs          # Minh họa nhúng SDK trực tiếp trong 20 dòng code
+    └── codex-rig.yaml          # Ví dụ Rig cấu hình Codex (tương thích ngược)
 ```
 
 ---
@@ -160,13 +162,65 @@ Các lệnh quản trị và điều phối OS AI:
 # 5. Chạy mô phỏng phối hợp đa tác tử (Multi-agent collaboration qua Bus)
 ./target/release/agent-ctl demo-multi-agent
 
-# 6. Khởi động team đa tác tử theo OpenRig Spec
-./target/release/agent-ctl rig up --spec rigs/software-dev.yaml
+# 6. Kiểm tra roster Markdown Subagents tự động phát hiện (mặc định đọc từ `agents/*.md`)
+./target/release/agent-ctl rig status
+./target/release/agent-ctl rig coordinate --list-targets
+
+# 7. Phối hợp động 1-4 subagent kèm tiêu chí `done_when` và chống lặp vòng
+./target/release/agent-ctl rig coordinate \
+  --caller lead-operator \
+  --bots architect,developer \
+  --instructions "Kiểm tra kiến trúc và đề xuất bản vá" \
+  --done-when "must_contain:APPROVED" \
+  --consult
 ```
 
 ---
 
-## 5. CẤU HÌNH AI CLI ENGINE & SANDBOX (`tuzygent.toml`)
+## 5. ĐIỀU PHỐI ĐA TÁC TỬ HIỆN ĐẠI: MARKDOWN SUBAGENTS & `coordinate_bots`
+
+### 5.1. Định nghĩa chuyên gia bằng file Markdown (`agents/*.md`)
+Thay cho pipeline YAML tĩnh (`channels` cố định), Tuzygent sử dụng chuẩn **Markdown Subagents**: mỗi file `agents/<id>.md` gồm phần YAML frontmatter khai báo metadata/năng lực và phần thân Markdown làm `system_prompt` độc lập cho chuyên gia đó (`SubagentSpec`):
+
+```markdown
+---
+id: architect
+name: Architect
+description: System design, module boundaries, risk analysis, and read-only technical consultation.
+capabilities: [architecture, design, review]
+harness: process
+autonomy: full
+---
+
+You are the specialist **Architect** subagent...
+```
+
+Khi chạy lệnh `agent-ctl rig ...` (không cần truyền `--spec`) hoặc gọi `KernelOperator::from_workspace`, hệ thống tự động nạp theo thứ tự ưu tiên:
+1. `agents/*.md`
+2. `.tuzygent/agents/*.md`
+3. `.claude/agents/*.md`
+4. **Built-in Roster mặc định** (`architect`, `developer`, `reviewer`) nếu workspace chưa có thư mục `agents/` (và vẫn hỗ trợ nạp file YAML cũ qua `--spec <file>.yaml` để tương thích ngược).
+
+### 5.2. Cơ chế `coordinate_bots` & `coordinate_and_resume`
+`KernelOperator` cung cấp API điều phối động giữa các đồng đội theo kiến trúc OpenMausBot:
+- **`list_room_targets`**: Trả về danh bạ các seat khả dụng (`RoomTargetInfo`) mà không làm lộ transcript hội thoại riêng tư.
+- **Giới hạn & chống vòng lặp**: Mỗi lần gọi `coordinate_bots` chỉ nhận **1 đến 4** mục tiêu (`MAX_COORDINATE_BOTS = 4`), từ chối mục tiêu trùng lặp, khóa độ sâu lồng nhau (`depth < max_depth`, mặc định `DEFAULT_MAX_COORDINATION_DEPTH = 3`), và áp dụng **Anti-cycle guard** cấm nhắm vào `caller_id` hoặc bất kỳ tiền bối nào trong chuỗi `ancestors`.
+- **3 chế độ tương tác**:
+  - `consult = true`: Hỏi đáp / tham vấn chỉ đọc (`[CONSULTATION ONLY - DO NOT MODIFY FILES]`).
+  - `rework = true`: Gửi phản hồi sửa bài cụ thể (`[REWORK REQUEST]`) khi kết quả trước chưa đạt `done_when`.
+  - `reply_mode`: `WaitAndResume` (chờ kết quả và tự động tổng hợp/resume caller qua `coordinate_and_resume`) hoặc `None` (`--no-reply`, gửi thông báo một chiều).
+- **Kiểm chứng & Ngữ cảnh thực thi**: Tự động kiểm tra `done_when` (bao gồm chỉ thị `must_contain:<token>`), gắn metadata `TUZYGENT_BOT_ID`, `TUZYGENT_THREAD_ID`, `TUZYGENT_TURN_DEPTH`, `TUZYGENT_ASSIGNED_BY`, `TUZYGENT_CONSULT_ONLY` và phát sự kiện `rig.coordinate.*` lên `InterAgentBus`.
+
+### 5.3. An toàn, Nguồn gốc & Độ tin cậy Runtime
+- **Lọc secret tự động (`agent-domain::redact`)**: Che dấu API key / token (`redact_secrets_in_text`, `redact_json_value`) trước khi ghi bộ nhớ bền vững (`agent-memory`) hoặc trả phản hồi giữa các agent.
+- **Nhãn nguồn gốc chống giả mạo (`agent-domain::provenance`)**: Bọc dữ liệu ngoài/báo cáo đồng đội trong envelope `[From <who> · <what> · <authority>]` (`ProvenanceAuthority::InformationOnly`) và vô hiệu hóa header giả mạo.
+- **Kiểm tra Sandbox (`agent-runtime::sandbox`)**: Áp dụng `SANDBOX_ENV_NEVER_LIST` (`LD_PRELOAD`, `DYLD_*`, `BASH_ENV`, ...) và `verify_sandbox_plan` kiểm tra xung đột env/mount/CPU topology trước khi chạy lệnh.
+- **Sentinel Loop Guard (`agent-runtime::sentinel`)**: Chuẩn hóa chữ ký lỗi (`failure_signature`, `RepeatDetector`, `ExecutionLoopGuard`) để phát hiện vòng lặp lỗi lặp lại và dừng sớm.
+- **Tuân thủ chính sách cho `AntigravityEngine`**: `AntigravityEngine` chỉ vận hành như driver CLI cục bộ đơn người dùng (`antigravity`/`agy`); không dùng để xoay vòng nhiều tài khoản trong `AccountVault` và không bọc qua HTTP proxy `/v1/chat/completions` hay `/v1/models`.
+
+---
+
+## 6. CẤU HÌNH AI CLI ENGINE & SANDBOX (`tuzygent.toml`)
 
 Hệ thống hỗ trợ nạp cấu hình phân tầng từ `~/.tuzygent/engines.toml` (OS-wide) và `tuzygent.toml` (workspace local):
 
@@ -201,7 +255,7 @@ args = ["run", "qwen2.5-coder:7b", "{prompt}"]
 
 ---
 
-## 5. DOCKER & DEPLOYMENT ĐỘC LẬP
+## 7. DOCKER & DEPLOYMENT ĐỘC LẬP
 
 ```bash
 docker build -t agent-core:latest .

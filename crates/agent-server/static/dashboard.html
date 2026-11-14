@@ -142,7 +142,6 @@
     <div class="controls">
       <div class="filter-tabs">
         <button class="filter-btn active" onclick="setFilter('all', this)">Tất cả</button>
-        <button class="filter-btn" onclick="setFilter('antigravity', this)">Antigravity</button>
         <button class="filter-btn" onclick="setFilter('codex', this)">Codex</button>
         <button class="filter-btn" onclick="setFilter('claude', this)">Claude</button>
       </div>
@@ -166,8 +165,6 @@
         <div style="display: flex; gap: 8px; align-items: center;">
           <span style="font-size: 13px; color: var(--text-muted);">Model:</span>
           <select id="playModel" style="background:#0f172a; border:1px solid var(--card-border); color:#fff; padding:6px 10px; border-radius:6px; font-size:13px;">
-            <option value="antigravity">antigravity (Auto Rotate)</option>
-            <option value="antigravity/gemini-3.5-pro">antigravity/gemini-3.5-pro</option>
             <option value="codex">codex (Auto Rotate)</option>
             <option value="codex/gpt-4o">codex/gpt-4o</option>
             <option value="claude">claude</option>
@@ -189,24 +186,23 @@
       <div class="form-group">
         <label>Engine CLI:</label>
         <select id="modalEngine">
-          <option value="antigravity">Google Antigravity (agy)</option>
           <option value="codex">OpenAI Codex (codex)</option>
           <option value="claude">Anthropic Claude (claude-code)</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Account ID (Định danh không dấu, ví dụ: acc_google_1):</label>
-        <input type="text" id="modalId" placeholder="acc_google_work">
+        <label>Account ID (Định danh không dấu, ví dụ: acc_codex_1):</label>
+        <input type="text" id="modalId" placeholder="acc_codex_work">
       </div>
       <div class="form-group">
         <label>Tên hiển thị:</label>
-        <input type="text" id="modalName" placeholder="Tài khoản Google Công Ty">
+        <input type="text" id="modalName" placeholder="Tài khoản Codex Công Ty">
       </div>
       <div class="form-group">
         <label>Tùy chọn Khởi tạo / Credentials:</label>
         <select id="modalAuthType" onchange="toggleAuthFields()">
           <option value="isolate">Tạo thư mục Sandbox trắng (~/.agentcore/accounts/...)</option>
-          <option value="import">Tự động sao chép session CLI hiện có trên máy (~/.gemini, ~/.codex)</option>
+          <option value="import">Tự động sao chép session CLI hiện có trên máy (~/.codex, ~/.claude)</option>
           <option value="apikey">Truyền OPENAI_API_KEY / Bearer Token</option>
         </select>
       </div>
@@ -338,8 +334,7 @@
         card.className = 'account-card';
 
         let engineClass = 'tag-generic';
-        if (acc.engine === 'Antigravity') engineClass = 'tag-antigravity';
-        else if (acc.engine === 'Codex') engineClass = 'tag-codex';
+        if (acc.engine === 'Codex') engineClass = 'tag-codex';
         else if (acc.engine === 'Claude') engineClass = 'tag-claude';
 
         let statusClass = 'status-ready';
@@ -432,7 +427,7 @@
       if (data.imported) {
         alert('✅ Đã sao chép thành công token từ máy host vào sandbox của tài khoản này!');
       } else {
-        alert('ℹ️ Không tìm thấy thư mục token của CLI này trên máy host (~/.gemini, ~/.codex).');
+        alert('ℹ️ Không tìm thấy thư mục token của CLI này trên máy host (~/.codex, ~/.claude).');
       }
     }
 

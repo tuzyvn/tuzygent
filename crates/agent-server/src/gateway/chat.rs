@@ -218,10 +218,6 @@ pub async fn list_models_handler() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "object": "list",
         "data": [
-            { "id": "antigravity", "object": "model", "created": now, "owned_by": "agentcore" },
-            { "id": "antigravity/gemini-3.5-pro", "object": "model", "created": now, "owned_by": "agentcore" },
-            { "id": "antigravity/gemini-1.5-pro", "object": "model", "created": now, "owned_by": "agentcore" },
-            { "id": "antigravity/gemini-1.5-flash", "object": "model", "created": now, "owned_by": "agentcore" },
             { "id": "codex", "object": "model", "created": now, "owned_by": "agentcore" },
             { "id": "codex/gpt-4o", "object": "model", "created": now, "owned_by": "agentcore" },
             { "id": "claude", "object": "model", "created": now, "owned_by": "agentcore" },

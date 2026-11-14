@@ -48,7 +48,7 @@ fn test_accounts_read_returns_registered_profiles() {
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "read-account",
             "Read account",
             HashMap::new(),
@@ -58,7 +58,7 @@ fn test_accounts_read_returns_registered_profiles() {
     let accounts = vault.accounts_read();
 
     let registered = accounts
-        .get(&AccountEngineKind::Antigravity)
+        .get(&AccountEngineKind::Codex)
         .expect("engine account list should exist");
     assert_eq!(registered.len(), 1);
     assert_eq!(registered[0].id, "read-account");
@@ -186,8 +186,8 @@ fn test_vault_public_storage_and_copy_helpers() {
     let profile = AccountProfile {
         id: "saved-account".to_string(),
         name: "Saved account".to_string(),
-        engine: AccountEngineKind::Antigravity,
-        home_dir: base_dir.join("antigravity").join("saved-account"),
+        engine: AccountEngineKind::Codex,
+        home_dir: base_dir.join("codex").join("saved-account"),
         status: AccountStatus::Ready,
         requests_count: 3,
         failure_count: 1,
@@ -224,7 +224,7 @@ fn test_lock_safety() {
     let mut env1 = HashMap::new();
     env1.insert("KEY".to_string(), "val".to_string());
     vault
-        .register_account(AccountEngineKind::Antigravity, "acc1", "Account 1", env1)
+        .register_account(AccountEngineKind::Codex, "acc1", "Account 1", env1)
         .expect("initial registration should succeed");
 
     // 2. Mô phỏng kịch bản RwLock `self.accounts` bị poisoned
@@ -246,12 +246,12 @@ fn test_lock_safety() {
     );
 
     // Kiểm tra xử lý an toàn: đọc danh sách không bị panic, dữ liệu vẫn được bảo toàn
-    let accounts = vault.list_accounts(Some(&AccountEngineKind::Antigravity));
+    let accounts = vault.list_accounts(Some(&AccountEngineKind::Codex));
     assert_eq!(accounts.len(), 1);
     assert_eq!(accounts[0].id, "acc1");
 
     // Kiểm tra get_account không bị panic khi lock bị poisoned
-    let acc1 = vault.get_account(&AccountEngineKind::Antigravity, "acc1");
+    let acc1 = vault.get_account(&AccountEngineKind::Codex, "acc1");
     assert!(acc1.is_some());
     assert_eq!(
         acc1.expect("acc1 should exist after accounts lock poisoning")
@@ -261,7 +261,7 @@ fn test_lock_safety() {
 
     // Kiểm tra ghi / đăng ký tài khoản mới khi lock đang bị poisoned vẫn hoạt động bình thường
     let reg_res = vault.register_account(
-        AccountEngineKind::Antigravity,
+        AccountEngineKind::Codex,
         "acc2",
         "Account 2",
         HashMap::new(),
@@ -272,25 +272,25 @@ fn test_lock_safety() {
     );
 
     // Kiểm tra mark_cooldown, reset_cooldown, record_success khi lock bị poisoned
-    vault.mark_cooldown(&AccountEngineKind::Antigravity, "acc1", 60, "Rate limited");
+    vault.mark_cooldown(&AccountEngineKind::Codex, "acc1", 60, "Rate limited");
     let acc1_cooldown = vault
-        .get_account(&AccountEngineKind::Antigravity, "acc1")
+        .get_account(&AccountEngineKind::Codex, "acc1")
         .expect("acc1 should exist when checking cooldown");
     assert!(matches!(
         acc1_cooldown.status,
         AccountStatus::Cooldown { .. }
     ));
 
-    assert!(vault.reset_cooldown(&AccountEngineKind::Antigravity, "acc1"));
+    assert!(vault.reset_cooldown(&AccountEngineKind::Codex, "acc1"));
     let acc1_reset = vault
-        .get_account(&AccountEngineKind::Antigravity, "acc1")
+        .get_account(&AccountEngineKind::Codex, "acc1")
         .expect("acc1 should exist after cooldown reset");
     assert_eq!(acc1_reset.status, AccountStatus::Ready);
 
-    vault.record_success(&AccountEngineKind::Antigravity, "acc1");
+    vault.record_success(&AccountEngineKind::Codex, "acc1");
 
     // Kiểm tra remove_account khi lock bị poisoned
-    let removed = vault.remove_account(&AccountEngineKind::Antigravity, "acc2");
+    let removed = vault.remove_account(&AccountEngineKind::Codex, "acc2");
     assert!(removed.expect("remove_account should succeed and return whether account was removed"));
 
     // Kiểm tra save_sync khi lock bị poisoned
@@ -314,7 +314,7 @@ fn test_lock_safety() {
     );
 
     // Kiểm tra select_next_account xử lý an toàn: đọc và ghi rr_indices mà không panic
-    let selected = vault.select_next_account(&AccountEngineKind::Antigravity);
+    let selected = vault.select_next_account(&AccountEngineKind::Codex);
     assert!(
         selected.is_some(),
         "select_next_account must safely recover from poisoned round_robin_indices lock"
@@ -374,7 +374,7 @@ fn test_recurring_system_error_cooldown_and_exhaustion_recovery() {
     // 1. Đăng ký các tài khoản cho engine
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc1",
             "Account 1",
             HashMap::new(),
@@ -382,7 +382,7 @@ fn test_recurring_system_error_cooldown_and_exhaustion_recovery() {
         .expect("register acc1 should succeed");
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc2",
             "Account 2",
             HashMap::new(),
@@ -391,45 +391,45 @@ fn test_recurring_system_error_cooldown_and_exhaustion_recovery() {
 
     // 2. Tái hiện lỗi hệ thống lặp lại (recurring rate limits/auth failures)
     vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "acc1",
         300,
         "429 RateLimitExceeded",
     );
     let acc1 = vault
-        .get_account(&AccountEngineKind::Antigravity, "acc1")
+        .get_account(&AccountEngineKind::Codex, "acc1")
         .expect("acc1 should exist after marking cooldown");
     assert_eq!(acc1.failure_count, 1);
     assert!(matches!(acc1.status, AccountStatus::Cooldown { .. }));
 
     // Hệ thống tự động chuyển tiếp sang tài khoản khả dụng acc2
     let picked = vault
-        .select_next_account(&AccountEngineKind::Antigravity)
+        .select_next_account(&AccountEngineKind::Codex)
         .expect("acc2 should be available");
     assert_eq!(picked.id, "acc2");
 
     // acc2 tiếp tục gặp lỗi lặp lại -> toàn bộ account pool bị cooldown
     vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "acc2",
         300,
         "429 RateLimitExceeded",
     );
     let acc2 = vault
-        .get_account(&AccountEngineKind::Antigravity, "acc2")
+        .get_account(&AccountEngineKind::Codex, "acc2")
         .expect("acc2 should exist after marking cooldown");
     assert_eq!(acc2.failure_count, 1);
     assert!(matches!(acc2.status, AccountStatus::Cooldown { .. }));
 
     // Khi toàn bộ tài khoản bị lỗi lặp lại, hệ thống xử lý an toàn (trả về None mà không panic hay crash)
     assert!(vault
-        .select_next_account(&AccountEngineKind::Antigravity)
+        .select_next_account(&AccountEngineKind::Codex)
         .is_none());
 
     // 3. Kiểm tra cơ chế tự phục hồi (Self-Healing) khi cooldown được reset hoặc hết hạn
-    assert!(vault.reset_cooldown(&AccountEngineKind::Antigravity, "acc1"));
+    assert!(vault.reset_cooldown(&AccountEngineKind::Codex, "acc1"));
     let recovered = vault
-        .select_next_account(&AccountEngineKind::Antigravity)
+        .select_next_account(&AccountEngineKind::Codex)
         .expect("acc1 should be available after recovery");
     assert_eq!(recovered.id, "acc1");
     assert_eq!(recovered.failure_count, 0);
@@ -449,15 +449,15 @@ fn test_get_account_non_existent_returns_none() {
     // 1. Khi vault chưa có bất kỳ tài khoản hoặc engine nào
     assert!(
         vault
-            .get_account(&AccountEngineKind::Antigravity, "non_existent_id")
+            .get_account(&AccountEngineKind::Codex, "non_existent_id")
             .is_none(),
         "get_account on empty vault must return None"
     );
 
-    // 2. Đăng ký một tài khoản cho Antigravity
+    // 2. Đăng ký một tài khoản cho Codex
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc1",
             "Account 1",
             HashMap::new(),
@@ -467,13 +467,13 @@ fn test_get_account_non_existent_returns_none() {
     // 3. Gọi get_account với ID không tồn tại trên engine đã có dữ liệu
     assert!(
         vault
-            .get_account(&AccountEngineKind::Antigravity, "non_existent_id")
+            .get_account(&AccountEngineKind::Codex, "non_existent_id")
             .is_none(),
         "get_account with unknown id on existing engine must return None safely without panic"
     );
     assert!(
         vault
-            .get_account(&AccountEngineKind::Antigravity, "")
+            .get_account(&AccountEngineKind::Codex, "")
             .is_none(),
         "get_account with empty string id must return None safely"
     );
@@ -481,13 +481,13 @@ fn test_get_account_non_existent_returns_none() {
     // 4. Gọi get_account với engine khác chưa có tài khoản nào
     assert!(
         vault
-            .get_account(&AccountEngineKind::Codex, "acc1")
+            .get_account(&AccountEngineKind::Claude, "acc1")
             .is_none(),
         "get_account with different engine must return None safely"
     );
 
     // 5. Kiểm tra tài khoản tồn tại thực tế vẫn trả về Some
-    let acc1 = vault.get_account(&AccountEngineKind::Antigravity, "acc1");
+    let acc1 = vault.get_account(&AccountEngineKind::Codex, "acc1");
     assert!(acc1.is_some());
     assert_eq!(acc1.expect("acc1 should exist").id, "acc1");
 
@@ -502,7 +502,7 @@ fn test_save_sync_persists_current_profile_state() {
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "persisted-account",
             "Persisted account",
             HashMap::new(),
@@ -512,14 +512,14 @@ fn test_save_sync_persists_current_profile_state() {
     // Change a persisted field in memory so this checks save_sync, not only registration.
     vault
         .accounts_write()
-        .get_mut(&AccountEngineKind::Antigravity)
+        .get_mut(&AccountEngineKind::Codex)
         .expect("registered engine exists")[0]
         .requests_count = 7;
     vault.save_sync().expect("save current vault state");
 
     let reloaded = AccountVault::new_with_dir(temp_dir.clone());
     let profile = reloaded
-        .get_account(&AccountEngineKind::Antigravity, "persisted-account")
+        .get_account(&AccountEngineKind::Codex, "persisted-account")
         .expect("saved profile should be loaded by a new vault");
     assert_eq!(profile.requests_count, 7);
 
@@ -535,7 +535,7 @@ fn test_select_next_account_releases_expired_cooldown() {
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "expired-account",
             "Expired account",
             HashMap::new(),
@@ -543,7 +543,7 @@ fn test_select_next_account_releases_expired_cooldown() {
         .expect("register account");
     vault
         .accounts_write()
-        .get_mut(&AccountEngineKind::Antigravity)
+        .get_mut(&AccountEngineKind::Codex)
         .expect("registered engine exists")[0]
         .status = AccountStatus::Cooldown {
         until: chrono::Utc::now() - chrono::Duration::seconds(1),
@@ -551,13 +551,13 @@ fn test_select_next_account_releases_expired_cooldown() {
     };
 
     let selected = vault
-        .select_next_account(&AccountEngineKind::Antigravity)
+        .select_next_account(&AccountEngineKind::Codex)
         .expect("expired cooldown account should be selected");
     assert_eq!(selected.id, "expired-account");
     assert_eq!(selected.status, AccountStatus::Ready);
     assert_eq!(
         vault
-            .get_account(&AccountEngineKind::Antigravity, "expired-account")
+            .get_account(&AccountEngineKind::Codex, "expired-account")
             .expect("account remains in vault")
             .status,
         AccountStatus::Ready
@@ -575,7 +575,7 @@ fn test_select_next_account_skips_disabled_accounts() {
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "disabled-account",
             "Disabled account",
             HashMap::new(),
@@ -583,7 +583,7 @@ fn test_select_next_account_skips_disabled_accounts() {
         .expect("register disabled account");
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "ready-account",
             "Ready account",
             HashMap::new(),
@@ -592,18 +592,18 @@ fn test_select_next_account_skips_disabled_accounts() {
 
     vault
         .accounts_write()
-        .get_mut(&AccountEngineKind::Antigravity)
+        .get_mut(&AccountEngineKind::Codex)
         .expect("registered engine exists")[0]
         .status = AccountStatus::Disabled;
 
     let selected = vault
-        .select_next_account(&AccountEngineKind::Antigravity)
+        .select_next_account(&AccountEngineKind::Codex)
         .expect("ready account should be selected");
     assert_eq!(selected.id, "ready-account");
     assert_eq!(selected.requests_count, 1);
     assert_eq!(
         vault
-            .get_account(&AccountEngineKind::Antigravity, "disabled-account")
+            .get_account(&AccountEngineKind::Codex, "disabled-account")
             .expect("disabled account remains registered")
             .requests_count,
         0
@@ -611,11 +611,11 @@ fn test_select_next_account_skips_disabled_accounts() {
 
     vault
         .accounts_write()
-        .get_mut(&AccountEngineKind::Antigravity)
+        .get_mut(&AccountEngineKind::Codex)
         .expect("registered engine exists")[1]
         .status = AccountStatus::Disabled;
     assert!(vault
-        .select_next_account(&AccountEngineKind::Antigravity)
+        .select_next_account(&AccountEngineKind::Codex)
         .is_none());
 
     let _ = std::fs::remove_dir_all(temp_dir);
@@ -630,23 +630,23 @@ fn test_record_success_clears_failure_state() {
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "recovered-account",
             "Recovered account",
             HashMap::new(),
         )
         .expect("register account");
     vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "recovered-account",
         60,
         "rate limited",
     );
 
-    vault.record_success(&AccountEngineKind::Antigravity, "recovered-account");
+    vault.record_success(&AccountEngineKind::Codex, "recovered-account");
 
     let profile = vault
-        .get_account(&AccountEngineKind::Antigravity, "recovered-account")
+        .get_account(&AccountEngineKind::Codex, "recovered-account")
         .expect("account remains in vault");
     assert_eq!(profile.failure_count, 0);
     assert_eq!(profile.status, AccountStatus::Ready);
@@ -663,7 +663,7 @@ fn test_mark_cooldown_updates_and_persists_failure_state() {
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "limited-account",
             "Limited account",
             HashMap::new(),
@@ -671,14 +671,14 @@ fn test_mark_cooldown_updates_and_persists_failure_state() {
         .expect("register account");
 
     vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "limited-account",
         60,
         "rate limited",
     );
 
     let profile = vault
-        .get_account(&AccountEngineKind::Antigravity, "limited-account")
+        .get_account(&AccountEngineKind::Codex, "limited-account")
         .expect("account remains in vault");
     assert_eq!(profile.failure_count, 1);
     assert!(matches!(
@@ -689,7 +689,7 @@ fn test_mark_cooldown_updates_and_persists_failure_state() {
 
     let reloaded = AccountVault::new_with_dir(temp_dir.clone());
     let persisted = reloaded
-        .get_account(&AccountEngineKind::Antigravity, "limited-account")
+        .get_account(&AccountEngineKind::Codex, "limited-account")
         .expect("cooldown state should be persisted");
     assert_eq!(persisted.failure_count, 1);
     assert!(matches!(
@@ -709,23 +709,23 @@ fn test_reset_cooldown_returns_false_for_unknown_account() {
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "existing-account",
             "Existing account",
             HashMap::new(),
         )
         .expect("register account");
     vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "existing-account",
         60,
         "rate limited",
     );
 
-    assert!(!vault.reset_cooldown(&AccountEngineKind::Antigravity, "unknown-account"));
-    assert!(!vault.reset_cooldown(&AccountEngineKind::Codex, "existing-account"));
+    assert!(!vault.reset_cooldown(&AccountEngineKind::Codex, "unknown-account"));
+    assert!(!vault.reset_cooldown(&AccountEngineKind::Claude, "existing-account"));
     let profile = vault
-        .get_account(&AccountEngineKind::Antigravity, "existing-account")
+        .get_account(&AccountEngineKind::Codex, "existing-account")
         .expect("unknown reset requests must leave the real account untouched");
     assert_eq!(profile.failure_count, 1);
     assert!(matches!(profile.status, AccountStatus::Cooldown { .. }));
@@ -742,24 +742,24 @@ fn test_reset_cooldown_clears_failure_state_and_persists_it() {
     let vault = AccountVault::new_with_dir(temp_dir.clone());
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "cooldown-account",
             "Cooldown account",
             HashMap::new(),
         )
         .expect("register account");
     vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "cooldown-account",
         60,
         "rate limited",
     );
 
-    assert!(vault.reset_cooldown(&AccountEngineKind::Antigravity, "cooldown-account"));
+    assert!(vault.reset_cooldown(&AccountEngineKind::Codex, "cooldown-account"));
 
     let reloaded = AccountVault::new_with_dir(temp_dir.clone());
     let profile = reloaded
-        .get_account(&AccountEngineKind::Antigravity, "cooldown-account")
+        .get_account(&AccountEngineKind::Codex, "cooldown-account")
         .expect("reset profile should be persisted");
     assert_eq!(profile.status, AccountStatus::Ready);
     assert_eq!(profile.failure_count, 0);
@@ -783,7 +783,20 @@ fn test_env_builder_and_ops_helpers() {
     );
 
     // 2. Kiểm tra helper validate_engine_name
-    assert!(validate_engine_name("antigravity").is_ok());
+    assert!(validate_engine_name("codex").is_ok());
+    assert!(validate_engine_name("claude").is_ok());
+    assert_eq!(
+        validate_engine_name("antigravity").unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
+    assert_eq!(
+        validate_engine_name("AGY").unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
+    assert_eq!(
+        validate_engine_name("gemini").unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
     assert!(validate_engine_name("../evil").is_err());
     assert!(validate_engine_name("evil/name").is_err());
 
@@ -795,24 +808,16 @@ fn test_env_builder_and_ops_helpers() {
     let mut extra = HashMap::new();
     extra.insert("CUSTOM_KEY".to_string(), "custom_val".to_string());
 
-    let acc_anti = vault
-        .register_account(
-            AccountEngineKind::Antigravity,
-            "anti_user",
-            "Anti User",
-            extra.clone(),
-        )
-        .expect("register antigravity should succeed");
-    let env_anti = vault.build_env_for_account(&acc_anti);
-    assert_eq!(
-        env_anti.get("ANTIGRAVITY_HOME"),
-        Some(&acc_anti.home_dir.to_string_lossy().to_string())
+    let google_reg = vault.register_account(
+        AccountEngineKind::from_str_name("antigravity"),
+        "anti_user",
+        "Anti User",
+        extra.clone(),
     );
     assert_eq!(
-        env_anti.get("ANTIGRAVITY_CONFIG_DIR"),
-        Some(&acc_anti.home_dir.to_string_lossy().to_string())
+        google_reg.unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied
     );
-    assert_eq!(env_anti.get("CUSTOM_KEY"), Some(&"custom_val".to_string()));
 
     let acc_codex = vault
         .register_account(
@@ -831,6 +836,7 @@ fn test_env_builder_and_ops_helpers() {
         env_codex.get("CODEX_CONFIG_DIR"),
         Some(&acc_codex.home_dir.to_string_lossy().to_string())
     );
+    assert_eq!(env_codex.get("CUSTOM_KEY"), Some(&"custom_val".to_string()));
 
     let acc_claude = vault
         .register_account(
@@ -860,9 +866,16 @@ fn test_env_builder_and_ops_helpers() {
         Some(&acc_generic.home_dir.to_string_lossy().to_string())
     );
 
-    // 4. import_local_credentials cho tài khoản không tồn tại trả về NotFound
+    // 4. import_local_credentials từ chối Google/Antigravity (PermissionDenied) và báo NotFound nếu không tồn tại
+    assert_eq!(
+        vault
+            .import_local_credentials(&AccountEngineKind::from_str_name("antigravity"), "any")
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
     assert!(vault
-        .import_local_credentials(&AccountEngineKind::Antigravity, "non_existent")
+        .import_local_credentials(&AccountEngineKind::Codex, "non_existent")
         .is_err());
 
     let _ = std::fs::remove_dir_all(temp_dir);

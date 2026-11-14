@@ -194,7 +194,8 @@ impl DurableMemoryStore {
             fs::create_dir_all(parent).await?;
         }
         let now = chrono::Utc::now().to_rfc3339();
-        let entry = format!("- [Learned {}] {}\n", now, lesson.trim());
+        let redacted = agent_domain::redact_secrets_in_text(lesson.trim());
+        let entry = format!("- [Learned {}] {}\n", now, redacted);
 
         let need_header = match fs::metadata(&self.memory_file).await {
             Ok(meta) => meta.len() == 0,
@@ -274,38 +275,48 @@ impl DurableMemoryStore {
         }
         let _lock = lock_memory_file(&self.lessons_json_file).await?;
         let mut lessons = self.load_structured_lessons().await?;
-        // Giữ tối đa 100 bài học gần nhất, bài học mới xếp lên đầu
-        lessons.retain(|l| l.id != lesson.id);
-        lessons.insert(0, lesson.clone());
-        if lessons.len() > 100 {
-            lessons.truncate(100);
-        }
+        let sanitized = StructuredLesson {
+            id: lesson.id.clone(),
+            timestamp: lesson.timestamp.clone(),
+            task_title: agent_domain::redact_secrets_in_text(&lesson.task_title),
+            trigger_error: lesson
+                .trigger_error
+                .as_deref()
+                .map(agent_domain::redact_secrets_in_text),
+            remediation_applied: lesson
+                .remediation_applied
+                .as_deref()
+                .map(agent_domain::redact_secrets_in_text),
+            general_insight: agent_domain::redact_secrets_in_text(&lesson.general_insight),
+            success: lesson.success,
+        };
+        lessons.retain(|l| l.id != sanitized.id);
+        lessons.insert(0, sanitized);
+        lessons.truncate(100);
         let json_data = serde_json::to_string_pretty(&lessons)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
         let temp_file = self
             .lessons_json_file
             .with_extension(format!("tmp.{}", uuid::Uuid::new_v4().simple()));
         fs::write(&temp_file, &json_data).await?;
         fs::rename(&temp_file, &self.lessons_json_file).await?;
 
-        // 2. Đồng bộ tóm tắt có gắn nhãn ngữ nghĩa vào memory/MEMORY.md (cho Prompt Context)
         let status_tag = if lesson.success { "SUCCESS" } else { "FAILURE" };
-        let md_line = if let Some(ref err) = lesson.trigger_error {
-            let remedy = lesson.remediation_applied.as_deref().unwrap_or("None");
-            format!(
+        let md_line = match lesson.trigger_error.as_deref() {
+            Some(err) => format!(
                 "[{}] Goal '{}': Error '{}' solved by '{}' -> Insight: {}",
-                status_tag, lesson.task_title, err, remedy, lesson.general_insight
-            )
-        } else {
-            format!(
+                status_tag,
+                lesson.task_title,
+                err,
+                lesson.remediation_applied.as_deref().unwrap_or("None"),
+                lesson.general_insight
+            ),
+            None => format!(
                 "[{}] Goal '{}': {}",
                 status_tag, lesson.task_title, lesson.general_insight
-            )
+            ),
         };
-        self.save_lesson(&md_line).await?;
-
-        Ok(())
+        self.save_lesson(&md_line).await
     }
 
     pub async fn save_user_directive(&self, directive: &str) -> Result<(), std::io::Error> {
@@ -313,28 +324,13 @@ impl DurableMemoryStore {
             fs::create_dir_all(parent).await?;
         }
         let date_str = chrono::Utc::now().format("%Y-%m-%d").to_string();
-        let entry = format!(
-            "\n<!-- observed: {} | status: active -->\n{}\n",
-            date_str,
-            directive.trim()
-        );
+        let redacted = agent_domain::redact_secrets_in_text(directive.trim());
+        let entry = format!("\n<!-- observed: {date_str} | status: active -->\n{redacted}\n");
 
-        let need_header = match fs::metadata(&self.user_file).await {
-            Ok(meta) => meta.len() == 0,
-            Err(_) => true,
-        };
-
-        let mut file = fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.user_file)
-            .await?;
-
+        let need_header = !fs::metadata(&self.user_file).await.is_ok_and(|m| m.len() > 0);
+        let mut file = fs::OpenOptions::new().create(true).append(true).open(&self.user_file).await?;
         if need_header {
-            file.write_all(
-                b"# USER DIRECTIVES\n\nStable user preferences and operational directives:\n",
-            )
-            .await?;
+            file.write_all(b"# USER DIRECTIVES\n\nStable user preferences and operational directives:\n").await?;
         }
 
         file.write_all(entry.as_bytes()).await?;

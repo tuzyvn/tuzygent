@@ -21,9 +21,9 @@ async fn authenticated_gateway_lists_models_and_manages_accounts(
 
     // 2. POST /api/v1/auth/accounts
     let add_acc = serde_json::json!({
-        "engine": "antigravity",
+        "engine": "codex",
         "id": "acc_test_1",
-        "name": "Test Google Account",
+        "name": "Test Codex Account",
         "extra_env": { "TEST_VAR": "1" }
     });
     let response = app
@@ -61,7 +61,7 @@ async fn authenticated_gateway_lists_models_and_manages_accounts(
 
     // 4. Reject account with path traversal ID
     let bad_acc = serde_json::json!({
-        "engine": "antigravity",
+        "engine": "codex",
         "id": "../evil",
         "name": "Bad Traversal Account",
     });
@@ -78,7 +78,24 @@ async fn authenticated_gateway_lists_models_and_manages_accounts(
         .await?;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-    // 5. Reject unknown model without spawning process
+    // 5. Reject unknown or Google-disabled model without spawning process
+    let antigravity_req = serde_json::json!({
+        "model": "antigravity",
+        "messages": [{"role": "user", "content": "hi"}],
+    });
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("authorization", "Bearer test-secret")
+                .header("content-type", "application/json")
+                .body(Body::from(antigravity_req.to_string()))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
     let bad_model_req = serde_json::json!({
         "model": "malicious_unrecognized_binary",
         "messages": [{"role": "user", "content": "hi"}],

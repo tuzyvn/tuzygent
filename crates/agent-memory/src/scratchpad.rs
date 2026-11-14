@@ -39,7 +39,8 @@ impl ScratchpadManager {
         if let Some(parent) = self.file_path.parent() {
             fs::create_dir_all(parent).await?;
         }
-        fs::write(&self.file_path, content).await
+        let redacted = agent_domain::redact_secrets_in_text(content);
+        fs::write(&self.file_path, redacted).await
     }
 
     /// Ghi log tiến trình thực thi trực tiếp bằng chế độ atomic append, tránh race condition
@@ -48,7 +49,8 @@ impl ScratchpadManager {
             fs::create_dir_all(parent).await?;
         }
         let timestamp = chrono::Utc::now().to_rfc3339();
-        let log_line = format!("[{}] {}\n", timestamp, entry.trim());
+        let redacted = agent_domain::redact_secrets_in_text(entry.trim());
+        let log_line = format!("[{}] {}\n", timestamp, redacted);
 
         let mut file = fs::OpenOptions::new()
             .create(true)

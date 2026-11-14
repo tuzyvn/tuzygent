@@ -53,18 +53,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_gateway_stream_account_resolution() -> Result<(), Box<dyn std::error::Error>> {
-        // Model resolution logic for streaming & non-streaming
-        let antigravity_res = parse_model_spec("antigravity");
-        assert!(antigravity_res.is_ok());
-        let (kind, override_model) = antigravity_res?;
-        assert_eq!(kind, AccountEngineKind::Antigravity);
-        assert_eq!(override_model, None);
-
-        let gemini_custom = parse_model_spec("gemini/gemini-2.0-flash-exp");
-        assert!(gemini_custom.is_ok());
-        let (kind, override_model) = gemini_custom?;
-        assert_eq!(kind, AccountEngineKind::Antigravity);
-        assert_eq!(override_model.as_deref(), Some("gemini-2.0-flash-exp"));
+        // Antigravity & Gemini models must be rejected by gateway proxy policy
+        assert!(parse_model_spec("antigravity").is_err());
+        assert!(parse_model_spec("gemini/gemini-2.0-flash-exp").is_err());
 
         let codex_res = parse_model_spec("codex/o1-preview");
         assert!(codex_res.is_ok());
@@ -96,7 +87,7 @@ mod tests {
         let data = models_json["data"]
             .as_array()
             .ok_or("expected data to be an array")?;
-        assert!(data.iter().any(|m| m["id"] == "antigravity"));
+        assert!(!data.iter().any(|m| m["id"] == "antigravity"));
         assert!(data.iter().any(|m| m["id"] == "codex"));
         assert!(data.iter().any(|m| m["id"] == "claude"));
         Ok(())
@@ -115,7 +106,7 @@ mod tests {
         let state = create_test_state()?;
         let remove_res = remove_account_handler(
             State(state),
-            axum::extract::Path(("antigravity".to_string(), "non-existent-acc-id".to_string())),
+            axum::extract::Path(("codex".to_string(), "non-existent-acc-id".to_string())),
         )
         .await;
         assert!(remove_res.is_err());

@@ -1,32 +1,63 @@
 use agent_domain::RigSpec;
-use agent_runtime::KernelOperator;
+use agent_runtime::{
+    CoordinateBotsRequest, CoordinationContext, CoordinationReplyMode, KernelOperator,
+};
+use std::path::PathBuf;
 
 use crate::cli::RigAction;
+
+#[derive(clap::Args, Debug, Clone)]
+pub struct RigCoordinateArgs {
+    #[arg(short, long, default_value = "agents")]
+    pub spec: PathBuf,
+    #[arg(short, long, default_value = ".")]
+    pub workspace: String,
+    #[arg(long)]
+    pub list_targets: bool,
+    #[arg(long, default_value = "operator")]
+    pub caller: String,
+    #[arg(short, long, value_delimiter = ',')]
+    pub bots: Vec<String>,
+    #[arg(short, long, default_value = "")]
+    pub instructions: String,
+    #[arg(long)]
+    pub done_when: Option<String>,
+    #[arg(long)]
+    pub consult: bool,
+    #[arg(long)]
+    pub rework: bool,
+    #[arg(long)]
+    pub no_reply: bool,
+    #[arg(long, default_value_t = 0)]
+    pub depth: u32,
+    #[arg(long, default_value_t = 3)]
+    pub max_depth: u32,
+    #[arg(long, value_delimiter = ',')]
+    pub ancestors: Vec<String>,
+    #[arg(short, long)]
+    pub engine: Option<String>,
+}
 
 pub async fn handle(action: RigAction) -> anyhow::Result<()> {
     match action {
         RigAction::Up { spec, workspace } => {
-            let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
-                anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
-            })?;
-            let rig_spec = RigSpec::from_yaml_str(&yaml)
-                .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML RigSpec: {}", e))?;
+            let op = KernelOperator::load_from_path_or_workspace(&spec, &workspace)
+                .map_err(|e| anyhow::anyhow!(e))?;
 
             println!(
                 "🏗️  Booting Rig: {} ({})",
-                rig_spec.rig.name, rig_spec.rig.id
+                op.spec.rig.name, op.spec.rig.id
             );
             println!(
                 "👑 Kernel Operator: {} (Role: {})",
-                rig_spec.operator.agent_id,
-                rig_spec
+                op.spec.operator.agent_id,
+                op.spec
                     .operator
                     .role
                     .as_deref()
                     .unwrap_or("Lead Coordinator")
             );
 
-            let op = KernelOperator::new(rig_spec, &workspace);
             let booted = op.boot_seats().map_err(|e| anyhow::anyhow!(e))?;
 
             println!("\n👥 Booted Persistent Seats ({}):", booted.len());
@@ -42,17 +73,12 @@ pub async fn handle(action: RigAction) -> anyhow::Result<()> {
                 );
             }
             println!(
-                "\n✨ Rig is up and ready for dispatch. Use `agent-ctl rig run --goal \"...\"`"
+                "\n✨ Rig is up and ready for dispatch. Use `agent-ctl rig coordinate --list-targets`"
             );
         }
         RigAction::Down { spec } => {
-            let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
-                anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
-            })?;
-            let rig_spec = RigSpec::from_yaml_str(&yaml)
-                .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML: {}", e))?;
-
-            let op = KernelOperator::new(rig_spec, ".");
+            let op = KernelOperator::load_from_path_or_workspace(&spec, ".")
+                .map_err(|e| anyhow::anyhow!(e))?;
             op.shutdown_seats().map_err(|e| anyhow::anyhow!(e))?;
             println!(
                 "🛑 Successfully shutdown all seats for Rig '{}'",
@@ -60,15 +86,11 @@ pub async fn handle(action: RigAction) -> anyhow::Result<()> {
             );
         }
         RigAction::Status { spec } => {
-            let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
-                anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
-            })?;
-            let rig_spec = RigSpec::from_yaml_str(&yaml)
-                .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML: {}", e))?;
+            let op = KernelOperator::load_from_path_or_workspace(&spec, ".")
+                .map_err(|e| anyhow::anyhow!(e))?;
 
-            println!("📊 Rig Status: {} ({})", rig_spec.rig.name, rig_spec.rig.id);
-            println!("👑 Operator: {}", rig_spec.operator.agent_id);
-            let op = KernelOperator::new(rig_spec, ".");
+            println!("📊 Rig Status: {} ({})", op.spec.rig.name, op.spec.rig.id);
+            println!("👑 Operator: {}", op.spec.operator.agent_id);
             let seats = op.inspect_seats();
 
             println!("\n🪑 Seat Roster ({} seats):", seats.len());
@@ -90,21 +112,17 @@ pub async fn handle(action: RigAction) -> anyhow::Result<()> {
             workspace,
             engine,
         } => {
-            let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
-                anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
-            })?;
-            let rig_spec = RigSpec::from_yaml_str(&yaml)
-                .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML: {}", e))?;
+            let op = KernelOperator::load_from_path_or_workspace(&spec, &workspace)
+                .map_err(|e| anyhow::anyhow!(e))?;
 
             println!(
                 "🎯 Giao mục tiêu cho Rig '{}': \"{}\"",
-                rig_spec.rig.name, goal
+                op.spec.rig.name, goal
             );
             if let Some(ref eng) = engine {
                 println!("⚙️  Configured Engine Override: {}", eng);
             }
 
-            let op = KernelOperator::new(rig_spec, &workspace);
             let summary = op
                 .execute_goal(&goal, engine.as_deref())
                 .await
@@ -154,17 +172,13 @@ pub async fn handle(action: RigAction) -> anyhow::Result<()> {
             workspace,
             out,
         } => {
-            let yaml = tokio::fs::read_to_string(&spec).await.map_err(|e| {
-                anyhow::anyhow!("Không thể đọc file spec '{}': {}", spec.display(), e)
-            })?;
-            let rig_spec = RigSpec::from_yaml_str(&yaml)
-                .map_err(|e| anyhow::anyhow!("Lỗi cú pháp YAML RigSpec: {}", e))?;
+            let op = KernelOperator::load_from_path_or_workspace(&spec, &workspace)
+                .map_err(|e| anyhow::anyhow!(e))?;
 
             println!(
                 "📸 Tạo Snapshot cho Rig: {} ({})",
-                rig_spec.rig.name, rig_spec.rig.id
+                op.spec.rig.name, op.spec.rig.id
             );
-            let op = KernelOperator::new(rig_spec, &workspace);
             let snapshot = op.create_snapshot().map_err(|e| anyhow::anyhow!(e))?;
             let saved_path = op
                 .save_snapshot(&snapshot, out.as_deref())
@@ -205,6 +219,57 @@ pub async fn handle(action: RigAction) -> anyhow::Result<()> {
                 "✅ Đã khôi phục thành công các seats của Rig: {}",
                 snap.rig_id
             );
+        }
+        RigAction::Coordinate(args) => {
+            let op = KernelOperator::load_from_path_or_workspace(&args.spec, &args.workspace)
+                .map_err(|e| anyhow::anyhow!(e))?;
+            if args.list_targets {
+                let targets = op.list_room_targets();
+                println!("🤝 Available Rig Room Targets ({}):", targets.len());
+                for t in targets {
+                    println!(
+                        "   • [{}] {} | Role: {} | Engine: {} | Caps: {:?}",
+                        t.seat_id, t.name, t.role, t.engine, t.capabilities
+                    );
+                }
+                return Ok(());
+            }
+            let ctx = CoordinationContext {
+                thread_id: format!("cli-{}", uuid::Uuid::new_v4()),
+                depth: args.depth,
+                max_depth: args.max_depth,
+                ancestors: args.ancestors,
+            };
+            let req = CoordinateBotsRequest {
+                caller_id: args.caller,
+                bot_ids: args.bots,
+                instructions: args.instructions,
+                done_when: args.done_when,
+                consult: args.consult,
+                rework: args.rework,
+                reply_mode: if args.no_reply {
+                    CoordinationReplyMode::None
+                } else {
+                    CoordinationReplyMode::WaitAndResume
+                },
+            };
+            let batch = op
+                .coordinate_and_resume(&req, &ctx, args.engine.as_deref())
+                .await
+                .map_err(|e| anyhow::anyhow!(e))?;
+            println!(
+                "🤝 Coordination [{}] caller={} depth={} results={}",
+                batch.thread_id, batch.caller_id, batch.depth, batch.results.len()
+            );
+            for r in &batch.results {
+                println!(
+                    "   • [{}] status={} done_when_satisfied={}",
+                    r.seat_id, r.status, r.done_when_satisfied
+                );
+            }
+            if let Some(ref synth) = batch.caller_resume_output {
+                println!("\n📢 Caller Auto-Resume Output:\n{}", synth);
+            }
         }
     }
 

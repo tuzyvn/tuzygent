@@ -220,18 +220,28 @@ fn test_gateway_fault_policy_behavior() {
 fn test_resilient_gateway_model_resolution() {
     let service = ResilientGatewayService::new();
 
+    // Google/Antigravity & Gemini models must be rejected on the OpenAI proxy gateway
+    assert!(matches!(
+        service.resolve_model_resilient("antigravity"),
+        Err(GatewayError::InvalidModel(_))
+    ));
+    assert!(matches!(
+        service.resolve_model_resilient("gemini/gemini-2.0-flash"),
+        Err(GatewayError::InvalidModel(_))
+    ));
+
     // Standard valid engines
     let (kind, override_model) = service
-        .resolve_model_resilient("antigravity")
-        .expect("antigravity should resolve");
-    assert_eq!(kind, AccountEngineKind::Antigravity);
+        .resolve_model_resilient("codex")
+        .expect("codex should resolve");
+    assert_eq!(kind, AccountEngineKind::Codex);
     assert_eq!(override_model, None);
 
     let (kind, override_model) = service
-        .resolve_model_resilient("gemini/gemini-2.0-flash")
-        .expect("gemini path should resolve");
-    assert_eq!(kind, AccountEngineKind::Antigravity);
-    assert_eq!(override_model.as_deref(), Some("gemini-2.0-flash"));
+        .resolve_model_resilient("codex/gpt-4o")
+        .expect("codex path should resolve");
+    assert_eq!(kind, AccountEngineKind::Codex);
+    assert_eq!(override_model.as_deref(), Some("gpt-4o"));
 
     let (kind, _) = service
         .resolve_model_resilient("claude")
@@ -244,18 +254,18 @@ fn test_resilient_gateway_model_resolution() {
 
     // Unknown model with valid fallback
     let resilient_with_fallback =
-        ResilientGatewayService::new().with_fallback_model("antigravity/gemini-1.5-flash");
+        ResilientGatewayService::new().with_fallback_model("codex/gpt-4o");
     let (kind, override_model) = resilient_with_fallback
         .resolve_model_resilient("unsupported-unknown-engine")
         .expect("should recover via fallback model");
-    assert_eq!(kind, AccountEngineKind::Antigravity);
-    assert_eq!(override_model.as_deref(), Some("gemini-1.5-flash"));
+    assert_eq!(kind, AccountEngineKind::Codex);
+    assert_eq!(override_model.as_deref(), Some("gpt-4o"));
     assert_eq!(resilient_with_fallback.recovered_count(), 1);
 
     // Fault injection interrupts model resolution
     let fault_service = ResilientGatewayService::new()
         .with_fault_policy(GatewayFaultPolicy::always(GatewayFault::SocketTimeout));
-    let fault_res = fault_service.resolve_model_resilient("antigravity");
+    let fault_res = fault_service.resolve_model_resilient("codex");
     assert_eq!(fault_res, Err(GatewayError::SocketTimeout));
 }
 
@@ -410,7 +420,8 @@ async fn test_gateway_live_server_ephemeral_binding() {
 
     assert!(response_buf.contains("HTTP/1.1 200 OK"));
     assert!(response_buf.contains("\"object\":\"list\""));
-    assert!(response_buf.contains("antigravity"));
+    assert!(response_buf.contains("\"codex\""));
+    assert!(!response_buf.contains("antigravity"));
 }
 
 #[tokio::test]
@@ -538,7 +549,7 @@ async fn test_topic_61e62e_dde2fc_gateway_chaos_resilience() {
         .with_max_retries(3)
         .with_backoff(Duration::from_millis(1))
         .with_fault_policy(recovery_policy)
-        .with_fallback_model("antigravity/gemini-2.0-flash");
+        .with_fallback_model("codex/gpt-4o");
 
     let res = service
         .execute_async_resilient(|| async { Ok("resilient response") })
@@ -552,9 +563,9 @@ async fn test_topic_61e62e_dde2fc_gateway_chaos_resilience() {
     // 4. Fallback Model Resolution Resiliency
     let (kind, override_model) = service
         .resolve_model_resilient("non-existent-arbitrary-model")
-        .expect("should gracefully fallback to gemini-2.0-flash");
-    assert_eq!(kind, AccountEngineKind::Antigravity);
-    assert_eq!(override_model.as_deref(), Some("gemini-2.0-flash"));
+        .expect("should gracefully fallback to codex/gpt-4o");
+    assert_eq!(kind, AccountEngineKind::Codex);
+    assert_eq!(override_model.as_deref(), Some("gpt-4o"));
 
     // 5. Severity Tiers and Status Codes
     assert_eq!(

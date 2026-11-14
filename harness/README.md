@@ -10,7 +10,7 @@ A continuous benchmarking, evaluation, and autonomous self-updating harness desi
 └────────────────────────────────────────────────────────┘
           │
           ├── [1] Evaluator & Benchmark (harness/evaluators/benchmark.py)
-          │       - Cargo tests (53+ unit & integration tests)
+          │       - Cargo tests (1,172+ unit & integration tests across 99 suites)
           │       - Cargo Clippy (-D warnings)
           │       - Operational Scenarios (harness/scenarios/*.json)
           │

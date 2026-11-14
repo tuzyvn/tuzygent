@@ -34,8 +34,12 @@ fn create_sample_profile(id: &str, name: &str, engine: AccountEngineKind) -> Acc
 #[test]
 fn test_account_engine_kind_name_parsing() {
     assert_eq!(
+        AccountEngineKind::from_str_name("codex"),
+        AccountEngineKind::Codex
+    );
+    assert_eq!(
         AccountEngineKind::from_str_name("AGY"),
-        AccountEngineKind::Antigravity
+        AccountEngineKind::Generic("agy".to_string())
     );
     assert_eq!(
         AccountEngineKind::from_str_name("Claude-Code"),
@@ -127,7 +131,7 @@ fn test_account_profile_estimated_size_tracks_heap_data() {
 #[test]
 fn test_account_validation_and_integrity() {
     let valid_profile =
-        create_sample_profile("acc_1", "Primary Account", AccountEngineKind::Antigravity);
+        create_sample_profile("acc_1", "Primary Account", AccountEngineKind::Codex);
     assert!(valid_profile.validate().is_ok());
 
     // Profile with empty name must fail validation
@@ -194,7 +198,7 @@ fn test_account_intermittent_socket_timeout_recovery() {
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_main",
             "Main Account",
             HashMap::new(),
@@ -205,7 +209,7 @@ fn test_account_intermittent_socket_timeout_recovery() {
     let fault_policy = AccountFaultPolicy::intermittent(AccountFault::SocketTimeout, 2);
     let mut manager = ResilientAccountManager::new(vault, fault_policy, 3);
 
-    let res = manager.select_account(&AccountEngineKind::Antigravity);
+    let res = manager.select_account(&AccountEngineKind::Codex);
     assert!(res.is_ok());
     assert!(manager.recovered_count() > 0);
     assert_eq!(manager.resolved_count(), 1);
@@ -325,7 +329,7 @@ fn test_account_transient_io_failure_recovery() {
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_io",
             "IO Account",
             HashMap::new(),
@@ -335,7 +339,7 @@ fn test_account_transient_io_failure_recovery() {
     let fault_policy = AccountFaultPolicy::intermittent(AccountFault::TransientIo, 2);
     let mut manager = ResilientAccountManager::new(vault, fault_policy, 3);
 
-    let res = manager.select_account(&AccountEngineKind::Antigravity);
+    let res = manager.select_account(&AccountEngineKind::Codex);
     assert!(res.is_ok());
     assert!(manager.recovered_count() > 0);
     assert_eq!(manager.resolved_count(), 1);
@@ -349,7 +353,7 @@ fn test_account_corrupted_metadata_rejection() {
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_corrupt",
             "Corrupt Account",
             HashMap::new(),
@@ -359,7 +363,7 @@ fn test_account_corrupted_metadata_rejection() {
     let fault_policy = AccountFaultPolicy::always(AccountFault::CorruptedMetadata);
     let mut manager = ResilientAccountManager::new(vault, fault_policy, 3);
 
-    let res = manager.select_account(&AccountEngineKind::Antigravity);
+    let res = manager.select_account(&AccountEngineKind::Codex);
     assert!(matches!(res, Err(AccountError::CorruptedMetadata(_))));
     assert_eq!(manager.resolved_count(), 0);
 
@@ -372,7 +376,7 @@ fn test_account_service_unavailable_recovery() {
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_service",
             "Service Account",
             HashMap::new(),
@@ -382,7 +386,7 @@ fn test_account_service_unavailable_recovery() {
     let fault_policy = AccountFaultPolicy::intermittent(AccountFault::ServiceUnavailable, 2);
     let mut manager = ResilientAccountManager::new(vault, fault_policy, 3);
 
-    let res = manager.select_account(&AccountEngineKind::Antigravity);
+    let res = manager.select_account(&AccountEngineKind::Codex);
     assert!(res.is_ok());
     assert!(manager.recovered_count() > 0);
     assert_eq!(manager.resolved_count(), 1);
@@ -398,7 +402,7 @@ fn test_account_rate_limit_rotation_and_cooldown_failover() {
     // Đăng ký 2 tài khoản cho cùng một engine
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_alpha",
             "Alpha Account",
             HashMap::new(),
@@ -406,7 +410,7 @@ fn test_account_rate_limit_rotation_and_cooldown_failover() {
         .expect("register alpha");
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_beta",
             "Beta Account",
             HashMap::new(),
@@ -420,7 +424,7 @@ fn test_account_rate_limit_rotation_and_cooldown_failover() {
 
     // Lần chọn đầu tiên: acc_alpha gặp rate limit -> tự động đưa vào cooldown -> failover bốc acc_beta thành công
     let selected = manager
-        .select_account(&AccountEngineKind::Antigravity)
+        .select_account(&AccountEngineKind::Codex)
         .expect("failover should succeed");
     assert_eq!(selected.id, "acc_beta");
     assert_eq!(manager.cooldown_count(), 1);
@@ -429,7 +433,7 @@ fn test_account_rate_limit_rotation_and_cooldown_failover() {
 
     // Xác nhận acc_alpha đang ở trạng thái Cooldown trong vault
     let alpha = vault
-        .get_account(&AccountEngineKind::Antigravity, "acc_alpha")
+        .get_account(&AccountEngineKind::Codex, "acc_alpha")
         .expect("alpha exists");
     assert!(matches!(alpha.status, AccountStatus::Cooldown { .. }));
     assert_eq!(alpha.failure_count, 1);
@@ -443,7 +447,7 @@ fn test_account_audit_ledger_chaos_integration() {
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_audited",
             "Audited Account",
             HashMap::new(),
@@ -455,13 +459,13 @@ fn test_account_audit_ledger_chaos_integration() {
     let mut ledger = AuditLedger::new();
 
     // 1. Phục hồi và chọn tài khoản thành công qua audit ledger
-    let res = manager.select_and_record(&mut ledger, &AccountEngineKind::Antigravity);
+    let res = manager.select_and_record(&mut ledger, &AccountEngineKind::Codex);
     assert!(res.is_ok());
     assert_eq!(manager.resolved_count(), 1);
     assert!(manager.recovered_count() > 0);
 
     // 2. Kiểm tra tài khoản không tồn tại / pool trống bị chặn an toàn
-    let res_empty = manager.select_and_record(&mut ledger, &AccountEngineKind::Codex);
+    let res_empty = manager.select_and_record(&mut ledger, &AccountEngineKind::Claude);
     assert!(matches!(
         res_empty,
         Err(AccountError::NoAvailableAccount(_))
@@ -511,7 +515,7 @@ fn test_high_volume_account_chaos_resilience() {
     for i in 0..5 {
         vault
             .register_account(
-                AccountEngineKind::Antigravity,
+                AccountEngineKind::Codex,
                 &format!("worker_{}", i),
                 &format!("Worker {}", i),
                 HashMap::new(),
@@ -524,7 +528,7 @@ fn test_high_volume_account_chaos_resilience() {
     let mut ledger = AuditLedger::new();
 
     for _ in 0..40 {
-        let res = manager.select_and_record(&mut ledger, &AccountEngineKind::Antigravity);
+        let res = manager.select_and_record(&mut ledger, &AccountEngineKind::Codex);
         assert!(res.is_ok());
     }
 
@@ -543,7 +547,7 @@ fn test_account_pool_exhaustion_and_self_healing() {
 
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_1",
             "Account 1",
             HashMap::new(),
@@ -551,7 +555,7 @@ fn test_account_pool_exhaustion_and_self_healing() {
         .expect("register 1");
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_2",
             "Account 2",
             HashMap::new(),
@@ -560,27 +564,27 @@ fn test_account_pool_exhaustion_and_self_healing() {
 
     // Đưa cả 2 tài khoản vào cooldown giả lập
     vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "acc_1",
         300,
         "Simulated 429 RateLimit",
     );
     vault.mark_cooldown(
-        &AccountEngineKind::Antigravity,
+        &AccountEngineKind::Codex,
         "acc_2",
         300,
         "Simulated 429 RateLimit",
     );
 
     let mut manager = ResilientAccountManager::with_vault(vault.clone());
-    let res = manager.select_account(&AccountEngineKind::Antigravity);
+    let res = manager.select_account(&AccountEngineKind::Codex);
     assert!(matches!(res, Err(AccountError::NoAvailableAccount(_))));
 
     // Kích hoạt cơ chế tự phục hồi (Self-Healing) qua reset cooldown
-    assert!(vault.reset_cooldown(&AccountEngineKind::Antigravity, "acc_1"));
+    assert!(vault.reset_cooldown(&AccountEngineKind::Codex, "acc_1"));
 
     let recovered = manager
-        .select_account(&AccountEngineKind::Antigravity)
+        .select_account(&AccountEngineKind::Codex)
         .expect("should heal");
     assert_eq!(recovered.id, "acc_1");
     assert_eq!(recovered.status, AccountStatus::Ready);
@@ -594,7 +598,7 @@ fn test_resilient_batch_selection_and_counter_reset() {
     let vault = Arc::new(AccountVault::new_with_dir(temp_dir.clone()));
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "batch_account",
             "Batch Account",
             HashMap::new(),
@@ -603,7 +607,7 @@ fn test_resilient_batch_selection_and_counter_reset() {
 
     let mut manager = ResilientAccountManager::with_vault(vault).with_max_capacity(2);
     let results = manager.select_batch(&[
-        AccountEngineKind::Antigravity,
+        AccountEngineKind::Codex,
         AccountEngineKind::Generic("missing_batch_engine".to_string()),
     ]);
 
@@ -633,7 +637,7 @@ fn test_vault_concurrent_chaos_and_lock_poisoning_recovery() {
     // 1. Khởi tạo tài khoản
     vault
         .register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             "acc_init",
             "Init Account",
             HashMap::new(),
@@ -646,17 +650,17 @@ fn test_vault_concurrent_chaos_and_lock_poisoning_recovery() {
         let v = vault.clone();
         handles.push(std::thread::spawn(move || {
             let id = format!("worker_acc_{}", i);
-            let _ = v.register_account(AccountEngineKind::Antigravity, &id, &id, HashMap::new());
-            if let Some(acc) = v.select_next_account(&AccountEngineKind::Antigravity) {
+            let _ = v.register_account(AccountEngineKind::Codex, &id, &id, HashMap::new());
+            if let Some(acc) = v.select_next_account(&AccountEngineKind::Codex) {
                 if i % 2 == 0 {
                     v.mark_cooldown(
-                        &AccountEngineKind::Antigravity,
+                        &AccountEngineKind::Codex,
                         &acc.id,
                         60,
                         "Concurrent chaos cooldown",
                     );
                 } else {
-                    v.record_success(&AccountEngineKind::Antigravity, &acc.id);
+                    v.record_success(&AccountEngineKind::Codex, &acc.id);
                 }
             }
         }));
@@ -667,7 +671,7 @@ fn test_vault_concurrent_chaos_and_lock_poisoning_recovery() {
     }
 
     // Xác nhận vault vẫn hoạt động an toàn, không rò rỉ dữ liệu hoặc deadlock
-    let accounts = vault.list_accounts(Some(&AccountEngineKind::Antigravity));
+    let accounts = vault.list_accounts(Some(&AccountEngineKind::Codex));
     assert!(accounts.len() >= 2);
 
     let _ = std::fs::remove_dir_all(temp_dir);
@@ -682,7 +686,7 @@ fn test_topic_b974be_31f26a_accounts_benchmark_and_resilience() {
 
     for i in 0..5 {
         let _ = vault.register_account(
-            AccountEngineKind::Antigravity,
+            AccountEngineKind::Codex,
             &format!("bench_worker_{}", i),
             &format!("Bench Worker {}", i),
             HashMap::new(),
@@ -728,10 +732,10 @@ fn test_topic_b974be_31f26a_accounts_benchmark_and_resilience() {
 
     // 3. Batch account selection optimization test
     let batch_engines = vec![
-        AccountEngineKind::Antigravity,
-        AccountEngineKind::Antigravity,
+        AccountEngineKind::Codex,
+        AccountEngineKind::Codex,
         AccountEngineKind::Generic("missing_batch_engine".to_string()),
-        AccountEngineKind::Antigravity,
+        AccountEngineKind::Codex,
     ];
     let batch_res = manager.select_batch(&batch_engines);
     assert_eq!(batch_res.len(), 4);

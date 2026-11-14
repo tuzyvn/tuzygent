@@ -11,13 +11,6 @@ pub fn build_account_env(account: &AccountProfile) -> HashMap<String, String> {
     let home_str = account.home_dir.to_string_lossy().to_string();
 
     match &account.engine {
-        AccountEngineKind::Antigravity => {
-            // Ép agy đọc config & token từ thư mục cách ly của tài khoản này
-            envs.insert("HOME".to_string(), home_str.clone());
-            envs.insert("GEMINI_CLI_HOME".to_string(), home_str.clone());
-            envs.insert("ANTIGRAVITY_CONFIG_DIR".to_string(), home_str.clone());
-            envs.insert("ANTIGRAVITY_HOME".to_string(), home_str);
-        }
         AccountEngineKind::Codex => {
             // Ép codex đọc config & token từ thư mục cách ly của tài khoản này
             envs.insert("HOME".to_string(), home_str.clone());
@@ -49,6 +42,18 @@ impl AccountVault {
         engine: &AccountEngineKind,
         id: &str,
     ) -> Result<bool, std::io::Error> {
+        if let AccountEngineKind::Generic(name) = engine {
+            if matches!(
+                name.trim().to_ascii_lowercase().as_str(),
+                "antigravity" | "agy" | "gemini"
+            ) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "Importing local Google/Antigravity credentials is disabled to comply with Google Terms of Service",
+                ));
+            }
+        }
+
         let account = self.get_account(engine, id).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -69,21 +74,6 @@ impl AccountVault {
         let mut imported = false;
 
         match engine {
-            AccountEngineKind::Antigravity => {
-                let candidates = [
-                    (host_path.join(".gemini"), account.home_dir.join(".gemini")),
-                    (
-                        host_path.join(".config").join("antigravity"),
-                        account.home_dir.join(".config").join("antigravity"),
-                    ),
-                ];
-                for (src, dst) in &candidates {
-                    if src.exists() && src.is_dir() {
-                        copy_credential_dir(src, dst)?;
-                        imported = true;
-                    }
-                }
-            }
             AccountEngineKind::Codex => {
                 let candidates = [
                     (host_path.join(".codex"), account.home_dir.join(".codex")),

@@ -50,10 +50,10 @@ async fn with_history_buffer_shares_single_buffer_with_every_shard() {
     );
 
     service
-        .resolve_model_resilient("antigravity")
+        .resolve_model_resilient("codex")
         .await
         .unwrap();
-    assert_eq!(history.snapshot(), vec!["antigravity"]);
+    assert_eq!(history.snapshot(), vec!["codex"]);
 }
 
 #[tokio::test]
@@ -73,7 +73,7 @@ async fn with_sharded_history_buffer_shares_sharded_buffer_with_every_shard() {
     );
 
     service
-        .resolve_model_resilient("antigravity")
+        .resolve_model_resilient("codex")
         .await
         .unwrap();
     assert_eq!(history.snapshot().len(), 1);
@@ -85,17 +85,17 @@ async fn resolve_model_cached_caches_success_and_returns_invalid_model_error() {
     let service = ShardedResilientGatewayService::new(4).with_cache(32);
 
     let first = service
-        .resolve_model_cached("gemini/gemini-2.0-flash-exp")
+        .resolve_model_cached("codex/gpt-4o")
         .await;
     let second = service
-        .resolve_model_cached("gemini/gemini-2.0-flash-exp")
+        .resolve_model_cached("codex/gpt-4o")
         .await;
     assert_eq!(first, second);
     assert_eq!(
         first,
         Ok((
-            AccountEngineKind::Antigravity,
-            Some("gemini-2.0-flash-exp".to_string())
+            AccountEngineKind::Codex,
+            Some("gpt-4o".to_string())
         ))
     );
     assert!(matches!(

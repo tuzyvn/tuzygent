@@ -16,34 +16,45 @@ fn test_account_vault_registration_and_isolation() {
     let temp_dir = temp_vault_dir("register");
     let vault = AccountVault::new_with_dir(temp_dir.clone());
 
-    // 1. Đăng ký tài khoản Antigravity 1
+    // 1. Đăng ký tài khoản Codex 1
     let mut env1 = HashMap::new();
-    env1.insert("GOOGLE_PROJECT".to_string(), "project-alpha".to_string());
+    env1.insert("OPENAI_ORG".to_string(), "org-alpha".to_string());
     let acc1 = vault
         .register_account(
-            AccountEngineKind::Antigravity,
-            "acc_google_work",
-            "Work Google Account",
+            AccountEngineKind::Codex,
+            "acc_codex_work",
+            "Work Codex Account",
             env1,
         )
         .unwrap();
 
-    // 2. Đăng ký tài khoản Antigravity 2
+    // 2. Đăng ký tài khoản Codex 2
     let mut env2 = HashMap::new();
-    env2.insert("GOOGLE_PROJECT".to_string(), "project-beta".to_string());
+    env2.insert("OPENAI_ORG".to_string(), "org-beta".to_string());
     let acc2 = vault
         .register_account(
-            AccountEngineKind::Antigravity,
-            "acc_google_personal",
-            "Personal Google Account",
+            AccountEngineKind::Codex,
+            "acc_codex_personal",
+            "Personal Codex Account",
             env2,
         )
         .unwrap();
 
+    // Google/Antigravity multi-account registration must be rejected by policy
+    let google_err = vault
+        .register_account(
+            AccountEngineKind::from_str_name("antigravity"),
+            "acc_google",
+            "Google",
+            HashMap::new(),
+        )
+        .unwrap_err();
+    assert_eq!(google_err.kind(), std::io::ErrorKind::PermissionDenied);
+
     // Kiểm tra thư mục sandbox cách ly riêng biệt
     assert_ne!(acc1.home_dir, acc2.home_dir);
-    assert!(acc1.home_dir.ends_with("antigravity/acc_google_work"));
-    assert!(acc2.home_dir.ends_with("antigravity/acc_google_personal"));
+    assert!(acc1.home_dir.ends_with("codex/acc_codex_work"));
+    assert!(acc2.home_dir.ends_with("codex/acc_codex_personal"));
 
     // Kiểm tra biến môi trường được inject khi spawn CLI
     let env_acc1 = vault.build_env_for_account(&acc1);
@@ -52,23 +63,17 @@ fn test_account_vault_registration_and_isolation() {
         Some(&acc1.home_dir.to_string_lossy().to_string())
     );
     assert_eq!(
-        env_acc1.get("GEMINI_CLI_HOME"),
+        env_acc1.get("CODEX_HOME"),
         Some(&acc1.home_dir.to_string_lossy().to_string())
     );
-    assert_eq!(
-        env_acc1.get("GOOGLE_PROJECT"),
-        Some(&"project-alpha".to_string())
-    );
+    assert_eq!(env_acc1.get("OPENAI_ORG"), Some(&"org-alpha".to_string()));
 
     let env_acc2 = vault.build_env_for_account(&acc2);
     assert_eq!(
         env_acc2.get("HOME"),
         Some(&acc2.home_dir.to_string_lossy().to_string())
     );
-    assert_eq!(
-        env_acc2.get("GOOGLE_PROJECT"),
-        Some(&"project-beta".to_string())
-    );
+    assert_eq!(env_acc2.get("OPENAI_ORG"), Some(&"org-beta".to_string()));
 
     let _ = std::fs::remove_dir_all(temp_dir);
 }
@@ -140,7 +145,7 @@ fn test_vault_persistence_reload() {
         let vault = AccountVault::new_with_dir(temp_dir.clone());
         vault
             .register_account(
-                AccountEngineKind::Antigravity,
+                AccountEngineKind::Codex,
                 "persist_acc",
                 "Persistent Account",
                 HashMap::new(),
@@ -151,7 +156,7 @@ fn test_vault_persistence_reload() {
     // Khởi tạo lại vault từ cùng thư mục để kiểm tra tính bền vững
     {
         let reloaded = AccountVault::new_with_dir(temp_dir.clone());
-        let accounts = reloaded.list_accounts(Some(&AccountEngineKind::Antigravity));
+        let accounts = reloaded.list_accounts(Some(&AccountEngineKind::Codex));
         assert_eq!(accounts.len(), 1);
         assert_eq!(accounts[0].id, "persist_acc");
         assert_eq!(accounts[0].name, "Persistent Account");

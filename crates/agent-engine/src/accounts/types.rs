@@ -6,7 +6,6 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AccountEngineKind {
-    Antigravity,
     Codex,
     Claude,
     Generic(String),
@@ -15,7 +14,6 @@ pub enum AccountEngineKind {
 impl std::fmt::Display for AccountEngineKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AccountEngineKind::Antigravity => write!(f, "antigravity"),
             AccountEngineKind::Codex => write!(f, "codex"),
             AccountEngineKind::Claude => write!(f, "claude"),
             AccountEngineKind::Generic(name) => write!(f, "{}", name),
@@ -26,7 +24,6 @@ impl std::fmt::Display for AccountEngineKind {
 impl AccountEngineKind {
     pub fn from_str_name(name: &str) -> Self {
         match name.to_lowercase().as_str() {
-            "antigravity" | "agy" => AccountEngineKind::Antigravity,
             "codex" => AccountEngineKind::Codex,
             "claude" | "claude_code" | "claude-code" => AccountEngineKind::Claude,
             other => AccountEngineKind::Generic(other.to_string()),

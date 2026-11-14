@@ -54,10 +54,15 @@ pub use sharded::{ShardedCoreAgentRunner, SHARD_COUNT};
 
 pub mod prelude {
     pub use agent_domain::{
-        AgentId, AgentIdentity, AgentMission, AgentPersonaProfile, AgentRole, AgentSoul,
-        AutonomyLevel, GuardrailPolicy, InterAgentEvent, PersonaId, Priority, RedLineRule,
-        RigSnapshot, RigSpec, SeatSnapshot, SubTask, Task, TaskError, TaskId, TaskStatus,
-        VoiceEngineType, VoiceProfile,
+        default_subagent_roster, discover_workspace_roster, escape_provenance_notes,
+        format_provenance_note, format_provenance_note_with, holds_credential, is_secret_key_name,
+        load_subagents_from_dir, mask_secret, redact_json_value, redact_secrets_in_text,
+        roster_to_rig_spec, sanitize_note_field, wrap_with_provenance, AgentId, AgentIdentity,
+        AgentMission, AgentPersonaProfile, AgentRole, AgentSoul, AutonomyLevel, GuardrailPolicy,
+        InterAgentEvent, PersonaId, Priority, ProvenanceAuthority, ProvenanceEnvelope,
+        RedLineRule, RigSnapshot, RigSpec, SeatSnapshot, SubTask, SubagentFrontmatter,
+        SubagentSpec, Task, TaskError, TaskId, TaskStatus, VoiceEngineType, VoiceProfile,
+        CONSENT_RULE, PROVENANCE_SYSTEM_RULE,
     };
     pub use agent_engine::{
         api::OpenAiCompatibleEngine, cli::AntigravityEngine, cli::ClaudeCodeEngine,
@@ -69,11 +74,17 @@ pub mod prelude {
         ScopeAccess, ScopedScratchpad, ScratchpadManager, SkillRegistry,
     };
     pub use agent_runtime::{
-        AgentSupervisor, AutoJudge, AutoJudgeConfig, AutonomousOodaLoop, CandidateScorecard,
-        InterAgentBus, IsolationMode, KernelOperator, ResilientWorkspaceManager, SandboxConfig,
-        SandboxDriverKind, SandboxEnvironment, SandboxSpec, TournamentCandidate,
+        classify_shell_error, failure_signature, filter_sandbox_env_whitelist,
+        is_sandbox_env_allowed, normalize_signature_text, verify_sandbox_plan, AgentSupervisor,
+        AutoJudge, AutoJudgeConfig, AutonomousOodaLoop, CandidateScorecard, ExecutionLoopConfig,
+        ExecutionLoopGuard, FailureSignature, InterAgentBus, IsolationMode, KernelOperator,
+        LoopVerdict, RepeatDetector, RepeatObservation, ResilientWorkspaceManager, RoomTargetInfo,
+        SandboxConfig, SandboxDriverKind, SandboxEnvironment, SandboxMutation,
+        SandboxSelfCheckReport, SandboxSpec, TeammateTurnResult, TournamentCandidate,
         TournamentExecutor, TournamentOutcome, WorkflowOrchestrator, WorkspaceBenchmarkHarness,
-        WorkspaceManager, WsRpcClient,
+        WorkspaceManager, WsRpcClient, CoordinateBotsRequest, CoordinationBatchResult,
+        CoordinationContext, CoordinationReplyMode, DEFAULT_MAX_COORDINATION_DEPTH,
+        MAX_COORDINATE_BOTS, SANDBOX_CPU_TOPOLOGY_PATHS, SANDBOX_ENV_NEVER_LIST,
     };
 
     pub use crate::benchmark::{CoreBenchmarkHarness, CoreBenchmarkStats};
