@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "stackpilot": {
+      "command": "node",
+      "args": ["/home/fox/Projects/StackPilot/mcp.cjs"]
+    }
+  }
+}

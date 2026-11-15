@@ -1,0 +1,21 @@
+# Sample tuzygent configuration routing a local LLM engine to StackPilot-managed Ollama.
+# 1. Start an environment with `ollama` in StackPilot (with mem_limit enforced).
+# 2. Export OLLAMA_HOST from `stackpilot_get_connections` (e.g. http://127.0.0.1:<port>).
+# 3. Run: agent-ctl run --agent-id dev-01 --engine stackpilot_ollama --goal "..."
+
+[defaults]
+engine = "stackpilot_ollama"
+timeout_seconds = 300
+sandbox_driver = "bubblewrap"
+
+[security]
+allowed_env_vars = [
+    "OLLAMA_HOST",
+    "OTEL_EXPORTER_OTLP_ENDPOINT"
+]
+
+[engines.stackpilot_ollama]
+kind = "generic"
+binary_path = "ollama"
+args = ["run", "qwen2.5-coder:7b", "{prompt}"]
+output_parser = "raw"
