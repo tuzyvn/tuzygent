@@ -1,10 +1,12 @@
 mod benchmark;
 mod fault;
+pub mod metacognition;
 mod resilience;
 mod types;
 
 pub use benchmark::*;
 pub use fault::*;
+pub use metacognition::*;
 pub use resilience::*;
 pub use types::*;
 

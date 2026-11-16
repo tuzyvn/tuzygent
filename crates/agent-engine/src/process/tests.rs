@@ -163,7 +163,7 @@ async fn antigravity_enforces_timeout_and_drains_stderr() -> Result<(), Box<dyn 
 {
     use std::os::unix::fs::PermissionsExt;
     let script = marker("agy-script");
-    std::fs::write(&script, "#!/bin/sh\nsleep 2\n")?;
+    std::fs::write(&script, "#!/bin/sh\nsleep 5\n")?;
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700))?;
     let engine = AntigravityEngine::new(Some(script.to_string_lossy().into()), None);
     let mut input = EngineInput::new("test", "/tmp");

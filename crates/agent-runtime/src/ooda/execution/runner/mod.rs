@@ -1,7 +1,7 @@
 use super::SubtaskExecutor;
 use agent_domain::{Task, TaskStatus, VerificationResult};
 use std::path::Path;
-use tracing::info;
+use tracing::{info, warn};
 
 pub mod helpers;
 pub mod step;
@@ -26,7 +26,23 @@ pub async fn execute_queue(
     let mut subtask_index = 0;
     let mut total_remediations_spawned = 0;
 
+    let loop_config = crate::sentinel::ExecutionLoopConfig {
+        max_total_turns: executor.guardrail.max_subtasks_per_goal.max(40),
+        repeat_warn_at: 3,
+        repeat_break_at: 5,
+        consecutive_error_break_at: executor.guardrail.max_retries_on_error.max(3),
+    };
+    let mut loop_guard = crate::sentinel::ExecutionLoopGuard::new(loop_config);
+
     while subtask_index < task.subtasks.len() {
+        // Sentinel Loop Guard: step turn budget enforcement
+        if let crate::sentinel::LoopVerdict::Break { reason, .. } = loop_guard.step_turn() {
+            warn!("🛑 [OODA LoopGuard] Turn budget limit exceeded: {}", reason);
+            let err = format!("LoopGuard halted: {}", reason);
+            task.status = TaskStatus::Failed { error: err.clone() };
+            return Ok(QueueExecutionOutcome::Failed { error: err });
+        }
+
         // Real-time cancellation check
         if let Some(ref cancel) = executor.cancellation_token {
             if cancel.load(std::sync::atomic::Ordering::SeqCst) {
@@ -49,6 +65,25 @@ pub async fn execute_queue(
                 );
                 subtask_index += 1;
                 continue;
+            }
+
+            // Sentinel Loop Guard: detect repeated identical subtask commands
+            let verdict = loop_guard.observe_tool_call(
+                &task.id.0,
+                "subtask_exec",
+                &current_subtask.command_or_prompt,
+            );
+            match verdict {
+                crate::sentinel::LoopVerdict::Break { reason, .. } => {
+                    warn!("🛑 [OODA LoopGuard] Repeated identical subtask execution detected: {}", reason);
+                    let err = format!("LoopGuard halted: {}", reason);
+                    task.status = TaskStatus::Failed { error: err.clone() };
+                    return Ok(QueueExecutionOutcome::Failed { error: err });
+                }
+                crate::sentinel::LoopVerdict::Warn { reason, .. } => {
+                    warn!("⚠️ [OODA LoopGuard] {}", reason);
+                }
+                crate::sentinel::LoopVerdict::Allow { .. } => {}
             }
         } else {
             break;
@@ -81,8 +116,30 @@ pub async fn execute_queue(
         };
         executor.checkpoint(task).await?;
         match action {
-            StepAction::Advance => subtask_index += 1,
-            StepAction::Backtrack => continue,
+            StepAction::Advance => {
+                loop_guard.clear_failure_streak(&task.id.0);
+                subtask_index += 1;
+            }
+            StepAction::Backtrack => {
+                // If a subtask failed and remediation backtracking was inserted, observe failure streak
+                if let Some(failed_subtask) = task.subtasks.get(subtask_index) {
+                    if let Some(ref err) = failed_subtask.remediation_for_error {
+                        let verdict = loop_guard.observe_failure(
+                            &task.id.0,
+                            "remediation_failure",
+                            &failed_subtask.id,
+                            err,
+                        );
+                        if let crate::sentinel::LoopVerdict::Break { reason, .. } = verdict {
+                            warn!("🛑 [OODA LoopGuard] Consecutive failure streak limit reached: {}", reason);
+                            let err_msg = format!("LoopGuard halted on failure streak: {}", reason);
+                            task.status = TaskStatus::Failed { error: err_msg.clone() };
+                            return Ok(QueueExecutionOutcome::Failed { error: err_msg });
+                        }
+                    }
+                }
+                continue;
+            }
             StepAction::Halt(outcome) => return Ok(outcome),
         }
     }

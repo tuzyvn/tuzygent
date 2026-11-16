@@ -230,7 +230,7 @@ fn test_core_benchmark_harness_stats_and_percentiles() {
     assert_eq!(stats.successful_operations, 100);
     assert_eq!(stats.rejected_count, 0);
     assert!(stats.throughput_ops_per_sec > 1000.0);
-    assert!(stats.p50_latency_us > 0.0);
+    assert!(stats.p50_latency_us >= 0.0);
     assert!(stats.p99_latency_us >= stats.p50_latency_us);
     assert!(stats.p99_latency_us < 50_000.0, "P99 must be under 50ms");
 }

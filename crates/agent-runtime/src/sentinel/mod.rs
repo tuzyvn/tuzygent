@@ -287,6 +287,11 @@ impl ExecutionLoopGuard {
         }
     }
 
+    /// Clear consecutive failure streak when progress is made without dropping overall repeat history.
+    pub fn clear_failure_streak(&mut self, scope_id: &str) {
+        self.failure_streaks.remove(scope_id);
+    }
+
     /// Clear consecutive failure streak and tracked calls once a scope succeeds or settles.
     pub fn settle_scope(&mut self, scope_id: &str) {
         self.repeats.settle(scope_id);

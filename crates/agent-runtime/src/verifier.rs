@@ -17,7 +17,10 @@ impl<'a> TaskVerifier<'a> {
     pub fn new(workspace_dir: &'a Path) -> Self {
         Self {
             workspace_dir,
-            sandbox: Default::default(),
+            sandbox: crate::sandbox::SandboxConfig {
+                driver: crate::sandbox::SandboxDriverKind::detect_best_driver(),
+                ..Default::default()
+            },
             guardrail: agent_domain::GuardrailPolicy::default_enterprise(),
         }
     }

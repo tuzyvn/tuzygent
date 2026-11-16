@@ -174,7 +174,12 @@ impl SubtaskExecutor {
     ) -> SubtaskVerificationOutcome {
         let verifier = TaskVerifier::with_policy(
             active_workdir,
-            self.sandbox_config.clone().unwrap_or_default(),
+            self.sandbox_config.clone().unwrap_or_else(|| {
+                crate::sandbox::SandboxConfig {
+                    driver: crate::sandbox::SandboxDriverKind::detect_best_driver(),
+                    ..Default::default()
+                }
+            }),
             self.guardrail.clone(),
         );
         execute_with_verifier(

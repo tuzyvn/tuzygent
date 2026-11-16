@@ -55,6 +55,7 @@ pub struct SubtaskExecutor {
     pub(crate) checkpoint_store: Option<Arc<dyn crate::task_store::TaskStore>>,
     pub(crate) auto_approve: bool,
     pub(crate) backoff_policy: Option<agent_engine::BackoffPolicy>,
+    pub(crate) context_budget: runner::step::ContextBudget,
 }
 
 impl SubtaskExecutor {
@@ -84,7 +85,17 @@ impl SubtaskExecutor {
             checkpoint_store: None,
             auto_approve: false,
             backoff_policy: None,
+            context_budget: runner::step::ContextBudget::default_enterprise(),
         }
+    }
+
+    pub fn with_context_budget(mut self, budget: runner::step::ContextBudget) -> Self {
+        self.context_budget = budget;
+        self
+    }
+
+    pub fn context_budget(&self) -> &runner::step::ContextBudget {
+        &self.context_budget
     }
 
     pub fn with_auto_approve(mut self, auto_approve: bool) -> Self {

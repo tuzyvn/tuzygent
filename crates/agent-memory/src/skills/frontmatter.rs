@@ -65,6 +65,15 @@ pub fn validate_frontmatter(content: &str) -> Result<SkillFrontmatter, SkillVali
         })
         .unwrap_or_default();
 
+    // Security Red-Flag Scan
+    let violations = crate::skills::security::scan_content(content, agent_domain::ScanTarget::SkillMarkdown);
+    if let Some(extreme) = violations.iter().find(|v| v.level == agent_domain::RedFlagLevel::Extreme) {
+        return Err(SkillValidationError::SecurityRedFlag(format!(
+            "{}: {}",
+            extreme.rule_id, extreme.description
+        )));
+    }
+
     Ok(SkillFrontmatter {
         name: name.to_string(),
         description: description.to_string(),

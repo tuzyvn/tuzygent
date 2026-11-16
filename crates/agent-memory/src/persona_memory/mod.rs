@@ -3,6 +3,7 @@
 
 pub mod legacy;
 pub mod lifecycle;
+pub mod metacognition;
 pub mod profile;
 pub mod retrieval;
 pub mod schema;

@@ -31,9 +31,9 @@ impl SandboxDriverKind {
             }
         }
 
-        // 2. Check Bubblewrap
+        // 2. Check Bubblewrap functionality (must be able to create user namespace)
         if let Ok(output) = std::process::Command::new("bwrap")
-            .arg("--version")
+            .args(["--ro-bind", "/", "/", "true"])
             .output()
         {
             if output.status.success() {

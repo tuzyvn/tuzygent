@@ -257,7 +257,7 @@ pub fn compact_working_context_with_budget(ctx: &str, max_tokens: usize) -> Stri
 }
 
 /// Incorporates in-flight supplements into system context if available,
-/// using the default token budget for working context compaction.
+/// compacting the working context according to the executor's configured context budget.
 pub async fn resolve_active_system_context(
     executor: &SubtaskExecutor,
     long_term_ctx: &str,
@@ -267,7 +267,7 @@ pub async fn resolve_active_system_context(
         executor,
         long_term_ctx,
         working_context,
-        DEFAULT_WORKING_CONTEXT_TOKEN_BUDGET,
+        executor.context_budget.working_context_tokens,
     )
     .await
 }

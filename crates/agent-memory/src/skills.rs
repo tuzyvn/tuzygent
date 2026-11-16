@@ -1,6 +1,7 @@
 pub mod frontmatter;
 pub mod loader;
 pub mod registry;
+pub mod security;
 pub mod types;
 
 pub use frontmatter::{
@@ -8,6 +9,7 @@ pub use frontmatter::{
 };
 pub use loader::{scan_and_validate_skills, scan_available_skills};
 pub use registry::SkillRegistry;
+pub use security::scan_content;
 pub use types::{SkillFrontmatter, SkillMetadata, SkillValidationError};
 
 #[cfg(test)]

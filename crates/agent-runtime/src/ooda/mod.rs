@@ -52,6 +52,7 @@ pub struct AutonomousOodaLoop {
     pub(crate) checkpoint_store: Option<Arc<dyn crate::task_store::TaskStore>>,
     pub(crate) auto_approve: bool,
     pub(crate) backoff_policy: Option<agent_engine::BackoffPolicy>,
+    pub(crate) context_budget: Option<crate::ooda::execution::runner::step::ContextBudget>,
 }
 
 impl AutonomousOodaLoop {
@@ -77,7 +78,13 @@ impl AutonomousOodaLoop {
             checkpoint_store: None,
             auto_approve: false,
             backoff_policy: None,
+            context_budget: None,
         }
+    }
+
+    pub fn with_context_budget(mut self, budget: crate::ooda::execution::runner::step::ContextBudget) -> Self {
+        self.context_budget = Some(budget);
+        self
     }
 
     pub fn with_backoff_policy(mut self, policy: agent_engine::BackoffPolicy) -> Self {
@@ -165,6 +172,9 @@ impl AutonomousOodaLoop {
         }
         if let Some(ref policy) = self.backoff_policy {
             exec = exec.with_backoff_policy(policy.clone());
+        }
+        if let Some(ref budget) = self.context_budget {
+            exec = exec.with_context_budget(*budget);
         }
         exec
     }

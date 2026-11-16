@@ -12,16 +12,25 @@ fn create_test_state() -> Result<AppState, Box<dyn std::error::Error>> {
     let supervisor = Arc::new(AgentSupervisor::new(bus.clone()));
     let temp_dir =
         std::env::temp_dir().join(format!("gateway_test_{}", uuid::Uuid::new_v4().simple()));
-    let vault = Arc::new(agent_engine::AccountVault::new_with_dir(temp_dir));
+    std::fs::create_dir_all(&temp_dir)?;
+    std::fs::write(
+        temp_dir.join("tuzygent.toml"),
+        r#"
+[defaults]
+sandbox_driver = "host"
+"#,
+    )?;
+    let vault = Arc::new(agent_engine::AccountVault::new_with_dir(temp_dir.join("vault")));
     let task_store = Arc::new(agent_runtime::SqliteTaskStore::memory()?);
+    let workspace_str = temp_dir.to_str().ok_or("utf-8 conversion error")?;
     let task_service = Arc::new(agent_runtime::TaskService::new(
-        task_store, "/tmp", 2, None, None,
+        task_store, workspace_str, 2, None, None,
     ));
 
     Ok(AppState {
         supervisor,
         bus,
-        workspace: "/tmp".into(),
+        workspace: workspace_str.into(),
         vault,
         task_service,
         metrics: Arc::new(crate::metrics::ResilientMetricsService::default()),

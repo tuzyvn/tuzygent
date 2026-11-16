@@ -11,6 +11,8 @@ pub enum SkillValidationError {
     MissingName,
     #[error("Missing or empty required field 'description' in frontmatter")]
     MissingDescription,
+    #[error("Security red-flag violation detected: {0}")]
+    SecurityRedFlag(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

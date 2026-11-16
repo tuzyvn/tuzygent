@@ -1,7 +1,9 @@
+pub mod budget;
 pub mod context;
 pub mod result_handler;
 pub mod types;
 
+pub use budget::ContextBudget;
 pub use context::{
     compact_working_context_with_budget, estimate_tokens, resolve_active_system_context,
     resolve_active_system_context_with_budget, DEFAULT_WORKING_CONTEXT_TOKEN_BUDGET,

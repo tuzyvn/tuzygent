@@ -81,42 +81,59 @@ impl SkillRegistry {
         }
 
         // 1. Kiểm tra cache trước nếu đã nạp
-        if let Some(cached) = self.get_cached_skill(trimmed_name) {
-            return Ok(cached.content.clone());
+        let content = if let Some(cached) = self.get_cached_skill(trimmed_name) {
+            cached.content.clone()
+        } else if {
+            // 2. Kiểm tra trực tiếp trên đĩa theo thư mục <trimmed_name>/SKILL.md
+            let direct_file = self.skills_dir.join(trimmed_name).join("SKILL.md");
+            direct_file.exists() && direct_file.is_file()
+        } {
+            let direct_file = self.skills_dir.join(trimmed_name).join("SKILL.md");
+            fs::read_to_string(direct_file).await?
+        } else if {
+            // 3. Kiểm tra trực tiếp trên đĩa theo file <trimmed_name>.md
+            let direct_md = self.skills_dir.join(format!("{}.md", trimmed_name));
+            direct_md.exists() && direct_md.is_file()
+        } {
+            let direct_md = self.skills_dir.join(format!("{}.md", trimmed_name));
+            fs::read_to_string(direct_md).await?
+        } else if {
+            let direct_file_exact = self.skills_dir.join(trimmed_name);
+            direct_file_exact.is_file()
+        } {
+            let direct_file_exact = self.skills_dir.join(trimmed_name);
+            fs::read_to_string(direct_file_exact).await?
+        } else {
+            // 4. Nếu không khớp trực tiếp tên thư mục/file, tìm theo trường `name` hoặc `id` trong danh sách skills
+            let all_skills = self.list_available_skills().await?;
+            if let Some(matched) = all_skills.into_iter().find(|s| {
+                s.name.eq_ignore_ascii_case(trimmed_name) || s.id.eq_ignore_ascii_case(trimmed_name)
+            }) {
+                fs::read_to_string(matched.path).await?
+            } else {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!(
+                        "Skill '{}' not found in {}",
+                        trimmed_name,
+                        self.skills_dir.display()
+                    ),
+                ));
+            }
+        };
+
+        // Kiểm tra an ninh Red-Flag trước khi bàn giao nội dung kỹ năng cho agent runtime
+        let violations = crate::skills::security::scan_content(&content, agent_domain::ScanTarget::SkillMarkdown);
+        if let Some(extreme) = violations.iter().find(|v| v.level == agent_domain::RedFlagLevel::Extreme) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                format!(
+                    "Skill '{}' blocked by security red flag: {} ({})",
+                    trimmed_name, extreme.rule_id, extreme.description
+                ),
+            ));
         }
 
-        // 2. Kiểm tra trực tiếp trên đĩa theo thư mục <trimmed_name>/SKILL.md
-        let direct_file = self.skills_dir.join(trimmed_name).join("SKILL.md");
-        if direct_file.exists() && direct_file.is_file() {
-            return fs::read_to_string(direct_file).await;
-        }
-
-        // 3. Kiểm tra trực tiếp trên đĩa theo file <trimmed_name>.md
-        let direct_md = self.skills_dir.join(format!("{}.md", trimmed_name));
-        if direct_md.exists() && direct_md.is_file() {
-            return fs::read_to_string(direct_md).await;
-        }
-
-        let direct_file_exact = self.skills_dir.join(trimmed_name);
-        if direct_file_exact.is_file() {
-            return fs::read_to_string(direct_file_exact).await;
-        }
-
-        // 4. Nếu không khớp trực tiếp tên thư mục/file, tìm theo trường `name` hoặc `id` trong danh sách skills
-        let all_skills = self.list_available_skills().await?;
-        if let Some(matched) = all_skills.into_iter().find(|s| {
-            s.name.eq_ignore_ascii_case(trimmed_name) || s.id.eq_ignore_ascii_case(trimmed_name)
-        }) {
-            return fs::read_to_string(matched.path).await;
-        }
-
-        Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!(
-                "Skill '{}' not found in {}",
-                trimmed_name,
-                self.skills_dir.display()
-            ),
-        ))
+        Ok(content)
     }
 }

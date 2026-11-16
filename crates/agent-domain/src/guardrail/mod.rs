@@ -1,11 +1,13 @@
 mod benchmark;
 mod fault;
 mod policy;
+pub mod red_flag;
 mod resilience;
 
 pub use benchmark::*;
 pub use fault::*;
 pub use policy::*;
+pub use red_flag::*;
 pub use resilience::*;
 
 #[cfg(test)]
