@@ -13,7 +13,7 @@ pub use node_executor::{
 };
 pub use orchestrator::WorkflowOrchestrator;
 pub use types::{
-    WorkflowDag, WorkflowDefinition, WorkflowEdge, WorkflowNode, WorkflowNodeData,
-    WorkflowNodeExecutionResult, WorkflowRunReport, WorkflowTimelineEvent,
+    DryRunReport, WorkflowDag, WorkflowDefinition, WorkflowEdge, WorkflowNode, WorkflowNodeData,
+    WorkflowNodeExecutionResult, WorkflowPortType, WorkflowRunReport, WorkflowTimelineEvent,
 };
 pub use validation::validate_workflow;

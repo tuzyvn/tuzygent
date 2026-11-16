@@ -104,3 +104,55 @@ async fn test_attempt_remediation_retry_exhausted() {
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+#[tokio::test]
+async fn test_attempt_remediation_stale_ref_inserts_reobserve_subtask() {
+    use crate::supplement::InFlightSupplementController;
+    use agent_domain::{GuardrailPolicy, Priority};
+    use agent_engine::cli::MockEngine;
+    use agent_memory::{DurableMemoryStore, ScratchpadManager};
+    use std::sync::Arc;
+
+    let temp_dir = std::env::temp_dir().join(format!("test_rem_stale_{}", uuid::Uuid::new_v4()));
+    let _ = std::fs::create_dir_all(&temp_dir);
+
+    let executor = SubtaskExecutor::new(
+        Arc::new(MockEngine::new("")),
+        GuardrailPolicy::default(),
+        ScratchpadManager::new(temp_dir.join("scratch")),
+        DurableMemoryStore::new(temp_dir.join("durable.db")),
+        temp_dir.to_string_lossy().to_string(),
+        InFlightSupplementController::new(1),
+        None,
+        None,
+        30,
+    );
+
+    let mut task = Task::new("StaleRef Task", "Desc", Priority::Normal);
+    let st = SubTask::new("ST-1", "Apply hunk", "apply_hunk @snap_1:e2", "ok");
+    task.subtasks.push(st.clone());
+
+    let mut total_spawned = 0;
+    let outcome = attempt_remediation_retry(
+        &executor,
+        &mut task,
+        0,
+        st,
+        "STALE_REF: Ref '@snap_1:e2' is outdated",
+        RemediationFailureKind::StaleRef,
+        &temp_dir,
+        "ctx",
+        &mut total_spawned,
+    )
+    .await;
+
+    assert_eq!(outcome, RemediationOutcome::BacktrackingInserted);
+    assert_eq!(task.subtasks.len(), 2);
+    assert_eq!(task.subtasks[0].id, "ST-1-REOBSERVE-1");
+    assert!(task.subtasks[0]
+        .command_or_prompt
+        .contains("Re-observe current state"));
+    assert_eq!(task.subtasks[1].id, "ST-1");
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}

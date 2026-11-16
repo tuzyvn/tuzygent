@@ -45,10 +45,10 @@ pub use harness::{
 pub use mcp_gateway::{
     FnMcpToolHandler, McpContentBlock, McpGatewayError, McpJsonRpcError, McpJsonRpcRequest,
     McpJsonRpcResponse, McpPropertyType, McpServerConfig, McpToolCallParams, McpToolCallResult,
-    McpToolDefinition, McpToolGateway, McpToolHandler, McpToolSchema, JSONRPC_VERSION,
-    MCP_ERR_EXECUTION_FAILED, MCP_ERR_INVALID_PARAMS, MCP_ERR_INVALID_REQUEST,
-    MCP_ERR_METHOD_NOT_FOUND, MCP_ERR_PARSE_ERROR, MCP_ERR_POLICY_BLOCKED,
-    MCP_ERR_SERVER_UNAVAILABLE,
+    McpToolDefinition, McpToolGateway, McpToolHandler, McpToolSchema, ProjectionOpts, SnapshotRef,
+    JSONRPC_VERSION, MCP_ERR_AMBIGUOUS_TARGET, MCP_ERR_EXECUTION_FAILED, MCP_ERR_INVALID_PARAMS,
+    MCP_ERR_INVALID_REQUEST, MCP_ERR_METHOD_NOT_FOUND, MCP_ERR_PARSE_ERROR,
+    MCP_ERR_POLICY_BLOCKED, MCP_ERR_SERVER_UNAVAILABLE, MCP_ERR_STALE_REF,
 };
 pub use ooda::{
     AutonomousOodaLoop, GoalDecomposer, QueueExecutionOutcome, SubtaskExecutor,
@@ -89,8 +89,8 @@ pub use watchdog::{IdleWatchdog, MonotonicClock};
 pub use workflow_dag::{
     execute_agent_node, execute_approval_node, execute_consensus_gate_node, execute_node,
     execute_router_node, execute_sub_workflow_node, execute_tool_node, execute_trigger_node,
-    validate_workflow, NodeExecutionContext, NodeExecutionOutcome, WorkflowDag, WorkflowDefinition,
-    WorkflowEdge, WorkflowNode, WorkflowNodeData, WorkflowNodeExecutionResult,
-    WorkflowOrchestrator, WorkflowRunReport, WorkflowTimelineEvent,
+    validate_workflow, DryRunReport, NodeExecutionContext, NodeExecutionOutcome, WorkflowDag,
+    WorkflowDefinition, WorkflowEdge, WorkflowNode, WorkflowNodeData, WorkflowNodeExecutionResult,
+    WorkflowOrchestrator, WorkflowPortType, WorkflowRunReport, WorkflowTimelineEvent,
 };
 pub use wsrpc::{WsOutboundFrame, WsRpcClient, WsRpcRequest, WsRpcResponse};

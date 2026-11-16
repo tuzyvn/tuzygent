@@ -1,18 +1,23 @@
+pub mod projection;
 pub mod types;
 
 #[cfg(test)]
 mod tests;
 
+pub use projection::ProjectionOpts;
+
 pub use types::{
     McpContentBlock, McpGatewayError, McpJsonRpcError, McpJsonRpcRequest, McpJsonRpcResponse,
     McpPropertyType, McpServerConfig, McpToolCallParams, McpToolCallResult, McpToolDefinition,
-    McpToolSchema, JSONRPC_VERSION, MCP_ERR_EXECUTION_FAILED, MCP_ERR_INVALID_PARAMS,
-    MCP_ERR_INVALID_REQUEST, MCP_ERR_METHOD_NOT_FOUND, MCP_ERR_PARSE_ERROR, MCP_ERR_POLICY_BLOCKED,
-    MCP_ERR_SERVER_UNAVAILABLE,
+    McpToolSchema, SnapshotRef, JSONRPC_VERSION, MCP_ERR_AMBIGUOUS_TARGET,
+    MCP_ERR_EXECUTION_FAILED, MCP_ERR_INVALID_PARAMS, MCP_ERR_INVALID_REQUEST,
+    MCP_ERR_METHOD_NOT_FOUND, MCP_ERR_PARSE_ERROR, MCP_ERR_POLICY_BLOCKED,
+    MCP_ERR_SERVER_UNAVAILABLE, MCP_ERR_STALE_REF,
 };
 
 use agent_domain::{
-    ActionSeverity, AuditEventType, AuditIntegrityError, AuditLedger, GuardrailPolicy,
+    escape_provenance_notes, format_provenance_note, ActionSeverity, AuditEventType,
+    AuditIntegrityError, AuditLedger, GuardrailPolicy, ProvenanceAuthority,
 };
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -48,6 +53,8 @@ pub struct McpToolGateway {
     handlers: HashMap<String, Arc<dyn McpToolHandler>>,
     guardrail: GuardrailPolicy,
     blocked_tools: HashSet<String>,
+    active_snapshots: HashMap<String, String>,
+    wrap_untrusted_provenance: bool,
     audit_ledger: AuditLedger,
 }
 
@@ -59,8 +66,16 @@ impl McpToolGateway {
             handlers: HashMap::new(),
             guardrail,
             blocked_tools: HashSet::new(),
+            active_snapshots: HashMap::new(),
+            wrap_untrusted_provenance: false,
             audit_ledger: AuditLedger::new(),
         }
+    }
+
+    /// Enables or disables automatic provenance envelope wrapping on tool outputs.
+    pub fn with_provenance_wrapping(mut self, enabled: bool) -> Self {
+        self.wrap_untrusted_provenance = enabled;
+        self
     }
 
     pub fn default_enterprise() -> Self {
@@ -110,6 +125,21 @@ impl McpToolGateway {
 
     pub fn unblock_tool(&mut self, tool_name: &str) -> bool {
         self.blocked_tools.remove(&tool_name.to_lowercase())
+    }
+
+    /// Registers or advances the active snapshot ID for an MCP server.
+    pub fn register_snapshot(
+        &mut self,
+        server_id: impl Into<String>,
+        snapshot_id: impl Into<String>,
+    ) {
+        self.active_snapshots
+            .insert(server_id.into(), snapshot_id.into());
+    }
+
+    /// Returns the currently active snapshot ID for the given MCP server, if any.
+    pub fn active_snapshot(&self, server_id: &str) -> Option<&str> {
+        self.active_snapshots.get(server_id).map(String::as_str)
     }
 
     pub fn guardrail(&self) -> &GuardrailPolicy {
@@ -188,7 +218,7 @@ impl McpToolGateway {
         }
 
         for (key, val) in obj {
-            if val.is_null() {
+            if val.is_null() || key == "_projection" {
                 continue;
             }
             if let Some(expected_type) = schema.properties.get(key) {
@@ -365,6 +395,79 @@ impl McpToolGateway {
             return Err(McpGatewayError::SchemaValidationFailed(schema_err));
         }
 
+        // 4b. Enforce snapshot-qualified ref guard for mutating tools requiring fresh state
+        if tool_def.requires_fresh_ref {
+            let raw_ref = params
+                .arguments
+                .get("ref")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    let msg = format!(
+                        "INVALID_ARGS: Tool '{}' requires a snapshot-qualified 'ref' string",
+                        params.name
+                    );
+                    McpGatewayError::SchemaValidationFailed(msg)
+                });
+            let parsed_ref = match raw_ref {
+                Ok(r) => SnapshotRef::parse(r).map_err(McpGatewayError::SchemaValidationFailed),
+                Err(e) => Err(e),
+            };
+            let parsed_ref = match parsed_ref {
+                Ok(r) => r,
+                Err(err) => {
+                    self.record_audit(
+                        AuditEventType::PolicyViolation,
+                        ActionSeverity::HighImpact,
+                        format!(
+                            "MCP tools/call ref validation failed [server={}, tool={}]: {}",
+                            resolved_server_id, params.name, err
+                        ),
+                        params.actor.as_deref(),
+                    );
+                    return Err(err);
+                }
+            };
+
+            match self.active_snapshots.get(&resolved_server_id) {
+                Some(active_id) if active_id == &parsed_ref.snapshot_id => {}
+                Some(active_id) => {
+                    let msg = format!(
+                        "STALE_REF: Ref '{}' belongs to snapshot '{}', but active snapshot for server '{}' is '{}'. Re-observe before acting.",
+                        parsed_ref, parsed_ref.snapshot_id, resolved_server_id, active_id
+                    );
+                    self.record_audit(
+                        AuditEventType::PolicyViolation,
+                        ActionSeverity::Routine,
+                        format!(
+                            "MCP tools/call rejected stale ref [server={}, tool={}]: {}",
+                            resolved_server_id, params.name, msg
+                        ),
+                        params.actor.as_deref(),
+                    );
+                    return Err(McpGatewayError::StaleRef(msg));
+                }
+                None => {
+                    let msg = format!(
+                        "STALE_REF: No active snapshot registered for server '{}'. Observe state before invoking '{}'.",
+                        resolved_server_id, params.name
+                    );
+                    self.record_audit(
+                        AuditEventType::PolicyViolation,
+                        ActionSeverity::Routine,
+                        format!(
+                            "MCP tools/call rejected unobserved ref [server={}, tool={}]: {}",
+                            resolved_server_id, params.name, msg
+                        ),
+                        params.actor.as_deref(),
+                    );
+                    return Err(McpGatewayError::StaleRef(msg));
+                }
+            }
+        }
+
+        let projection_opts = ProjectionOpts::from_arguments(&params.arguments)
+            .map_err(McpGatewayError::SchemaValidationFailed)?;
+
         // 5. Execute via handler or default echo responder
         let exec_result = if let Some(handler) = self.handlers.get(&params.name).cloned() {
             handler.execute(&params)
@@ -377,6 +480,14 @@ impl McpToolGateway {
 
         match exec_result {
             Ok(mut result) => {
+                if let Err(proj_err) = self.sanitize_and_project_output(
+                    &resolved_server_id,
+                    &params.name,
+                    &mut result,
+                    projection_opts.as_ref(),
+                ) {
+                    return Err(McpGatewayError::ExecutionFailed(proj_err));
+                }
                 self.enforce_output_limit(&mut result);
                 self.record_audit(
                     AuditEventType::CommandAllowed,
@@ -399,7 +510,13 @@ impl McpToolGateway {
                     ),
                     params.actor.as_deref(),
                 );
-                Err(McpGatewayError::ExecutionFailed(exec_err))
+                if exec_err.starts_with("STALE_REF:") {
+                    Err(McpGatewayError::StaleRef(exec_err))
+                } else if exec_err.starts_with("AMBIGUOUS_TARGET:") {
+                    Err(McpGatewayError::AmbiguousTarget(exec_err))
+                } else {
+                    Err(McpGatewayError::ExecutionFailed(exec_err))
+                }
             }
         }
     }
@@ -515,6 +632,35 @@ impl McpToolGateway {
                 None,
             ),
         }
+    }
+
+    fn sanitize_and_project_output(
+        &self,
+        server_id: &str,
+        tool_name: &str,
+        result: &mut McpToolCallResult,
+        opts: Option<&ProjectionOpts>,
+    ) -> Result<(), String> {
+        let provenance_header = if self.wrap_untrusted_provenance {
+            Some(format_provenance_note(
+                &format!("mcp:{server_id}:{tool_name}"),
+                "tool output",
+                ProvenanceAuthority::InformationOnly,
+            ))
+        } else {
+            None
+        };
+
+        for block in &mut result.content {
+            let processed = projection::redact_and_project_text(&block.text, opts)?;
+            block.text = if let Some(ref header) = provenance_header {
+                let escaped = escape_provenance_notes(&processed);
+                format!("{header}\n{escaped}")
+            } else {
+                processed
+            };
+        }
+        Ok(())
     }
 
     fn enforce_output_limit(&self, result: &mut McpToolCallResult) {

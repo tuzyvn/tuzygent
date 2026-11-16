@@ -17,6 +17,12 @@ pub enum McpGatewayError {
 
     #[error("MCP Tool execution failed: {0}")]
     ExecutionFailed(String),
+
+    #[error("MCP Target ref is stale or unobserved: {0}")]
+    StaleRef(String),
+
+    #[error("MCP Target selector is ambiguous: {0}")]
+    AmbiguousTarget(String),
 }
 
 impl McpGatewayError {
@@ -26,6 +32,8 @@ impl McpGatewayError {
             Self::SchemaValidationFailed(_) => super::MCP_ERR_INVALID_PARAMS,
             Self::PolicyBlocked(_) => super::MCP_ERR_POLICY_BLOCKED,
             Self::ExecutionFailed(_) => super::MCP_ERR_EXECUTION_FAILED,
+            Self::StaleRef(_) => super::MCP_ERR_STALE_REF,
+            Self::AmbiguousTarget(_) => super::MCP_ERR_AMBIGUOUS_TARGET,
         }
     }
 }

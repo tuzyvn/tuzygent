@@ -228,3 +228,49 @@ async fn test_orchestrator_executes_trigger_and_router_nodes_and_handles_unsuppo
     let _ = std::fs::remove_dir_all(&tmp_dir);
     Ok(())
 }
+
+#[test]
+fn test_orchestrator_dry_run_catches_guardrail_and_type_errors_without_side_effects() {
+    let tmp_dir =
+        std::env::temp_dir().join(format!("tuzygent-wf-dryrun-{}", uuid::Uuid::new_v4()));
+    let _ = std::fs::create_dir_all(&tmp_dir);
+    let orchestrator = WorkflowOrchestrator::new(
+        tmp_dir.to_str().unwrap(),
+        tmp_dir.to_str().unwrap(),
+    );
+
+    let wf = test_workflow(
+        serde_json::json!([
+            {"id": "t1", "type": "triggerNode", "data": {}},
+            {"id": "n_shell", "type": "toolNode", "data": {"command": "rm -rf /"}}
+        ]),
+        serde_json::json!([
+            {"id": "e1", "source": "t1", "target": "n_shell"}
+        ]),
+    );
+
+    let policy = agent_domain::GuardrailPolicy::default_enterprise();
+    let report = orchestrator.dry_run(&wf, Some(&policy));
+    assert!(!report.valid);
+    assert_eq!(report.execution_order, vec!["t1", "n_shell"]);
+    assert!(report
+        .errors
+        .iter()
+        .any(|e| e.contains("GuardrailBlocked") && e.contains("n_shell")));
+
+    // Valid safe workflow passes dry_run
+    let safe_wf = test_workflow(
+        serde_json::json!([
+            {"id": "t1", "type": "triggerNode", "data": {"outputContract": "text"}},
+            {"id": "n_tool", "type": "toolNode", "data": {"command": "echo hello", "inputContract": "text"}}
+        ]),
+        serde_json::json!([
+            {"id": "e1", "source": "t1", "target": "n_tool"}
+        ]),
+    );
+    let safe_report = orchestrator.dry_run(&safe_wf, Some(&policy));
+    assert!(safe_report.valid, "errors: {:?}", safe_report.errors);
+    assert_eq!(safe_report.execution_order, vec!["t1", "n_tool"]);
+
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+}

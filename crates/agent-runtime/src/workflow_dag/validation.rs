@@ -1,26 +1,44 @@
 use anyhow::{anyhow, Result};
 use std::collections::{HashMap, VecDeque};
 
-use super::types::WorkflowDefinition;
+use super::types::{WorkflowDefinition, WorkflowNode};
 
-/// Validate the entire graph before allowing any node to produce side effects.
+/// Validate the entire graph (structure, acyclicity, and typed edge contracts) before allowing any node to produce side effects.
 pub fn validate_workflow(workflow: &WorkflowDefinition) -> Result<()> {
     if workflow.nodes.is_empty() {
         return Err(anyhow!("Workflow must contain at least one node"));
     }
     let mut degrees = HashMap::new();
     let mut adjacency: HashMap<&str, Vec<&str>> = HashMap::new();
+    let mut node_map: HashMap<&str, &WorkflowNode> = HashMap::new();
     for node in &workflow.nodes {
         if node.id.trim().is_empty() || degrees.insert(node.id.as_str(), 0usize).is_some() {
             return Err(anyhow!("Empty or duplicate node ID: {}", node.id));
         }
         adjacency.insert(&node.id, Vec::new());
+        node_map.insert(&node.id, node);
     }
     for edge in &workflow.edges {
-        if !degrees.contains_key(edge.source.as_str())
-            || !degrees.contains_key(edge.target.as_str())
-        {
+        let Some(src_node) = node_map.get(edge.source.as_str()) else {
             return Err(anyhow!("Edge {} references an unknown node", edge.id));
+        };
+        let Some(dst_node) = node_map.get(edge.target.as_str()) else {
+            return Err(anyhow!("Edge {} references an unknown node", edge.id));
+        };
+        if let (Some(out_contract), Some(in_contract)) = (
+            src_node.data.output_contract.as_ref(),
+            dst_node.data.input_contract.as_ref(),
+        ) {
+            if !out_contract.is_compatible_with(in_contract) {
+                return Err(anyhow!(
+                    "EdgeTypeMismatch on edge '{}' ({} -> {}): output {:?} is incompatible with required input {:?}",
+                    edge.id,
+                    edge.source,
+                    edge.target,
+                    out_contract,
+                    in_contract
+                ));
+            }
         }
         *degrees
             .get_mut(edge.target.as_str())

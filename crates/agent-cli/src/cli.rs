@@ -357,6 +357,11 @@ pub enum Commands {
         #[arg(long)]
         test: Option<String>,
     },
+    /// Start an MCP (Model Context Protocol) JSON-RPC 2.0 server over stdio
+    Mcp {
+        #[arg(short, long, default_value = ".")]
+        workspace: String,
+    },
     /// Execute an entire multi-agent workflow DAG definition from catalog.json
     RunWorkflow {
         #[arg(long)]

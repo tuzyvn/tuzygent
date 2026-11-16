@@ -1,6 +1,52 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Typed data contract for workflow node input/output ports.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkflowPortType {
+    Any,
+    Text,
+    JsonObject {
+        #[serde(default)]
+        required_keys: Vec<String>,
+    },
+    JsonArray,
+    Boolean,
+    Number,
+}
+
+impl WorkflowPortType {
+    /// Returns true if an output of type `self` can feed an input expecting `target`.
+    pub fn is_compatible_with(&self, target: &Self) -> bool {
+        match (self, target) {
+            (Self::Any, _) | (_, Self::Any) => true,
+            (Self::Text, Self::Text)
+            | (Self::JsonArray, Self::JsonArray)
+            | (Self::Boolean, Self::Boolean)
+            | (Self::Number, Self::Number) => true,
+            (
+                Self::JsonObject {
+                    required_keys: src_keys,
+                },
+                Self::JsonObject {
+                    required_keys: dst_keys,
+                },
+            ) => dst_keys.iter().all(|k| src_keys.contains(k)),
+            _ => false,
+        }
+    }
+}
+
+/// Pre-flight dry-run report produced without executing side effects.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DryRunReport {
+    pub valid: bool,
+    pub execution_order: Vec<String>,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorkflowNodeData {
     pub label: Option<String>,
@@ -41,6 +87,10 @@ pub struct WorkflowNodeData {
     pub reviewers: Option<Vec<String>>,
     #[serde(default, alias = "quorum_threshold", rename = "quorumThreshold")]
     pub quorum_threshold: Option<f64>,
+    #[serde(default, alias = "input_contract", rename = "inputContract")]
+    pub input_contract: Option<WorkflowPortType>,
+    #[serde(default, alias = "output_contract", rename = "outputContract")]
+    pub output_contract: Option<WorkflowPortType>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

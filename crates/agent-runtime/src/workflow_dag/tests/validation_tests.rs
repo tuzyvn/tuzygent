@@ -303,3 +303,70 @@ fn test_dag_validation_edge_cases_safe_error_handling() -> Result<(), Box<dyn st
 
     Ok(())
 }
+
+#[test]
+fn test_dag_validation_typed_edge_mismatch_and_compatibility() {
+    // 1. Mismatch: Text output -> JsonObject { required_keys: ["approved"] }
+    let mismatch_wf = test_workflow(
+        serde_json::json!([
+            {
+                "id": "src",
+                "type": "agentNode",
+                "data": { "outputContract": "text" }
+            },
+            {
+                "id": "dst",
+                "type": "approvalNode",
+                "data": { "inputContract": { "json_object": { "required_keys": ["approved"] } } }
+            }
+        ]),
+        serde_json::json!([
+            {"id": "e_bad", "source": "src", "target": "dst"}
+        ]),
+    );
+    let err = validate_workflow(&mismatch_wf).expect_err("type mismatch must fail validation");
+    assert!(
+        err.to_string().contains("EdgeTypeMismatch"),
+        "expected EdgeTypeMismatch, got: {err}"
+    );
+
+    // 2. Missing required key in JsonObject output
+    let missing_key_wf = test_workflow(
+        serde_json::json!([
+            {
+                "id": "src",
+                "type": "agentNode",
+                "data": { "outputContract": { "json_object": { "required_keys": ["summary"] } } }
+            },
+            {
+                "id": "dst",
+                "type": "approvalNode",
+                "data": { "inputContract": { "json_object": { "required_keys": ["approved"] } } }
+            }
+        ]),
+        serde_json::json!([
+            {"id": "e_missing_key", "source": "src", "target": "dst"}
+        ]),
+    );
+    assert!(validate_workflow(&missing_key_wf).is_err());
+
+    // 3. Compatible JsonObject superset passes
+    let ok_wf = test_workflow(
+        serde_json::json!([
+            {
+                "id": "src",
+                "type": "agentNode",
+                "data": { "outputContract": { "json_object": { "required_keys": ["approved", "reason"] } } }
+            },
+            {
+                "id": "dst",
+                "type": "approvalNode",
+                "data": { "inputContract": { "json_object": { "required_keys": ["approved"] } } }
+            }
+        ]),
+        serde_json::json!([
+            {"id": "e_ok", "source": "src", "target": "dst"}
+        ]),
+    );
+    assert!(validate_workflow(&ok_wf).is_ok());
+}

@@ -114,21 +114,40 @@ pub async fn attempt_remediation_retry(
                 *slot = subtask.clone();
             }
 
-            let remediation = generate_remediation_subtask(
-                executor,
-                &task.title,
-                &subtask,
-                err_msg,
-                active_workdir,
-                active_system_context,
-                subtask.retry_count,
-            )
-            .await;
+            let remediation = if failure_kind == RemediationFailureKind::StaleRef {
+                let id = format!("{}-REOBSERVE-{}", subtask.id, subtask.retry_count);
+                let title = format!("Re-observe state after STALE_REF: {}", subtask.title);
+                let cmd = format!(
+                    "Re-observe current state and obtain a fresh snapshot ref before retrying '{}'. Cause: {}",
+                    subtask.command_or_prompt, err_msg
+                );
+                let mut reobserve =
+                    agent_domain::SubTask::new(&id, &title, &cmd, "Fresh snapshot ref obtained");
+                reobserve.parent_subtask_id = Some(subtask.id.clone());
+                reobserve.retry_count = subtask.retry_count;
+                reobserve.remediation_for_error = Some(err_msg.to_string());
+                Some(reobserve)
+            } else {
+                generate_remediation_subtask(
+                    executor,
+                    &task.title,
+                    &subtask,
+                    err_msg,
+                    active_workdir,
+                    active_system_context,
+                    subtask.retry_count,
+                )
+                .await
+            };
 
             if let Some(rem_task) = remediation {
                 let lesson = match failure_kind {
                     RemediationFailureKind::Verification => format!(
                         "Verification Self-Correction in '{}': step '{}' to fix {}",
+                        task.title, rem_task.title, err_msg
+                    ),
+                    RemediationFailureKind::StaleRef => format!(
+                        "StaleRef Re-observe in '{}': inserted '{}' after {}",
                         task.title, rem_task.title, err_msg
                     ),
                     RemediationFailureKind::ExitCode | RemediationFailureKind::EngineError => {

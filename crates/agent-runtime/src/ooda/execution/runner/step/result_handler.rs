@@ -1,5 +1,5 @@
 use super::super::helpers::update_working_context;
-use super::types::{is_auth_or_quota_message, QueueExecutionOutcome, StepAction};
+use super::types::{is_auth_or_quota_message, is_stale_ref_message, QueueExecutionOutcome, StepAction};
 use crate::ooda::execution::remediation::{attempt_remediation_retry, RemediationFailureKind};
 use crate::ooda::execution::verification::{
     finalize_subtask_completion, SubtaskVerificationOutcome,
@@ -110,13 +110,18 @@ pub async fn handle_subtask_execution_result(
                 }));
             }
 
+            let failure_kind = if is_stale_ref_message(&err_msg) {
+                RemediationFailureKind::StaleRef
+            } else {
+                RemediationFailureKind::ExitCode
+            };
             let outcome = attempt_remediation_retry(
                 executor,
                 task,
                 subtask_index,
                 subtask,
                 &err_msg,
-                RemediationFailureKind::ExitCode,
+                failure_kind,
                 active_workdir,
                 active_system_context,
                 total_remediations_spawned,
@@ -169,13 +174,18 @@ pub async fn handle_subtask_execution_result(
                 }));
             }
 
+            let failure_kind = if is_stale_ref_message(&err_msg) {
+                RemediationFailureKind::StaleRef
+            } else {
+                RemediationFailureKind::EngineError
+            };
             let outcome = attempt_remediation_retry(
                 executor,
                 task,
                 subtask_index,
                 subtask,
                 &err_msg,
-                RemediationFailureKind::EngineError,
+                failure_kind,
                 active_workdir,
                 active_system_context,
                 total_remediations_spawned,

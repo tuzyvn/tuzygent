@@ -4,6 +4,7 @@ pub mod benchmark;
 pub mod demo;
 pub mod engines;
 pub mod inspect;
+pub mod mcp;
 pub mod memory;
 pub mod persona;
 pub mod replay;
@@ -68,6 +69,7 @@ pub async fn run_command(cli: Cli) -> anyhow::Result<()> {
         Commands::InitSamplePersonas { output_dir } => persona::init_samples(output_dir).await?,
         Commands::Rig { action } => rig::handle(action).await?,
         Commands::Auth { action } => auth::handle(action).await?,
+        Commands::Mcp { workspace } => mcp::handle(workspace).await?,
     }
 
     Ok(())

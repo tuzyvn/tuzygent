@@ -10,6 +10,8 @@ pub const MCP_ERR_INVALID_PARAMS: i32 = -32602;
 pub const MCP_ERR_POLICY_BLOCKED: i32 = -32001;
 pub const MCP_ERR_SERVER_UNAVAILABLE: i32 = -32002;
 pub const MCP_ERR_EXECUTION_FAILED: i32 = -32003;
+pub const MCP_ERR_STALE_REF: i32 = -32004;
+pub const MCP_ERR_AMBIGUOUS_TARGET: i32 = -32005;
 
 /// Standardized MCP JSON-RPC 2.0 Request envelope.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

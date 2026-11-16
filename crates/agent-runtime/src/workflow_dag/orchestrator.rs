@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use super::node_executor::{execute_node, NodeExecutionContext, NodeExecutionOutcome};
 use super::types::{
-    WorkflowDefinition, WorkflowNode, WorkflowNodeExecutionResult, WorkflowRunReport,
+    DryRunReport, WorkflowDefinition, WorkflowNode, WorkflowNodeExecutionResult, WorkflowRunReport,
     WorkflowTimelineEvent,
 };
 use super::validation::validate_workflow;
@@ -73,6 +73,140 @@ impl WorkflowOrchestrator {
     ) -> Result<WorkflowRunReport> {
         self.execute_workflow_internal(workflow, trigger_payload, triggered_by, 0)
             .await
+    }
+
+    /// Performs pre-flight validation (DAG structure, typed edges, topological order, engine/guardrail checks)
+    /// without executing any side effects.
+    pub fn dry_run(
+        &self,
+        workflow: &WorkflowDefinition,
+        guardrail: Option<&agent_domain::GuardrailPolicy>,
+    ) -> DryRunReport {
+        let mut errors = Vec::new();
+        let mut warnings = Vec::new();
+
+        if let Err(err) = validate_workflow(workflow) {
+            errors.push(err.to_string());
+            return DryRunReport {
+                valid: false,
+                execution_order: Vec::new(),
+                warnings,
+                errors,
+            };
+        }
+
+        let mut in_degree: HashMap<&str, usize> = HashMap::new();
+        let mut adj: HashMap<&str, Vec<&str>> = HashMap::new();
+        let mut node_map: HashMap<&str, &WorkflowNode> = HashMap::new();
+        for node in &workflow.nodes {
+            in_degree.insert(&node.id, 0);
+            adj.insert(&node.id, Vec::new());
+            node_map.insert(&node.id, node);
+        }
+        for edge in &workflow.edges {
+            if let Some(d) = in_degree.get_mut(edge.target.as_str()) {
+                *d += 1;
+            }
+            if let Some(neighbors) = adj.get_mut(edge.source.as_str()) {
+                neighbors.push(&edge.target);
+            }
+        }
+
+        let mut queue: VecDeque<&str> = workflow
+            .nodes
+            .iter()
+            .filter(|n| in_degree.get(n.id.as_str()).copied().unwrap_or(0) == 0)
+            .map(|n| n.id.as_str())
+            .collect();
+        let mut execution_order = Vec::with_capacity(workflow.nodes.len());
+
+        while let Some(id) = queue.pop_front() {
+            execution_order.push(id.to_string());
+            if let Some(node) = node_map.get(id) {
+                self.check_node_preflight(node, guardrail, &mut warnings, &mut errors);
+            }
+            if let Some(neighbors) = adj.get(id) {
+                for neighbor in neighbors {
+                    if let Some(deg) = in_degree.get_mut(neighbor) {
+                        *deg = deg.saturating_sub(1);
+                        if *deg == 0 {
+                            queue.push_back(*neighbor);
+                        }
+                    }
+                }
+            }
+        }
+
+        DryRunReport {
+            valid: errors.is_empty(),
+            execution_order,
+            warnings,
+            errors,
+        }
+    }
+
+    fn check_node_preflight(
+        &self,
+        node: &WorkflowNode,
+        guardrail: Option<&agent_domain::GuardrailPolicy>,
+        warnings: &mut Vec<String>,
+        errors: &mut Vec<String>,
+    ) {
+        match node.node_type.as_str() {
+            "agentNode" => {
+                if let Err(e) =
+                    self.resolve_engine(node.data.engine.as_deref(), node.data.model.as_deref())
+                {
+                    errors.push(format!("EngineResolutionFailed on node '{}': {}", node.id, e));
+                }
+                if let Some(persona) = node.data.persona_id.as_deref() {
+                    let md = std::path::Path::new(&self._personas_dir).join(format!("{persona}.md"));
+                    let yaml =
+                        std::path::Path::new(&self._personas_dir).join(format!("{persona}.yaml"));
+                    if !md.exists() && !yaml.exists() {
+                        warnings.push(format!(
+                            "Persona '{}' for node '{}' not found in '{}'",
+                            persona, node.id, self._personas_dir
+                        ));
+                    }
+                }
+            }
+            "toolNode" => {
+                if let Some(cmd) = node.data.command.as_deref() {
+                    if let Some(policy) = guardrail {
+                        if let Err(reason) = policy.check_command_safety(cmd) {
+                            errors.push(format!(
+                                "GuardrailBlocked on node '{}': {}",
+                                node.id, reason
+                            ));
+                        } else if !policy.allow_shell_execution {
+                            errors.push(format!(
+                                "GuardrailBlocked on node '{}': shell execution prohibited by policy",
+                                node.id
+                            ));
+                        }
+                    }
+                } else {
+                    warnings.push(format!("toolNode '{}' has no command configured", node.id));
+                }
+            }
+            "subWorkflowNode" => {
+                if node
+                    .data
+                    .sub_workflow_id
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim()
+                    .is_empty()
+                {
+                    errors.push(format!(
+                        "MissingSubWorkflowId on node '{}'",
+                        node.id
+                    ));
+                }
+            }
+            _ => {}
+        }
     }
 
     pub fn execute_workflow_internal<'a>(

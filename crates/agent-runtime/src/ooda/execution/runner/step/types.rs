@@ -29,6 +29,11 @@ pub fn is_auth_or_quota_message(msg: &str) -> bool {
         || lower.contains("credit balance")
 }
 
+/// Returns true if the error message indicates a stale snapshot reference (`STALE_REF` or `-32004`).
+pub fn is_stale_ref_message(msg: &str) -> bool {
+    msg.contains("STALE_REF") || msg.contains("-32004")
+}
+
 /// Action to be taken by the runner loop after handling a subtask execution step.
 #[derive(Debug, PartialEq, Eq)]
 pub enum StepAction {

@@ -91,6 +91,12 @@ pub struct McpToolDefinition {
     pub input_schema: McpToolSchema,
     #[serde(default)]
     pub is_shell_tool: bool,
+    /// When true, `arguments.ref` must be a valid `SnapshotRef` matching the server's active snapshot.
+    #[serde(default)]
+    pub requires_fresh_ref: bool,
+    /// Optional list of semantic actions permitted on targets of this tool.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub available_actions: Vec<String>,
 }
 
 impl McpToolDefinition {
@@ -106,11 +112,23 @@ impl McpToolDefinition {
             description: description.into(),
             input_schema,
             is_shell_tool: false,
+            requires_fresh_ref: false,
+            available_actions: Vec::new(),
         }
     }
 
     pub fn with_shell_execution(mut self, is_shell: bool) -> Self {
         self.is_shell_tool = is_shell;
+        self
+    }
+
+    pub fn with_requires_fresh_ref(mut self, requires_fresh_ref: bool) -> Self {
+        self.requires_fresh_ref = requires_fresh_ref;
+        self
+    }
+
+    pub fn with_available_actions(mut self, actions: Vec<String>) -> Self {
+        self.available_actions = actions;
         self
     }
 }

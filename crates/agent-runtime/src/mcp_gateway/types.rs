@@ -3,17 +3,19 @@
 pub mod error;
 pub mod jsonrpc;
 pub mod server;
+pub mod snapshot_ref;
 pub mod tool;
 pub mod tool_call;
 
 pub use error::McpGatewayError;
 pub use jsonrpc::{
     McpJsonRpcError, McpJsonRpcRequest, McpJsonRpcResponse, JSONRPC_VERSION,
-    MCP_ERR_EXECUTION_FAILED, MCP_ERR_INVALID_PARAMS, MCP_ERR_INVALID_REQUEST,
-    MCP_ERR_METHOD_NOT_FOUND, MCP_ERR_PARSE_ERROR, MCP_ERR_POLICY_BLOCKED,
-    MCP_ERR_SERVER_UNAVAILABLE,
+    MCP_ERR_AMBIGUOUS_TARGET, MCP_ERR_EXECUTION_FAILED, MCP_ERR_INVALID_PARAMS,
+    MCP_ERR_INVALID_REQUEST, MCP_ERR_METHOD_NOT_FOUND, MCP_ERR_PARSE_ERROR,
+    MCP_ERR_POLICY_BLOCKED, MCP_ERR_SERVER_UNAVAILABLE, MCP_ERR_STALE_REF,
 };
 pub use server::McpServerConfig;
+pub use snapshot_ref::SnapshotRef;
 pub use tool::{McpPropertyType, McpToolDefinition, McpToolSchema};
 pub use tool_call::{McpContentBlock, McpToolCallParams, McpToolCallResult};
 

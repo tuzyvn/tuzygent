@@ -6,6 +6,7 @@ pub enum RemediationFailureKind {
     Verification,
     ExitCode,
     EngineError,
+    StaleRef,
 }
 
 /// Kết quả của việc thử nghiệm xử lý khắc phục lỗi subtask
